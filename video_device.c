@@ -500,94 +500,8 @@ static int v4l_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
 }
 
 static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *ppos) {
-
-	#ifdef DEBUG_RW
-		printk(KERNEL_PREFIX "v4l_write() : %d/%lu\n",count,BUFFER_SIZE);
-	#endif
-
 	int waiting_time;
 	struct timeval current_time;
-
-	// in case user wants to change the video parameters, we check if "buf" contains the necessary string
-	int l__width=0,l__height=0,l__fps=0,l__depth=0,l__palette=0;
-
-
-	if (buf[0]=='w' && buf[1]=='i' && buf[2]=='d') {
-		// we use image buffer to read palette name
-		char *s__palette=image;
-
-		int l__ret = sscanf(buf,"width=%d height=%d fps=%d palette=%s depth=%d",&l__width,&l__height,&l__fps,s__palette,&l__depth);
-
-		if ( l__ret == 5 ) {
-
-			int l__newSize;
-
-			// Check arguments
-			int p=0;
-			while (palette_name[p]) {
-				if (!strcmp(palette_name[p],s__palette)) {
-					break;
-				}
-				p++;
-			}
-			if (palette_name[p]) {
-				l__palette=p;
-			} else {
-				printk (KERN_INFO "ERROR : Incorrect palette number\n");
-				return -EINVAL;
-			}
-
-			if (l__depth<1 || l__depth>32 ) {
-				printk (KERN_INFO "ERROR : Incorrect depth\n");
-				return -EINVAL;
-			}
-
-			if ( l__width <= 0 || l__height <= 0 ) {
-				printk (KERN_INFO "ERROR : Incorrect width and/or height values\n");
-				return -EINVAL;
-			}
-
-			if ( l__fps < 0 ) {
-				printk (KERN_INFO "WARNING : Framerate is synchronized on reader !!\n");;
-				l__fps=-1;
-				mutex_init(&lock);
-			}
-
-			width=l__width;
-			height=l__height;
-			fps=l__fps;
-			palette=l__palette;
-			depth=l__depth;
-
-
-			// we recalculate the new size
-			l__newSize=BUFFER_SIZE_MACRO;
-
-			// if the current buffer is too small
-			if (BUFFER_SIZE<l__newSize) {
-
-				// we unallocate the old image
-				if (image) {
-					vfree(image);
-					image=NULL;
-				}
-
-				BUFFER_SIZE=l__newSize;
-
-				// and finally, we allocate memory for this new image
-				image = vmalloc (BUFFER_SIZE);
-				if (!image) {
-					BUFFER_SIZE=0;
-					printk (KERN_INFO "Failed vmalloc. Try to set or change parameters again.\n");
-					return -EINVAL;
-				}
-			}
-
-			printk(KERNEL_PREFIX "New video parameters : width=%d - height=%d - fps=%d - palette=%s - depth=%d\n",width,height,fps,palette_name[palette],depth);
-
-		}
- 	}
-
 
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
@@ -595,46 +509,11 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 		return -EINVAL;
 	}
 
-
-
 	// Copy of the input image
 	if (copy_from_user((void*)image, (void*)buf, count)) {
 		printk (KERN_INFO "failed copy_from_user()\n");
 		return -EFAULT;
 	}
-
-	// Wait to simulate FPS	if necessary
-	if ( fps > 0 ) {
-		do_gettimeofday(&current_time);
-		//printk(KERNEL_PREFIX "t2=%d.%d - t1=%d.%d\n",current_time.tv_sec,current_time.tv_usec,timer.tv_sec,timer.tv_usec);
-
-		// Compute waiting_time
-		waiting_time = HZ/fps - HZ*( (current_time.tv_sec-timer.tv_sec)*USEC_PER_SEC  +  (current_time.tv_usec-timer.tv_usec)  )/USEC_PER_SEC;
-		//waiting_time = MSEC_PER_SEC/fps - ( (current_time.tv_sec-timer.tv_sec)*MSEC_PER_SEC  +  (current_time.tv_usec-timer.tv_usec)/USEC_PER_MSEC  );
-
-		// waits
-		if (waiting_time > 0) {
-			// solution 1
-			interruptible_sleep_on_timeout (&wait,waiting_time);
-
-			// solution 2
-			//set_current_state(TASK_INTERRUPTIBLE);
-			//schedule_timeout(waiting_time);
-
-			// solution 3
-			//msleep_interruptible(waiting_time);
-		}
-
-		do_gettimeofday(&timer);
-	}
-	// Wait reader before continue
-	else if ( fps < 0 ) {
-		#ifdef DEBUG
-			printk (KERN_INFO "fps value : %d\n",fps);
-		#endif
-		mutex_lock_interruptible(&lock);
-	}
-
 	return count;
 }
 
