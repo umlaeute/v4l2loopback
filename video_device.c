@@ -3,12 +3,12 @@ AVLD - Another Video Loopback Device
 
 Version : 0.1.4
 
-AVLD is a V4L dummy video device built to simulate an input video device like a webcam or a video 
-capture card. You just have to send the video stream on it (using, for instance, mplayer or ffmpeg), 
-that's all. Then, you can use this device by watching the video on it with your favorite video player. But, 
-one of the most useful interest, is obviously to use it with a VideoConferencing software to show a video 
-over internet. According to the software you are using, you could also be able to capture your screen in 
-realtime. A third interest, and maybe not the last one, could be to use it with an image processing (or 
+AVLD is a V4L dummy video device built to simulate an input video device like a webcam or a video
+capture card. You just have to send the video stream on it (using, for instance, mplayer or ffmpeg),
+that's all. Then, you can use this device by watching the video on it with your favorite video player. But,
+one of the most useful interest, is obviously to use it with a VideoConferencing software to show a video
+over internet. According to the software you are using, you could also be able to capture your screen in
+realtime. A third interest, and maybe not the last one, could be to use it with an image processing (or
 other) software which has been designed to use a video device as input.
 
 (c)2008 Pierre PARENT - allonlinux@free.fr
@@ -20,13 +20,14 @@ Distributed according to the GPL.
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/time.h>
-#include <linux/videodev.h>
+#include <linux/videodev2.h>
 #include <media/v4l2-common.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 #include <media/v4l2-ioctl.h>
 #endif
 
-/*#define DEBUG*/
+#define DEBUG
+/*#define DEBUG_RW*/
 
 #define KERNEL_PREFIX "AVLD device: " /* Prefix of each kernel message */
 #define VID_DUMMY_DEVICE 0 /* The type of device we create */
@@ -85,10 +86,10 @@ static int usage = -1;
 /* Variable used to let reader control framerate */
 struct mutex lock;
 
-/* modifiable video options */ 
+/* modifiable video options */
 static int fps = 25; /* framerate */
-static int width = 320; 
-static int height = 240;
+static int width = 640;
+static int height = 480;
 
 /* Frame specifications and options*/
 static char *image = NULL;
@@ -97,10 +98,10 @@ static int hue = 32768;
 static int colour = 32768;
 static int contrast = 32768;
 static int whiteness =32768;
-static int depth = 32;
+static int depth = 24;
 static int palette = 0;
 static struct video_window capture_win;
-	
+
 static long BUFFER_SIZE = 0;
 
 static wait_queue_head_t wait;/* variable used to simulate the FPS  */
@@ -109,94 +110,131 @@ struct timeval timer;/* used to have a better framerate accuracy */
 
 
 /************************************************
-**************** V4L FUNCTIONS  ***************
+**************** V4L2 FUNCTIONS  ***************
 ************************************************/
-static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, unsigned long arg) {
-	
+/******************************************************************************/
+/* writes device capabilities to cap parameter,called on VIDIOC_QUERYCAP ioctl*/
+static int vidioc_querycap(struct file *file, void  *priv,
+        struct v4l2_capability *cap) {
+  struct v4l2_capability c = {
+  driver: "v4l2 loopback",
+  card: "Dummy video device",
+  version: 1,
+  capabilities:	V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_READWRITE,
+  };
+  if(copy_to_user(&c, cap, sizeof(c)))
+    return -EFAULT;
+  return 0;
+}
+/******************************************************************************/
+/* check for new format correctness */
+static int inner_try_fmt_cap(struct file *file, void *priv, 
+                     struct v4l2_format *fmt) {
+  /* TODO(vasaka) check not only dimensions */
+  if (fmt->fmt.pix.height != height) return -1;
+  if (fmt->fmt.pix.width != width) return -1;
+  return 0; 
+}
+/******************************************************************************/
+/* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl */
+/* actual check is done by inner_try_fmt_cap */
+ static int vidioc_try_fmt_cap(struct file *file, void *priv,
+         struct v4l2_format *fmt) {
+   struct v4l2_format f;
+   if(copy_from_user(&f, fmt, sizeof(f)))
+     return -EFAULT;
+   return inner_try_fmt_cap(file, priv, &f);
+}
+/******************************************************************************/
+/* sets new output format, if possible, called on VIDIOC_TRY_FMT ioctl*/
+ static int vidioc_s_fmt_cap(struct file *file, void *priv, 
+                     struct v4l2_format *fmt) {
+ /* TODO(vasaka) check is it OK to supress warnings about mixing declarations 
+  * and code in linux kernel modules */
+ struct v4l2_format f;
+ int ret;
+ /* TODO(vasaka) add check if it is OK to change format now */
+	if (0)
+	    return -EBUSY;
+  if(copy_from_user(&f, fmt, sizeof(f)))
+    return -EFAULT;  
+  /* check if requsted format is OK */
+  /*actually format is set  by input and we only check that format is not changed, 
+   but it is possible to set subregion of input to return to client TODO(vasaka)*/
+	ret = inner_try_fmt_cap(file, priv, &f);
+	if (ret != 0)
+	    return ret;
+	return 0;
+}
+
+
+static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, void* arg) {
+
 	switch(cmd) {
-		/* Get capabilities */
-		case VIDIOCGCAP:
-		{
-			struct video_capability *v=(struct video_capability *)arg;
- 			
- 			#ifdef DEBUG
- 				printk (KERNEL_PREFIX "VIDIOCGCAP\n");
- 			#endif 			
-
-			v->type = VID_TYPE_CAPTURE;
-			v->channels = 1;
-			v->audios = 0;
-			v->maxwidth = width;
-			v->maxheight = height;
-			v->minwidth = width;
-			v->minheight = height;
-			strcpy(v->name, "Dummy video device");
- 			
-			return 0;
-
-		} 
-		
 		/* Get channel info (sources) */
 		case VIDIOCGCHAN:
 		{
-			struct video_channel *v=(struct video_channel *)arg;
+			struct video_channel v;
 
  			#ifdef DEBUG
  				printk (KERNEL_PREFIX "VIDIOCGCHAN\n");
  			#endif
-		
-			if (v->channel!=0)
-				return -EINVAL;
 
-			v->flags = 0;
-			v->tuners = 0;
-			v->type = VIDEO_TYPE_CAMERA;
-			v->norm = VIDEO_MODE_AUTO;
-			v->channel = 0;
-			strcpy(v->name, "Dummy video device");
- 			
+			v.flags = 0;
+			v.tuners = 0;
+			v.type = VIDEO_TYPE_CAMERA;
+			v.norm = VIDEO_MODE_AUTO;
+			v.channel = 0;
+			strcpy(v.name, "loopback video device");
+      
+      if(copy_to_user(arg, &v, sizeof(v)))
+        return -EFAULT;
+
 			return 0;
 		}
-		
+
 		/* Set channel  */
 		case VIDIOCSCHAN:
 		{
-			struct video_channel *v=(struct video_channel *)arg;
-			
+			struct video_channel v;
+      if(copy_from_user(&v, arg, sizeof(v)))
+             return -EFAULT;
+
 			#ifdef DEBUG
 				printk (KERNEL_PREFIX "VIDIOCSCHAN\n");
+				printk("Channel=%d Norm=%d\n", v.channel, v.norm);
 			#endif
-			
-			#ifdef DEBUG
-				printk("Channel=%d Norm=%d\n", v->channel, v->norm);
-			#endif
-			
-			if(v->channel != 0)
+
+			//we do not switch channels
+			if(v.channel != 0)
 				return -EINVAL;
-			
+
 			return 0;
 		}
-		
+
 		/* Get picture properties */
 		case VIDIOCGPICT:
 		{
-			struct video_picture *v=(struct video_picture *)arg;
+			struct video_picture v;
 
 			#ifdef DEBUG
 				printk (KERNEL_PREFIX "VIDIOCGPICT\n");
 			#endif
-			
-			v->brightness = brightness; 
-			v->hue = hue; 
-			v->colour = colour; 
-			v->contrast = contrast; 
-			v->whiteness = whiteness;
-			v->depth = depth;
-			v->palette = _palette[palette];
+
+			v.brightness = brightness;
+			v.hue = hue;
+			v.colour = colour;
+			v.contrast = contrast;
+			v.whiteness = whiteness;
+			v.depth = depth;
+			v.palette = _palette[palette];
+
+      if(copy_to_user(&v, arg,sizeof(v)))
+        return -EFAULT;
 
 			return 0;
 		}
-		
+
 		/* Set picture properties */
 		case VIDIOCSPICT:
 		{
@@ -204,15 +242,15 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 
  			#ifdef DEBUG
  				printk (KERNEL_PREFIX "VIDIOCSPICT\n");
- 			#endif 			
+ 			#endif
 
 			brightness = v->brightness;
 			hue = v->hue;
 			colour = v->colour;
 			contrast = v->contrast;
- 			
+
 			/*
-			// It "seems" not to be useful.. I don't remember why I did this test ?! But it blocks using UYVY 
+			// It "seems" not to be useful.. I don't remember why I did this test ?! But it blocks using UYVY
 			// palette with mencoder/mplayer, so I disable it for the moment, until I remember its use..
 			if(v->depth != depth || v->palette != _palette[palette]) {
  				#ifdef DEBUG
@@ -223,7 +261,7 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 
 			return 0;
 		}
-		
+
 		/* Sync with mmap grabbing */
 		case VIDIOCSYNC:
 		{
@@ -232,22 +270,22 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 			#endif
 			return 0;
 		}
-		
+
 		/* Memory map buffer info */
 		case VIDIOCGMBUF:
 		{
 			struct video_mbuf *buf = (struct video_mbuf*)arg;
-			
+
 			#ifdef DEBUG
 				printk (KERNEL_PREFIX "VIDIOCGMBUF\n");
 			#endif
 			buf->frames = 1;
 			buf->offsets[0] = 0;
 			buf->size = BUFFER_SIZE;
-			
+
 			return 0;
 		}
-		
+
 		/* Get the video overlay window */
 		case VIDIOCGWIN:
 		{
@@ -257,17 +295,17 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 				printk (KERNEL_PREFIX "VIDIOCGWIN\n");
 			#endif
 
-			v->width=width;	
+			v->width=width;
 			v->height=height;
 
 			return 0;
 		}
-		
+
 		/* Set the video overlay window - passes clip list for hardware smarts , chromakey etc */
 		case VIDIOCSWIN:
 		{
 			struct video_window *v=(struct video_window *)arg;
-			
+
 			#ifdef DEBUG
 				printk (KERNEL_PREFIX "VIDIOCSWIN\n");
 			#endif
@@ -275,71 +313,71 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 			if ((v->width != width) || (v->height != height))
 				return -EINVAL;
 
-			if ((v->clipcount) || (v->clips)) 
+			if ((v->clipcount) || (v->clips))
 				return -EINVAL;
- 			
-			if (v->flags) 
+
+			if (v->flags)
 				return -EINVAL;
 
 			memcpy(&capture_win, v, sizeof(struct video_window));
 
  			return 0;
 		}
-		
+
 		/* Start, end capture */
 		case VIDIOCCAPTURE:
 			return -EINVAL;
-		
+
 		/* Grab frames */
 		case VIDIOCMCAPTURE:
 		{
-			
+
 			#ifdef DEBUG
 				struct video_mmap *vm = (struct video_mmap *)arg;
 				printk (KERNEL_PREFIX "VIDIOCMCAPTURE: frame= %d w= %d h= %d format= %d\n", vm->frame, vm->width, vm->height, vm->format);
-			#endif			
-	
+			#endif
+
 			/* if fps<0, reader controls the framerate */
 			if (fps < 0) {
 				mutex_unlock(&lock);
 			}
-			
+
 			return 0;
 		}
-		
+
 		/* Set frame buffer - root only */
-		case  VIDIOCSFBUF: 
+		case  VIDIOCSFBUF:
 		{
-			
-			#ifdef DEBUG		
+
+			#ifdef DEBUG
 				struct video_buffer *v=(struct video_buffer *)arg;
-				printk(KERNEL_PREFIX "Display at %p is %d by %d, bpl %d at %d depth\n", v->base, v->width, v->height, v->bytesperline,v->depth); 			
+				printk(KERNEL_PREFIX "Display at %p is %d by %d, bpl %d at %d depth\n", v->base, v->width, v->height, v->bytesperline,v->depth);
 			#endif
-			
+
 			return 0;
-			
+
 		}
-		
+
 		/* Get frame buffer */
-		case  VIDIOCGFBUF:			
+		case  VIDIOCGFBUF:
 		{
 			struct video_buffer *v=(struct video_buffer *)arg;
 
-			
+
 			v->base = 0;
 			v->height = height;
 			v->width = width;
 			v->depth = depth;
 			v->bytesperline=width*(depth>>3);
 
-			
+
 			#ifdef DEBUG
 				printk(KERNEL_PREFIX "VIDIOCGFBUF : %d\n",v->bytesperline);
 			#endif
-			
+
 			return 0;
 		}
-		
+
 		case  VIDIOCGCAPTURE:
 		case  VIDIOCSCAPTURE:
 		case  VIDIOCGUNIT:
@@ -350,7 +388,7 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 		case  VIDIOCSFREQ:
 		case  VIDIOCGAUDIO:
 		case  VIDIOCSAUDIO:
-		
+
 		case  VIDIOCSPLAYMODE:
 		case  VIDIOCSWRITEMODE:
 		case  VIDIOCGPLAYINFO:
@@ -360,40 +398,40 @@ static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, u
 			#ifdef DEBUG
 				printk (KERNEL_PREFIX "command not handled : %d\n", cmd);
 			#endif
-		
-		
+
+
 		default:
 			#ifdef DEBUG
-				printk (KERNEL_PREFIX "command unknown : %d\n",cmd);
+				printk (KERNEL_PREFIX "command unknown : %u\n",cmd);
 			#endif
 			break;
 	}
-	
-	
+
+
 	return -ENOIOCTLCMD;
 
 }
 
 static int v4l_open(struct inode *inode, struct file *file) {
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_open()\n");
 	#endif
-	
+
 	if(usage > 0)
 		return -EBUSY;
 	usage++;
-	
+
 	return 0;
 }
 static int v4l_close(struct inode *inode, struct file *file) {
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_close()\n");
 	#endif
-	
+
 	usage--;
-	
+
 	return 0;
 }
 
@@ -401,83 +439,83 @@ static int v4l_close(struct inode *inode, struct file *file) {
 
 
 static int v4l_mmap(struct file *file, struct vm_area_struct *vma) {
-	
+
 	struct page *page = NULL;
-		
+
 	unsigned long pos;
-	unsigned long start = (unsigned long)vma->vm_start; 
-	unsigned long size = (unsigned long)(vma->vm_end-vma->vm_start); 
-	
+	unsigned long start = (unsigned long)vma->vm_start;
+	unsigned long size = (unsigned long)(vma->vm_end-vma->vm_start);
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_mmap()\n");
 	#endif
-	
+
 	// if userspace tries to mmap beyond end of our buffer, fail
 	if (size>BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "userspace tries to mmap beyond end of our buffer, fail : %lu. Buffer size is : %lu\n",size,BUFFER_SIZE);
 		return -EINVAL;
 	}
-	
+
 	// start off at the start of the buffer
 	pos=(unsigned long) image;
-	
+
 	// loop through all the physical pages in the buffer
 	while (size > 0) {
 		page=(void *)vmalloc_to_pfn((void *)pos);
-		
+
 		if (remap_pfn_range(vma, start, (int)page, PAGE_SIZE, PAGE_SHARED))
 			return -EAGAIN;
-		
+
 		start+=PAGE_SIZE;
 		pos+=PAGE_SIZE;
 		size-=PAGE_SIZE;
 	}
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "leaving v4l_mmap()\n");
 	#endif
-	
+
 	return 0;
 }
 
 static int v4l_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_read()\n");
 	#endif
-	
-	
+
+
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
 		return -EINVAL;
 	}
 	memcpy(buf,image,count*sizeof(char));
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "leaving v4l_read() : %d - %ld\n",count,BUFFER_SIZE);
 	#endif
-	
+
 	return count;
 }
 
 static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *ppos) {
-	
-	#ifdef DEBUG
+
+	#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_write() : %d/%lu\n",count,BUFFER_SIZE);
 	#endif
-	
+
 	int waiting_time;
 	struct timeval current_time;
-	
+
 	// in case user wants to change the video parameters, we check if "buf" contains the necessary string
-	int l__width=0,l__height=0,l__fps=0,l__depth=0,l__palette=0;	
+	int l__width=0,l__height=0,l__fps=0,l__depth=0,l__palette=0;
 
 
 	if (buf[0]=='w' && buf[1]=='i' && buf[2]=='d') {
 		// we use image buffer to read palette name
 		char *s__palette=image;
-	
+
 		int l__ret = sscanf(buf,"width=%d height=%d fps=%d palette=%s depth=%d",&l__width,&l__height,&l__fps,s__palette,&l__depth);
 
 		if ( l__ret == 5 ) {
@@ -494,11 +532,11 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 			}
 			if (palette_name[p]) {
 				l__palette=p;
-			} else { 
+			} else {
 				printk (KERN_INFO "ERROR : Incorrect palette number\n");
 				return -EINVAL;
 			}
- 
+
 			if (l__depth<1 || l__depth>32 ) {
 				printk (KERN_INFO "ERROR : Incorrect depth\n");
 				return -EINVAL;
@@ -513,15 +551,15 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 				printk (KERN_INFO "WARNING : Framerate is synchronized on reader !!\n");;
 				l__fps=-1;
 				mutex_init(&lock);
-			}			
-				
+			}
+
 			width=l__width;
 			height=l__height;
 			fps=l__fps;
 			palette=l__palette;
 			depth=l__depth;
 
- 
+
 			// we recalculate the new size
 			l__newSize=BUFFER_SIZE_MACRO;
 
@@ -533,7 +571,7 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 					vfree(image);
 					image=NULL;
 				}
-				
+
 				BUFFER_SIZE=l__newSize;
 
 				// and finally, we allocate memory for this new image
@@ -545,20 +583,20 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 				}
 			}
 
-			printk(KERNEL_PREFIX "New video parameters : width=%d - height=%d - fps=%d - palette=%s - depth=%d\n",width,height,fps,palette_name[palette],depth);		
+			printk(KERNEL_PREFIX "New video parameters : width=%d - height=%d - fps=%d - palette=%s - depth=%d\n",width,height,fps,palette_name[palette],depth);
 
 		}
  	}
 
-	
+
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to write too much data\n");
 		return -EINVAL;
 	}
-	
-	
-	
+
+
+
 	// Copy of the input image
 	if (copy_from_user((void*)image, (void*)buf, count)) {
 		printk (KERN_INFO "failed copy_from_user()\n");
@@ -566,7 +604,7 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 	}
 
 	// Wait to simulate FPS	if necessary
-	if ( fps > 0 ) {		
+	if ( fps > 0 ) {
 		do_gettimeofday(&current_time);
 		//printk(KERNEL_PREFIX "t2=%d.%d - t1=%d.%d\n",current_time.tv_sec,current_time.tv_usec,timer.tv_sec,timer.tv_usec);
 
@@ -582,7 +620,7 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 			// solution 2
 			//set_current_state(TASK_INTERRUPTIBLE);
 			//schedule_timeout(waiting_time);
-			
+
 			// solution 3
 			//msleep_interruptible(waiting_time);
 		}
@@ -596,7 +634,7 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 		#endif
 		mutex_lock_interruptible(&lock);
 	}
-	
+
 	return count;
 }
 
@@ -612,8 +650,7 @@ void release(struct video_device *vdev) {
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "releasing the video device\n");
 	#endif
-	
-	//kfree(vdev);
+	kfree(vdev);
 }
 
 static struct file_operations v4l_fops = {
@@ -623,24 +660,29 @@ static struct file_operations v4l_fops = {
 	read:		v4l_read,
 	mmap: 		v4l_mmap,
 	write:		v4l_write,
-	ioctl:		v4l_ioctl,
+	ioctl:		video_ioctl2,
 	compat_ioctl: v4l_compat_ioctl32,
 	llseek:     no_llseek,
 };
 static struct video_device my_device = {
 	name:		"Dummy video device",
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
-	type:		VID_TYPE_CAPTURE,
+	type:		VFL_TYPE_GRABBER,
+  type2:  VID_TYPE_CAPTURE,
 #else
 	vfl_type:	VID_TYPE_CAPTURE,
 #endif
 	fops:       &v4l_fops,
 	release:	&release,
+  vidioc_querycap: &vidioc_querycap,
+  vidioc_s_fmt_cap: &vidioc_s_fmt_cap,
+  vidioc_try_fmt_cap: &vidioc_try_fmt_cap,
 	minor:		-1,
+  debug:    V4L2_DEBUG_IOCTL|V4L2_DEBUG_IOCTL_ARG,
 };
 
 int init_module() {
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering init_module()\n");
 	#endif
@@ -648,7 +690,7 @@ int init_module() {
 	// we initialize the timer and wait structure
 	do_gettimeofday(&timer);
 	init_waitqueue_head(&wait);
-	
+
 	// we register the device -> it creates /dev/video*
 	if(video_register_device(&my_device, VFL_TYPE_GRABBER, -1) < 0) {
 		printk (KERN_INFO "failed video_register_device()\n");
@@ -667,7 +709,7 @@ int init_module() {
 	// image buffer size is computed
 	BUFFER_SIZE=BUFFER_SIZE_MACRO;
 
-	
+
 	// allocation of the memory used to save the image
 	image = vmalloc (BUFFER_SIZE);
 	if (!image) {
@@ -675,32 +717,32 @@ int init_module() {
 		return -EINVAL;
 	}
 	memset(image,0,BUFFER_SIZE);
-	
+
 	printk(KERNEL_PREFIX "module installed: fps=%d palette=%s (memory allocated to fit up to: width=%d - height=%d - depth=%d)\n",fps,palette_name[palette],width,height,depth);
- 		
+
 	return 0;
 }
 void cleanup_module() {
-	
+
 	#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering cleanup_module()\n");
 	#endif
-	
+
 	// we unallocate the image
 	if ( image != NULL ) {
 		vfree(image);
 	}
-	
+
 	// we unregister the device -> it deletes /dev/video*
 	video_unregister_device(&my_device);
-	
+
 	printk(KERNEL_PREFIX "module removed\n");
 }
 
 
-MODULE_DESCRIPTION("AVLD - V4L dummy video device");
-MODULE_VERSION("0.1.4");
-MODULE_AUTHOR("Pierre PARENT");
+MODULE_DESCRIPTION("YAVLD - V4L2 loopback video device");
+MODULE_VERSION("0.0.1");
+MODULE_AUTHOR("Vasily Levin");
 MODULE_LICENSE("GPL");
 
 /* Parameters to be able to change the defaults width, height and framerate values of the video*/
@@ -718,40 +760,3 @@ MODULE_PARM_DESC(palette,"v4l palette used, see linux/videodev.h");
 
 module_param(depth,int,0);
 MODULE_PARM_DESC(depth,"bitdepth");
-
-
-/*
-	VIDIOCGCAP		_IOR('v',1,struct video_capability)     		// Get capabilities
-	VIDIOCGCHAN		_IOWR('v',2,struct video_channel)       		// Get channel info (sources)
-	VIDIOCSCHAN		_IOW('v',3,struct video_channel)        		// Set channel 
-	VIDIOCGPICT		_IOR('v',6,struct video_picture)        		// Get picture properties
-	VIDIOCSPICT		_IOW('v',7,struct video_picture)        		// Set picture properties
-	VIDIOCGWIN		_IOR('v',9, struct video_window)        		// Get the video overlay window 
-	VIDIOCSWIN		_IOW('v',10, struct video_window)       		// Set the video overlay window - passes clip list for hardware smarts , chromakey etc 
-	VIDIOCGMBUF		_IOR('v',20, struct video_mbuf)         		// Memory map buffer info 
-	VIDIOCMCAPTURE	_IOW('v',19, struct video_mmap)         		// Grab frames 
-	VIDIOCSYNC		_IOW('v',18, int)                       		// Sync with mmap grabbing 
-	VIDIOCGCAPTURE	_IOR('v',22, struct video_capture)      		// Get subcapture 
-	VIDIOCSCAPTURE	_IOW('v',23, struct video_capture)      		// Set subcapture 
-	VIDIOCGUNIT		_IOR('v',21, struct video_unit)         		// Get attached units 
-	VIDIOCCAPTURE	_IOW('v',8,int)                         		// Start, end capture 
-	VIDIOCGFBUF		_IOR('v',11, struct video_buffer)       		// Get frame buffer 
-	VIDIOCSFBUF		_IOW('v',12, struct video_buffer)       		// Set frame buffer - root only 
-	VIDIOCKEY		_IOR('v',13, struct video_key)          		// Video key event - to dev 255 is to all - cuts capture on all DMA windows with this key (0xFFFFFFFF == all) 
-
-	// tuner interface - we have none 
-	VIDIOCGTUNER	_IOWR('v',4,struct video_tuner)         		// Get tuner abilities 
-	VIDIOCSTUNER	_IOW('v',5,struct video_tuner)          		// Tune the tuner for the current channel 
-	VIDIOCGFREQ		_IOR('v',14, unsigned long)             		// Set tuner 
-	VIDIOCSFREQ		_IOW('v',15, unsigned long)             		// Set tuner 
-	// audio interface - we have none 
-	VIDIOCGAUDIO	_IOR('v',16, struct video_audio)        		// Get audio info 
-	VIDIOCSAUDIO	_IOW('v',17, struct video_audio)        		//Audio source, mute etc 
-	
-	VIDIOCSPLAYMODE 	_IOW('v',24, struct video_play_mode)    / Set output video mode/feature
-	VIDIOCSWRITEMODE	_IOW('v',25, int)                       // Set write mode 
-	VIDIOCGPLAYINFO		_IOR('v',26, struct video_info)         // Get current playback info from hardware 
-	VIDIOCSMICROCODE	_IOW('v',27, struct video_code)         // Load microcode into hardware 
-	VIDIOCGVBIFMT       _IOR('v',28, struct vbi_format)         // Get VBI information 
-	VIDIOCSVBIFMT       _IOW('v',29, struct vbi_format)         // Set VBI information 
-*/
