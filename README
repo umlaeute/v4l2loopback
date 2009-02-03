@@ -1,9 +1,8 @@
 ************************************************************************************************
-AVLD - Another Video Loopback Device
+YAVLD - Yet Another Video Loopback Device
+another name is v4l2loopback
 
-Version : 0.1.4
-
-AVLD is a V4L dummy video device built to simulate an input video device like a webcam or a video 
+YAVLD is a V4L dummy video device built to simulate an input video device like a webcam or a video 
 capture card. You just have to send the video stream on it (using, for instance, mplayer or ffmpeg), 
 that's all. Then, you can use this device by watching the video on it with your favorite video player. But, 
 one of the most useful interest, is obviously to use it with a VideoConferencing software to show a video 
@@ -11,7 +10,7 @@ over internet. According to the software you are using, you could also be able t
 realtime. A third interest, and maybe not the last one, could be to use it with an image processing (or 
 other) software which has been designed to use a video device as input.
 
-(c)2008 Pierre PARENT - allonlinux@free.fr
+based on Pierre PARENT's code
 
 Distributed according to the GPL.
 ************************************************************************************************
@@ -29,24 +28,8 @@ Log in as root and type :
 
 1/ Load the AVLD module as root :
 	modprobe avld
-!!! Be careful that the default video size is 340x240 !!!
 
 You can specify the video size, framerate and palette of input reading like that :
 	modprobe avld width=640 height=480 fps=25 palette=0
 
-
-2/ Write on the device :
-	mencoder my_movie.*** -nosound -ovc raw -vf format=bgr24 -of rawvideo -o /dev/video0 ( or /dev/video1 if you have loaded another video device before AVLD... )
-!!! Be careful to send to the dummy video device a video with the exact same size than this used when you loaded 
-the module. You can also scale the video size with mencoder !!!
-
-3/ Use the Videoconferencing software of your choice (amsn, gnomemeeting, ...) or mplayer if you want
-to check that it works on your computer :
-	mplayer tv:// -tv "driver=v4l:device=/dev/video0:noaudio:outfmt=rgb24"
-
-4/ Once you have loaded the module, if you want to change the video paremeters, it is now available by sending the entire following line to the device :
-	"width=[new_video_width] height=[new_video_height"] fps=[new_video_fps]"
-example :
-	echo "width=800 height=600 fps=25" > /dev/video0
-
-Note: if you want to unload the module, check that no more process are using the video device...
+it is unluckily working for now, but see the first usable version soon
