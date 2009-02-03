@@ -1,0 +1,38 @@
+0.1.4 :
+- support of Adobe Flash is now available
+- modifications for newer kernel versions(>=2.6.27) - thanks to Stephan Berberig
+- support of all palettes - thanks to Luc Deschenaux
+- ioctls modifications - thanks to Luc Deschenaux
+
+
+
+0.1.3 :
+- add the current Changelog file
+- support of a second palette (can be useful for Skype) - thanks to Stephan Berberig
+	* new module parameter named "palette" with followings available values : [0:RGB24, 1:UYVY]
+- modification of "video_device" structure for newer kernel versions(>=2.6.24) - thanks to Nicolas
+- check incorrect video options (width/height/fps) values
+- increase of the framerate accuracy
+- possibility to choose the framerate management :
+	* fps = 0 : no framerate. Input video stream is read by device as
+	fast as it is written to the device
+	* fps > 0 : the framerate is set to the given value
+	* fps < 0 : framerate is synchonized on the reader application
+
+
+
+0.1.2 :
+- add control options :
+	* you can specify option "fps" which regulates the framerate
+	* video properties (width/height/fps) can now be changed after the module
+	has been loaded. To do that, just send the exact following ASCI sequence to the
+	device :
+		"width=[new_video_width] height=[new_video_height] fps=[new_video_fps]"
+		example: 
+			echo "width=800 height=600 fps=25" > /dev/video0
+
+
+
+0.1.1 :
+- correction to make it possible to use AVLD with others existing video
+devices
