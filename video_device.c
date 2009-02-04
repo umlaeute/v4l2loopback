@@ -32,51 +32,7 @@ Distributed according to the GPL.
 #define KERNEL_PREFIX "AVLD device: " /* Prefix of each kernel message */
 #define VID_DUMMY_DEVICE 0 /* The type of device we create */
 
-#define BUFFER_SIZE_MACRO	((width*height*(depth>>3))/PAGE_SIZE+1)*PAGE_SIZE /* compute buffer size to allocate */
-
-
-/* v4l palettes */
-static int _palette[]={
-	VIDEO_PALETTE_RGB24,	/*0*/
-	VIDEO_PALETTE_GREY,		/*1*/
-	VIDEO_PALETTE_HI240,	/*2*/
-	VIDEO_PALETTE_RGB565,	/*3*/
-	VIDEO_PALETTE_RGB24,	/*4*/
-	VIDEO_PALETTE_RGB32,	/*5*/
-	VIDEO_PALETTE_RGB555,	/*6*/
-	VIDEO_PALETTE_YUV422,	/*7*/
-	VIDEO_PALETTE_YUYV,		/*8*/
-	VIDEO_PALETTE_UYVY,		/*9*/
-	VIDEO_PALETTE_YUV420,	/*10*/
-	VIDEO_PALETTE_YUV411,	/*11*/
-	VIDEO_PALETTE_RAW,		/*12*/
-	VIDEO_PALETTE_YUV422P,	/*13*/
-	VIDEO_PALETTE_YUV411P,	/*14*/
-	VIDEO_PALETTE_YUV420P,	/*15*/
-	VIDEO_PALETTE_YUV410P	/*16*/
-};
-
-/* v4l palette names */
-static char *palette_name[]={
-	"RGB24",
-	"GREY",
-	"HI240",
-	"RGB565",
-	"RGB24",
-	"RGB32",
-	"RGB555",
-	"YUV422",
-	"YUYV",
-	"UYVY",
-	"YUV420",
-	"YUV411",
-	"RAW",
-	"YUV422P",
-	"YUV411P",
-	"YUV420P",
-	"YUV410P",
-	0
-};
+#define BUFFER_SIZE_MACRO	(width*height*depth) /* compute buffer size to allocate */
 
 
 /* The device can't be used by more than 2 applications ( typically : a read and a write application )
@@ -100,7 +56,7 @@ static int contrast = 32768;
 static int whiteness =32768;
 static int depth = 24;
 static int palette = 0;
-static __u32 pixelformat = V4L2_PIX_FMT_YUV420;
+static __u32 pixelformat = V4L2_PIX_FMT_RGB24;
 static struct video_window capture_win;
 
 static long BUFFER_SIZE = 0;
@@ -143,7 +99,7 @@ static int vidioc_try_fmt_video_output(struct file *file, void *priv,
   return 0;
 };
 /******************************************************************************/
-/* sets new output format, if possible, called on VIDIOC_TRY_FMT ioctl
+/* sets new output format, if possible, called on VIDIOC_S_FMT ioctl
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE */
  static int vidioc_s_fmt_cap(struct file *file, void *priv, 
                      struct v4l2_format *fmt) {
@@ -162,7 +118,7 @@ static int vidioc_try_fmt_video_output(struct file *file, void *priv,
 	return 0;
 }
 /******************************************************************************/
-/* sets new output format, if possible, called on VIDIOC_TRY_FMT ioctl
+/* sets new output format, if possible, called on VIDIOC_S_FMT ioctl
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT */ 
 static int vidioc_s_fmt_video_output(struct file *file, void *priv, 
                      struct v4l2_format *fmt) {
@@ -179,250 +135,6 @@ static int vidioc_s_fmt_video_output(struct file *file, void *priv,
   /* TODO(vasaka) realloc buffer here */
 	return 0;  
 };
-
-static int v4l_ioctl(struct inode *inode, struct file *file, unsigned int cmd, void* arg) {
-
-	switch(cmd) {
-		/* Get channel info (sources) */
-		case VIDIOCGCHAN:
-		{
-			struct video_channel v;
-
- 			#ifdef DEBUG
- 				printk (KERNEL_PREFIX "VIDIOCGCHAN\n");
- 			#endif
-
-			v.flags = 0;
-			v.tuners = 0;
-			v.type = VIDEO_TYPE_CAMERA;
-			v.norm = VIDEO_MODE_AUTO;
-			v.channel = 0;
-			strcpy(v.name, "loopback video device");
-      
-      if(copy_to_user(arg, &v, sizeof(v)))
-        return -EFAULT;
-
-			return 0;
-		}
-
-		/* Set channel  */
-		case VIDIOCSCHAN:
-		{
-			struct video_channel v;
-      if(copy_from_user(&v, arg, sizeof(v)))
-             return -EFAULT;
-
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "VIDIOCSCHAN\n");
-				printk("Channel=%d Norm=%d\n", v.channel, v.norm);
-			#endif
-
-			//we do not switch channels
-			if(v.channel != 0)
-				return -EINVAL;
-
-			return 0;
-		}
-
-		/* Get picture properties */
-		case VIDIOCGPICT:
-		{
-			struct video_picture v;
-
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "VIDIOCGPICT\n");
-			#endif
-
-			v.brightness = brightness;
-			v.hue = hue;
-			v.colour = colour;
-			v.contrast = contrast;
-			v.whiteness = whiteness;
-			v.depth = depth;
-			v.palette = _palette[palette];
-
-      if(copy_to_user(&v, arg,sizeof(v)))
-        return -EFAULT;
-
-			return 0;
-		}
-
-		/* Set picture properties */
-		case VIDIOCSPICT:
-		{
-			struct video_picture *v=(struct video_picture *)arg;
-
- 			#ifdef DEBUG
- 				printk (KERNEL_PREFIX "VIDIOCSPICT\n");
- 			#endif
-
-			brightness = v->brightness;
-			hue = v->hue;
-			colour = v->colour;
-			contrast = v->contrast;
-
-			/*
-			// It "seems" not to be useful.. I don't remember why I did this test ?! But it blocks using UYVY
-			// palette with mencoder/mplayer, so I disable it for the moment, until I remember its use..
-			if(v->depth != depth || v->palette != _palette[palette]) {
- 				#ifdef DEBUG
-					printk (KERNEL_PREFIX "Attempt to change picture properties.. palette wanted=%s, depth wanted=%d\n",palette_name[v->palette],v->depth);
- 				#endif
- 				return -EINVAL;
- 			}*/
-
-			return 0;
-		}
-
-		/* Sync with mmap grabbing */
-		case VIDIOCSYNC:
-		{
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "VIDIOCSYNC\n");
-			#endif
-			return 0;
-		}
-
-		/* Memory map buffer info */
-		case VIDIOCGMBUF:
-		{
-			struct video_mbuf *buf = (struct video_mbuf*)arg;
-
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "VIDIOCGMBUF\n");
-			#endif
-			buf->frames = 1;
-			buf->offsets[0] = 0;
-			buf->size = BUFFER_SIZE;
-
-			return 0;
-		}
-
-		/* Get the video overlay window */
-		case VIDIOCGWIN:
-		{
-			struct video_window *v=(struct video_window *)arg;
-
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "VIDIOCGWIN\n");
-			#endif
-
-			v->width=width;
-			v->height=height;
-
-			return 0;
-		}
-
-		/* Set the video overlay window - passes clip list for hardware smarts , chromakey etc */
-		case VIDIOCSWIN:
-		{
-			struct video_window *v=(struct video_window *)arg;
-
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "VIDIOCSWIN\n");
-			#endif
-
-			if ((v->width != width) || (v->height != height))
-				return -EINVAL;
-
-			if ((v->clipcount) || (v->clips))
-				return -EINVAL;
-
-			if (v->flags)
-				return -EINVAL;
-
-			memcpy(&capture_win, v, sizeof(struct video_window));
-
- 			return 0;
-		}
-
-		/* Start, end capture */
-		case VIDIOCCAPTURE:
-			return -EINVAL;
-
-		/* Grab frames */
-		case VIDIOCMCAPTURE:
-		{
-
-			#ifdef DEBUG
-				struct video_mmap *vm = (struct video_mmap *)arg;
-				printk (KERNEL_PREFIX "VIDIOCMCAPTURE: frame= %d w= %d h= %d format= %d\n", vm->frame, vm->width, vm->height, vm->format);
-			#endif
-
-			/* if fps<0, reader controls the framerate */
-			if (fps < 0) {
-				mutex_unlock(&lock);
-			}
-
-			return 0;
-		}
-
-		/* Set frame buffer - root only */
-		case  VIDIOCSFBUF:
-		{
-
-			#ifdef DEBUG
-				struct video_buffer *v=(struct video_buffer *)arg;
-				printk(KERNEL_PREFIX "Display at %p is %d by %d, bpl %d at %d depth\n", v->base, v->width, v->height, v->bytesperline,v->depth);
-			#endif
-
-			return 0;
-
-		}
-
-		/* Get frame buffer */
-		case  VIDIOCGFBUF:
-		{
-			struct video_buffer *v=(struct video_buffer *)arg;
-
-
-			v->base = 0;
-			v->height = height;
-			v->width = width;
-			v->depth = depth;
-			v->bytesperline=width*(depth>>3);
-
-
-			#ifdef DEBUG
-				printk(KERNEL_PREFIX "VIDIOCGFBUF : %d\n",v->bytesperline);
-			#endif
-
-			return 0;
-		}
-
-		case  VIDIOCGCAPTURE:
-		case  VIDIOCSCAPTURE:
-		case  VIDIOCGUNIT:
-		case  VIDIOCKEY:
-		case  VIDIOCGTUNER:
-		case  VIDIOCSTUNER:
-		case  VIDIOCGFREQ:
-		case  VIDIOCSFREQ:
-		case  VIDIOCGAUDIO:
-		case  VIDIOCSAUDIO:
-
-		case  VIDIOCSPLAYMODE:
-		case  VIDIOCSWRITEMODE:
-		case  VIDIOCGPLAYINFO:
-		case  VIDIOCSMICROCODE:
-		case  VIDIOCGVBIFMT:
-		case  VIDIOCSVBIFMT:
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "command not handled : %d\n", cmd);
-			#endif
-
-
-		default:
-			#ifdef DEBUG
-				printk (KERNEL_PREFIX "command unknown : %u\n",cmd);
-			#endif
-			break;
-	}
-
-
-	return -ENOIOCTLCMD;
-
-}
 
 static int v4l_open(struct inode *inode, struct file *file) {
 
@@ -492,7 +204,7 @@ static int v4l_mmap(struct file *file, struct vm_area_struct *vma) {
 
 static int v4l_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
 
-	#ifdef DEBUG
+	#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "entering v4l_read()\n");
 	#endif
 
@@ -502,9 +214,9 @@ static int v4l_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
 		return -EINVAL;
 	}
-	memcpy(buf,image,count*sizeof(char));
+	memcpy(buf,image,count);
 
-	#ifdef DEBUG
+	#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "leaving v4l_read() : %d - %ld\n",count,BUFFER_SIZE);
 	#endif
 
@@ -520,16 +232,12 @@ static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *p
 
 	// Copy of the input image
 	if (copy_from_user((void*)image, (void*)buf, count)) {
-		printk (KERN_INFO "failed copy_from_user()\n");
+		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", buf, image);
 		return -EFAULT;
 	}
+  //memcpy(image, buf, count);
 	return count;
 }
-
-
-
-
-
 
 /***********************************************
 **************** LINUX KERNEL ****************
@@ -587,28 +295,19 @@ int init_module() {
 		return -EINVAL;
 	}
 
-	// we check that video size and fps values are correct
-	if ( width <= 0 || height <= 0 ) {
-		printk (KERN_INFO "ERROR : Incorrect width and/or height values\n");
-		return -EINVAL;
-	} else if ( fps < 0 ) {
-		printk (KERN_INFO "WARNING : Framerate is synchronized on reader !!\n");
-		mutex_init(&lock);
-	}
-
 	// image buffer size is computed
 	BUFFER_SIZE=BUFFER_SIZE_MACRO;
 
 
 	// allocation of the memory used to save the image
-	image = vmalloc (BUFFER_SIZE);
+	image = vmalloc (BUFFER_SIZE*3);
 	if (!image) {
 		printk (KERN_INFO "failed vmalloc\n");
 		return -EINVAL;
 	}
-	memset(image,0,BUFFER_SIZE);
+	memset(image,0,BUFFER_SIZE*3);
 
-	printk(KERNEL_PREFIX "module installed: fps=%d palette=%s (memory allocated to fit up to: width=%d - height=%d - depth=%d)\n",fps,palette_name[palette],width,height,depth);
+	printk(KERNEL_PREFIX "module installed\n");
 
 	return 0;
 }
@@ -634,19 +333,3 @@ MODULE_DESCRIPTION("YAVLD - V4L2 loopback video device");
 MODULE_VERSION("0.0.1");
 MODULE_AUTHOR("Vasily Levin");
 MODULE_LICENSE("GPL");
-
-/* Parameters to be able to change the defaults width, height and framerate values of the video*/
-module_param(width, int, 0);
-MODULE_PARM_DESC(width,"width of the video");
-
-module_param(height,int,0);
-MODULE_PARM_DESC(height,"height of the video");
-
-module_param(fps,int,0);
-MODULE_PARM_DESC(fps,"framerate of the video in FPS (frame per second)");
-
-module_param(palette,int,0);
-MODULE_PARM_DESC(palette,"v4l palette used, see linux/videodev.h");
-
-module_param(depth,int,0);
-MODULE_PARM_DESC(depth,"bitdepth");
