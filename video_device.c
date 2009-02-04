@@ -43,21 +43,13 @@ static int usage = -1;
 struct mutex lock;
 
 /* modifiable video options */
-static int fps = 25; /* framerate */
 static int width = 640;
 static int height = 480;
+static int depth = 24;
 
 /* Frame specifications and options*/
-static char *image = NULL;
-static int brightness = 32768;
-static int hue = 32768;
-static int colour = 32768;
-static int contrast = 32768;
-static int whiteness =32768;
-static int depth = 24;
-static int palette = 0;
+static __u8 *image = NULL;
 static __u32 pixelformat = V4L2_PIX_FMT_RGB24;
-static struct video_window capture_win;
 
 static long BUFFER_SIZE = 0;
 
@@ -71,8 +63,9 @@ struct timeval timer;/* used to have a better framerate accuracy */
 ************************************************/
 /******************************************************************************/
 /* writes device capabilities to cap parameter,called on VIDIOC_QUERYCAP ioctl*/
-static int vidioc_querycap(struct file *file, void  *priv,
-        struct v4l2_capability *cap) {
+static int vidioc_querycap(struct file *file, 
+                           void  *priv,
+                           struct v4l2_capability *cap) {
   strcpy (cap->driver, "v4l2 loopback");
   strcpy (cap->card, "Dummy video device");
   cap->version = 1;
@@ -83,8 +76,9 @@ static int vidioc_querycap(struct file *file, void  *priv,
 /* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl 
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE */
 /* actual check is done by inner_try_fmt_cap */
- static int vidioc_try_fmt_cap(struct file *file, void *priv,
-         struct v4l2_format *fmt) {
+ static int vidioc_try_fmt_cap(struct file *file, 
+                               void *priv,
+                               struct v4l2_format *fmt) {
   if (fmt->fmt.pix.height != height) return -1;
   if (fmt->fmt.pix.width != width) return -1;
   if (fmt->fmt.pix.pixelformat != pixelformat) return -1;
@@ -93,25 +87,27 @@ static int vidioc_querycap(struct file *file, void  *priv,
 /******************************************************************************/
 /* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT */ 
-static int vidioc_try_fmt_video_output(struct file *file, void *priv, 
-                     struct v4l2_format *fmt) {
+static int vidioc_try_fmt_video_output(struct file *file, 
+                                       void *priv, 
+                                       struct v4l2_format *fmt) {
   /* TODO(vasaka) check sanity of new values */
   return 0;
 };
 /******************************************************************************/
 /* sets new output format, if possible, called on VIDIOC_S_FMT ioctl
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE */
- static int vidioc_s_fmt_cap(struct file *file, void *priv, 
-                     struct v4l2_format *fmt) {
+static int vidioc_s_fmt_cap(struct file *file, 
+                            void *priv,
+                            struct v4l2_format *fmt) {
  /* TODO(vasaka) check is it OK to supress warnings about mixing declarations 
   * and code in linux kernel modules */
  int ret;
  /* TODO(vasaka) add check if it is OK to change format now */
 	if (0)
 	    return -EBUSY;
-  /* check if requsted format is OK */
-  /*actually format is set  by input and we only check that format is not changed, 
-   but it is possible to set subregion of input to return to client TODO(vasaka)*/
+/* check if requsted format is OK */
+/*actually format is set  by input and we only check that format is not changed, 
+ but it is possible to set subregion of input to return to client TODO(vasaka)*/
 	ret = vidioc_try_fmt_cap(file, priv, fmt);
 	if (ret != 0)
 	    return ret;
@@ -120,8 +116,9 @@ static int vidioc_try_fmt_video_output(struct file *file, void *priv,
 /******************************************************************************/
 /* sets new output format, if possible, called on VIDIOC_S_FMT ioctl
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT */ 
-static int vidioc_s_fmt_video_output(struct file *file, void *priv, 
-                     struct v4l2_format *fmt) {
+static int vidioc_s_fmt_video_output(struct file *file, 
+                                     void *priv, 
+                                     struct v4l2_format *fmt) {
   int ret;
  /* TODO(vasaka) add check if it is OK to change format now */
 	if (0)
@@ -134,7 +131,32 @@ static int vidioc_s_fmt_video_output(struct file *file, void *priv,
   pixelformat = fmt->fmt.pix.pixelformat;
   /* TODO(vasaka) realloc buffer here */
 	return 0;  
-};
+}
+/******************************************************************************/
+int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *parm)
+{
+  struct v4l2_captureparm *cparm = &parm->parm.capture;
+  struct v4l2_outputparm  *oparm = &parm->parm.output;
+  switch (parm->type)
+  {
+    case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+    {
+      /* TODO(VASAKA) restore from saved capture mode, remove hardcoded fps */
+      cparm->timeperframe.denominator = 15;
+      cparm->timeperframe.numerator = 1;
+      return 0;
+    }
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+    {
+      oparm->timeperframe.denominator = 15;
+      oparm->timeperframe.numerator = 1;
+      return 0;
+    }
+    default:
+      return -1;
+  }
+  return 0;
+}
 
 static int v4l_open(struct inode *inode, struct file *file) {
 
@@ -275,6 +297,7 @@ static struct video_device my_device = {
   vidioc_s_fmt_video_output: &vidioc_s_fmt_video_output,
   vidioc_try_fmt_cap: &vidioc_try_fmt_cap,
   vidioc_try_fmt_video_output: &vidioc_try_fmt_video_output,
+  vidioc_g_parm: &vidioc_g_parm,
 	minor:		-1,
   debug:    V4L2_DEBUG_IOCTL|V4L2_DEBUG_IOCTL_ARG,
 };
