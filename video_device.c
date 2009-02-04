@@ -202,7 +202,7 @@ static int v4l_mmap(struct file *file, struct vm_area_struct *vma) {
 	return 0;
 }
 
-static int v4l_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
+static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
 
 	#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "entering v4l_read()\n");
@@ -223,7 +223,7 @@ static int v4l_read(struct file *file, char *buf, size_t count, loff_t *ppos) {
 	return count;
 }
 
-static int v4l_write(struct file *file, const char *buf, size_t count, loff_t *ppos) {
+static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to write too much data\n");
