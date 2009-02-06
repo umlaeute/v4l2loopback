@@ -282,7 +282,6 @@ static struct file_operations v4l_fops = {
 	open:		v4l_open,
 	release:	v4l_close,
 	read:		v4l_read,
-	mmap: 		v4l_mmap,
 	write:		v4l_write,
   poll: poll,
 	ioctl:		video_ioctl2,
