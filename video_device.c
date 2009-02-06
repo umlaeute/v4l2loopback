@@ -226,49 +226,6 @@ static int v4l_close(struct inode *inode, struct file *file) {
 	return 0;
 }
 
-
-
-
-static int v4l_mmap(struct file *file, struct vm_area_struct *vma) {
-
-	struct page *page = NULL;
-
-	unsigned long pos;
-	unsigned long start = (unsigned long)vma->vm_start;
-	unsigned long size = (unsigned long)(vma->vm_end-vma->vm_start);
-
-	#ifdef DEBUG
-		printk(KERNEL_PREFIX "entering v4l_mmap()\n");
-	#endif
-
-	// if userspace tries to mmap beyond end of our buffer, fail
-	if (size>BUFFER_SIZE) {
-		printk(KERNEL_PREFIX "userspace tries to mmap beyond end of our buffer, fail : %lu. Buffer size is : %lu\n",size,BUFFER_SIZE);
-		return -EINVAL;
-	}
-
-	// start off at the start of the buffer
-	pos=(unsigned long) image;
-
-	// loop through all the physical pages in the buffer
-	while (size > 0) {
-		page=(void *)vmalloc_to_pfn((void *)pos);
-
-		if (remap_pfn_range(vma, start, (int)page, PAGE_SIZE, PAGE_SHARED))
-			return -EAGAIN;
-
-		start+=PAGE_SIZE;
-		pos+=PAGE_SIZE;
-		size-=PAGE_SIZE;
-	}
-
-	#ifdef DEBUG
-		printk(KERNEL_PREFIX "leaving v4l_mmap()\n");
-	#endif
-
-	return 0;
-}
-
 static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
 
 	#ifdef DEBUG_RW
