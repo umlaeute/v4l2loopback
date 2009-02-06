@@ -43,23 +43,21 @@ static int usage = -1;
 struct mutex lock;
 
 /* modifiable video options */
-static int width = 640;
-static int height = 480;
-static int depth = 24;
-
-/* Frame specifications and options*/
-static __u8 *image = NULL;
-static __u32 pixelformat = V4L2_PIX_FMT_RGB24;
-
-static long BUFFER_SIZE = 0;
+static int fps = 15;
+static struct v4l2_pix_format video_format;
 
 static wait_queue_head_t wait;/* variable used to simulate the FPS  */
 struct timeval timer;/* used to have a better framerate accuracy */
 
 
+/* Frame specifications and options*/
+static __u8 *image = NULL;
+static __u32 pixelformat = V4L2_PIX_FMT_UYVY;
+
+static long BUFFER_SIZE = 0;
 
 /************************************************
-**************** V4L2 FUNCTIONS  ***************
+**************** V4L2 ioctl calls ***************
 ************************************************/
 /******************************************************************************/
 /* writes device capabilities to cap parameter,called on VIDIOC_QUERYCAP ioctl*/
@@ -73,15 +71,23 @@ static int vidioc_querycap(struct file *file,
   return 0;
 }
 /******************************************************************************/
+/* returns current video format format fmt, called on VIDIOC_G_FMT ioctl */
+ static int vidioc_g_fmt_cap(struct file *file, 
+                               void *priv,
+                               struct v4l2_format *fmt) {
+  fmt->fmt.pix = video_format;
+  return 0; 
+}
+/******************************************************************************/
 /* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl 
  * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE */
 /* actual check is done by inner_try_fmt_cap */
  static int vidioc_try_fmt_cap(struct file *file, 
                                void *priv,
                                struct v4l2_format *fmt) {
-  if (fmt->fmt.pix.height != height) return -1;
-  if (fmt->fmt.pix.width != width) return -1;
-  if (fmt->fmt.pix.pixelformat != pixelformat) return -1;
+  if (fmt->fmt.pix.height != video_format.height) return -1;
+  if (fmt->fmt.pix.width != video_format.width) return -1;
+  if (fmt->fmt.pix.pixelformat != video_format.pixelformat) return -1;
   return 0; 
 }
 /******************************************************************************/
@@ -111,6 +117,11 @@ static int vidioc_s_fmt_cap(struct file *file,
 	ret = vidioc_try_fmt_cap(file, priv, fmt);
 	if (ret != 0)
 	    return ret;
+  fmt->fmt.pix = video_format;
+	#ifdef DEBUG
+		printk(KERNEL_PREFIX "video mode set to %dx%d\n", fmt->fmt.pix.width, 
+                                                      fmt->fmt.pix.height);
+	#endif  
 	return 0;
 }
 /******************************************************************************/
@@ -126,13 +137,13 @@ static int vidioc_s_fmt_video_output(struct file *file,
 	ret = vidioc_try_fmt_video_output(file, priv, fmt);
 	if (ret != 0)
 	    return ret;
-  width = fmt->fmt.pix.width;
-  height = fmt->fmt.pix.height;
-  pixelformat = fmt->fmt.pix.pixelformat;
-  /* TODO(vasaka) realloc buffer here */
+  /* TODO(vasaka) change format and realloc buffer here */
+  fmt->fmt.pix = video_format;
 	return 0;  
 }
 /******************************************************************************/
+/*get some data flaw parameters, only capability, fps and readbuffers has effect
+ *on this driver called on VIDIOC_G_PARM*/
 int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *parm)
 {
   struct v4l2_captureparm *cparm = &parm->parm.capture;
@@ -142,13 +153,13 @@ int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *parm)
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
     {
       /* TODO(VASAKA) restore from saved capture mode, remove hardcoded fps */
-      cparm->timeperframe.denominator = 15;
+      cparm->timeperframe.denominator = fps;
       cparm->timeperframe.numerator = 1;
       return 0;
     }
     case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     {
-      oparm->timeperframe.denominator = 15;
+      oparm->timeperframe.denominator = fps;
       oparm->timeperframe.numerator = 1;
       return 0;
     }
@@ -157,7 +168,41 @@ int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *parm)
   }
   return 0;
 }
-
+/******************************************************************************/
+/*get some data flaw parameters, only capability, fps and readbuffers has effect
+ *on this driver. called on VIDIOC_G_PARM */
+int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *parm)
+{
+  struct v4l2_captureparm *cparm = &parm->parm.capture;
+  struct v4l2_outputparm  *oparm = &parm->parm.output;
+	#ifdef DEBUG
+		printk(KERNEL_PREFIX "vidioc_s_parm called frate=%d/%d\n", 
+           oparm->timeperframe.numerator, 
+           oparm->timeperframe.denominator);
+	#endif    
+  switch (parm->type)
+  {
+    case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+    {
+      /* TODO(VASAKA) saved capture mode */
+      return 0;
+    }
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+    {
+      return 0;
+    }
+    default:
+      return -1;
+  }
+  return 0;
+}
+/************************************************
+**************** file operations  ***************
+************************************************/
+unsigned int poll(struct file * file, struct poll_table_struct * pts) {
+  interruptible_sleep_on_timeout (&wait,1000/fps);
+  return 1;
+}
 static int v4l_open(struct inode *inode, struct file *file) {
 
 	#ifdef DEBUG
@@ -236,7 +281,11 @@ static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_
 		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
 		return -EINVAL;
 	}
-	memcpy(buf,image,count);
+	if (copy_to_user((void*)buf, (void*)image, count)) {
+		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", buf, image);
+		return -EFAULT;
+	}    
+	//memcpy(buf,image,count);
 
 	#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "leaving v4l_read() : %d - %ld\n",count,BUFFER_SIZE);
@@ -278,6 +327,7 @@ static struct file_operations v4l_fops = {
 	read:		v4l_read,
 	mmap: 		v4l_mmap,
 	write:		v4l_write,
+  poll: poll,
 	ioctl:		video_ioctl2,
 	compat_ioctl: v4l_compat_ioctl32,
 	llseek:     no_llseek,
@@ -293,11 +343,13 @@ static struct video_device my_device = {
 	fops:       &v4l_fops,
 	release:	&release,
   vidioc_querycap: &vidioc_querycap,
+  vidioc_g_fmt_cap: &vidioc_g_fmt_cap,
   vidioc_s_fmt_cap: &vidioc_s_fmt_cap, 
   vidioc_s_fmt_video_output: &vidioc_s_fmt_video_output,
   vidioc_try_fmt_cap: &vidioc_try_fmt_cap,
   vidioc_try_fmt_video_output: &vidioc_try_fmt_video_output,
   vidioc_g_parm: &vidioc_g_parm,
+  vidioc_s_parm: &vidioc_s_parm,
 	minor:		-1,
   debug:    V4L2_DEBUG_IOCTL|V4L2_DEBUG_IOCTL_ARG,
 };
@@ -319,8 +371,14 @@ int init_module() {
 	}
 
 	// image buffer size is computed
-	BUFFER_SIZE=BUFFER_SIZE_MACRO;
-
+	video_format.height = 480;
+  video_format.width = 640;
+  video_format.pixelformat = pixelformat;
+  video_format.field = V4L2_FIELD_NONE;
+  video_format.bytesperline = video_format.width*3;
+  video_format.sizeimage = video_format.height*video_format.width*3;
+  video_format.colorspace = V4L2_COLORSPACE_SRGB;
+  BUFFER_SIZE = video_format.sizeimage;
 
 	// allocation of the memory used to save the image
 	image = vmalloc (BUFFER_SIZE*3);
