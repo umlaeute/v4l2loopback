@@ -8,16 +8,15 @@ int main()
 {
     struct v4l2_capability vid_caps;
     struct v4l2_format vid_format;
-    int data_length = 640*480*3;
+    #define data_length 640*480*3
     __u8 buffer[data_length];
     __u8 check_buffer[data_length];
     int i;
     for(i = 0; i<data_length;++i)
     {
-      buffer[i]=255;
+      buffer[i]=i%2;
       check_buffer[i] = 0;
     }
-          
     int fdwr = open("/dev/video1",O_RDWR);
     assert(fdwr>=0); 
     int ret_code = ioctl(fdwr, VIDIOC_QUERYCAP, vid_caps);    

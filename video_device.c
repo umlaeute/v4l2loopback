@@ -27,7 +27,7 @@ Distributed according to the GPL.
 #endif
 
 #define DEBUG
-#define DEBUG_OUT
+//#define DEBUG_OUT
 //#define DEBUG_RW
 
 #define KERNEL_PREFIX "AVLD device: " /* Prefix of each kernel message */
