@@ -62,8 +62,8 @@ static long BUFFER_SIZE = 0;
 static int vidioc_querycap(struct file *file, 
                            void  *priv,
                            struct v4l2_capability *cap) {
-  strcpy (cap->driver, "v4l2 loopback");
-  strcpy (cap->card, "Dummy video device");
+  strcpy(cap->driver, "v4l2 loopback");
+  strcpy(cap->card, "Dummy video device");
   cap->version = 1;
   cap->capabilities =	V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
                       V4L2_CAP_READWRITE;/* | V4L2_CAP_STREAMING; no streaming yet*/
@@ -184,6 +184,32 @@ int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *parm) {
       return -1;
   }
   return 0;
+}
+/* returns set of device inputs, in our case there is only one, but later I may
+ * add more, called on VIDIOC_ENUMINPUT */
+int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp) {
+  if (inp->index==0) 
+  {
+    strcpy(inp->name,"loopback");
+    inp->type = V4L2_INPUT_TYPE_CAMERA;
+    inp->audioset = 0;
+    inp->tuner = 0;
+    inp->std = V4L2_STD_PAL_B;
+    inp->status = 0;    
+    return 0;
+  }
+  return -EINVAL;
+}
+/* VIDIOC_G_INPUT */
+int vidioc_g_input(struct file *file, void *fh, unsigned int *i) {
+  *i = 0;
+  return 0;
+}
+/* VIDIOC_S_INPUT */
+int vidioc_s_input(struct file *file, void *fh, unsigned int i) {
+  if (i == 0)
+    return 0;
+  return -EINVAL;
 }
 /***************************************************************
 **************** V4L2 ioctl buffer related calls ***************
@@ -319,6 +345,9 @@ static struct video_device my_device = {
 	release:  &release, /*&video_device_release, segfaults on unload double kfree somewhere*/
   vidioc_querycap: &vidioc_querycap,
   vidioc_enum_fmt_cap: &vidioc_enum_fmt_cap,
+  vidioc_enum_input: &vidioc_enum_input,
+  vidioc_g_input: &vidioc_g_input,
+  vidioc_s_input: &vidioc_s_input,
   vidioc_g_fmt_cap: &vidioc_g_fmt_cap,
   vidioc_s_fmt_cap: &vidioc_s_fmt_cap, 
   vidioc_s_fmt_video_output: &vidioc_s_fmt_video_output,
