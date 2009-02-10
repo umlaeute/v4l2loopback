@@ -247,6 +247,7 @@ static int vidioc_dqbuf (struct file *file, void *private_data,
         struct v4l2_buffer *b) {
   /* TODO(vasaka) add nonblocking */
   wait_event_interruptible(read_event, (frame_counter>0) );
+  --frame_counter;
   my_buffers[0].flags |= V4L2_BUF_FLAG_DONE;
   *b = my_buffers[0];
   return 0;
@@ -395,6 +396,7 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
   //memcpy(image, buf, count);
   ++frame_counter;
   my_buffers[0].sequence++;
+  do_gettimeofday(&my_buffers[0].timestamp);
   wake_up_all(&read_event);
 	#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_counter);
