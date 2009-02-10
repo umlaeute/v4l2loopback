@@ -1,12 +1,10 @@
-# Makefile for AVLD
-#
-# (c)2007 Pierre PARENT - allonlinux@free.fr
+# Makefile for YAVLD
 #
 # Distributed according to the GPL.
 #
 
 
-MODULE_NAME = avld
+MODULE_NAME = yavld
 $(MODULE_NAME)-objs = video_device.o
 
 PWD	:= $(shell pwd)

@@ -26,10 +26,7 @@ Log in as root and type :
 
 --- RUN ---
 
-1/ Load the AVLD module as root :
-	modprobe avld
-
-You can specify the video size, framerate and palette of input reading like that :
-	modprobe avld width=640 height=480 fps=25 palette=0
+1/ Load the YAVLD module as root :
+	modprobe yavld
 
 it is unluckily working for now, but see the first usable version soon

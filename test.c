@@ -17,7 +17,7 @@ int main()
       buffer[i]=i%2;
       check_buffer[i] = 0;
     }
-    int fdwr = open("/dev/video1",O_RDWR);
+    int fdwr = open("/dev/video2",O_RDWR);
     assert(fdwr>=0); 
     int ret_code = ioctl(fdwr, VIDIOC_QUERYCAP, vid_caps);    
     /* assert(ret_code != -1); /*assertation fails for some reason */
