@@ -1,32 +1,10 @@
-************************************************************************************************
-YAVLD - Yet Another Video Loopback Device
-another name is v4l2loopback
-
-YAVLD is a V4L dummy video device built to simulate an input video device like a webcam or a video 
-capture card. You just have to send the video stream on it (using, for instance, mplayer or ffmpeg), 
-that's all. Then, you can use this device by watching the video on it with your favorite video player. But, 
-one of the most useful interest, is obviously to use it with a VideoConferencing software to show a video 
-over internet. According to the software you are using, you could also be able to capture your screen in 
-realtime. A third interest, and maybe not the last one, could be to use it with an image processing (or 
-other) software which has been designed to use a video device as input.
-
-based on Pierre PARENT's code
-
-Distributed according to the GPL.
-************************************************************************************************
-
-
 --- INSTALL ---
-
 Log in as root and type :
-	
-	make && make install
-
-
+make && make install
 
 --- RUN ---
+Load the YAVLD module as root :
+modprobe yavld
 
-1/ Load the YAVLD module as root :
-	modprobe yavld
-
-it is unluckily working for now, but see the first usable version soon
+now you can feed device created with data and fetch this data by any v4l2 capable program.
+v4l should also work with little to no additional effords

@@ -29,8 +29,6 @@ Distributed according to the GPL.
 //#define DEBUG_RW
 
 #define KERNEL_PREFIX "YAVLD device: " /* Prefix of each kernel message */
-#define BUFFER_SIZE_MACRO	(width*height*depth) /* compute buffer size to allocate */
-
 
 /* The device can't be used by more than 2 applications ( typically : a read and a write application )
 Decrease this number if you want it to be accessible for more applications.*/
@@ -41,7 +39,7 @@ DECLARE_WAIT_QUEUE_HEAD(read_event);
 
 
 /* modifiable video options */
-static int fps = 15;
+static int fps = 30;
 static struct v4l2_pix_format video_format;
 
 /* buffers stuff */
@@ -49,6 +47,7 @@ static __u8 *image = NULL;
 enum v4l2_memory  buffer_alloc_type;
 struct v4l2_captureparm	capture_param;
 #define MAX_BUFFERS 5
+static int buffers_asked = 1;
 struct v4l2_buffer my_buffers[MAX_BUFFERS];
 
 static long BUFFER_SIZE = 0;
@@ -103,6 +102,8 @@ static int vidioc_try_fmt_video_output(struct file *file,
                                        void *priv, 
                                        struct v4l2_format *fmt) {
   /* TODO(vasaka) maybe should add sanity checks here */
+  if (fmt->fmt.pix.pixelformat != video_format.pixelformat)
+    return -EINVAL;
   fmt->fmt.pix = video_format;
   return 0;
 };
@@ -135,8 +136,6 @@ static int vidioc_s_fmt_video_output(struct file *file,
 /*get some data flaw parameters, only capability, fps and readbuffers has effect
  *on this driver, called on VIDIOC_G_PARM*/
 static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *parm) {
-  struct v4l2_captureparm *cparm = &parm->parm.capture;
-  struct v4l2_outputparm  *oparm = &parm->parm.output;
   switch (parm->type)
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -147,14 +146,13 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
     case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     {
       /* TODO(vasaka) do the same thing as for capture */
-      oparm->timeperframe.denominator = fps;
-      oparm->timeperframe.numerator = 1;
+      parm->parm.output.timeperframe.denominator = fps;
+      parm->parm.output.timeperframe.numerator = 1;
       return 0;
     }
     default:
       return -1;
   }
-  return 0;
 }
 /******************************************************************************/
 /*get some data flaw parameters, only capability, fps and readbuffers has effect
@@ -197,12 +195,13 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
   }
   return -EINVAL;
 }
-/* VIDIOC_G_INPUT */
+/* which input is currently active, called on VIDIOC_G_INPUT */
 int vidioc_g_input(struct file *file, void *fh, unsigned int *i) {
   *i = 0;
   return 0;
 }
-/* VIDIOC_S_INPUT */
+/* set input, can make sense if we have more than one video src,
+ * called on VIDIOC_S_INPUT */
 int vidioc_s_input(struct file *file, void *fh, unsigned int i) {
   if (i == 0)
     return 0;
@@ -219,7 +218,11 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
     case V4L2_MEMORY_USERPTR:
     {      
       buffer_alloc_type = b->memory;
-      //b->count = 1; /* TODO(vasaka) let app chose skype wants four */
+      buffers_asked = b->count > MAX_BUFFERS;
+      if (buffers_asked > MAX_BUFFERS)
+        return -EINVAL;
+      if (buffers_asked < 1) 
+        buffers_asked = 1;
       my_buffers[0].memory = buffer_alloc_type;      
       return 0;
     }
@@ -230,10 +233,12 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
 /* returns buffer asked for, called on VIDIOC_QUERYBUF */
 static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 {
+  int b_index = b->index; /* skype hack */
   /* TODO(vasaka) add validity check */
   if (b->index>MAX_BUFFERS)
     return -EINVAL;
   *b = my_buffers[0];
+  b->index = b_index;
   return 0;
 }
 /* put buffer to queue, called on VIDIOC_QBUF */
@@ -245,15 +250,18 @@ static int vidioc_qbuf (struct file *file, void *private_data,
 }
 static int vidioc_dqbuf (struct file *file, void *private_data, 
         struct v4l2_buffer *b) {
+  int b_index = b->index;/* skype hack */
   /* TODO(vasaka) add nonblocking */
   wait_event_interruptible(read_event, (frame_counter>0) );
   --frame_counter;
-  my_buffers[0].flags |= V4L2_BUF_FLAG_DONE;
+  my_buffers[0].flags = V4L2_BUF_FLAG_DONE;
   *b = my_buffers[0];
+  b->index = my_buffers[0].sequence%buffers_asked; 
   return 0;
 }
 static int vidioc_streamon(struct file *file, void *private_data, 
                     enum v4l2_buf_type type) {
+  frame_counter = 0; /* TODO(vasaka) consider a better place do drop counter */
   return 0;
 }
 static int vidioc_streamoff(struct file *file, void *private_data, 
@@ -475,7 +483,7 @@ int init_module() {
 	/* default picture parameters */
 	video_format.height = 480;
   video_format.width = 640;
-  video_format.pixelformat = V4L2_PIX_FMT_YUV420;
+  video_format.pixelformat = V4L2_PIX_FMT_YUYV;
   video_format.field = V4L2_FIELD_NONE;
   video_format.bytesperline = video_format.width*3;
   video_format.sizeimage = video_format.height*video_format.width*3;
@@ -488,7 +496,7 @@ int init_module() {
   capture_param.extendedmode = 0;
   capture_param.readbuffers = 1;
   capture_param.timeperframe.numerator = 1;
-  capture_param.timeperframe.denominator = 15;  
+  capture_param.timeperframe.denominator = fps;  
   
 
 	// allocation of the memory used to save the image
@@ -502,7 +510,7 @@ int init_module() {
   /* buffer setup */
   my_buffers[0].bytesused = BUFFER_SIZE; /* actual data size */
   my_buffers[0].length = BUFFER_SIZE; /* buffer size */
-  my_buffers[0].field = 0; /* field of interlaced image */
+  my_buffers[0].field = V4L2_FIELD_NONE; /* field of interlaced image */
   my_buffers[0].flags = 0; /* state of buffer */
   my_buffers[0].index = 0; /* index of buffer */
   my_buffers[0].input = 0; /* this is needed for multiply inputs device */
