@@ -10,3 +10,4 @@ now you can feed device created with data and fetch this data by any v4l2 capabl
 v4l should also work with little to no additional effords
 
 for this moment format is hardcoded to yuv 640x480
+tested wit 2.6.26 kernel only
