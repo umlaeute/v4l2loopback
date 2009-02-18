@@ -16,7 +16,7 @@ Distributed according to the GPL.
 #define DEBUG
 //#define DEBUG_OUT
 //#define DEBUG_RW
-//#define YAVLD_STREAMING
+#define YAVLD_STREAMING
 
 #define KERNEL_PREFIX "YAVLD device: " /* Prefix of each kernel message */
 
@@ -26,8 +26,6 @@ static int usage = -1;
 /* read increases frame_counter, write decreases it */
 static unsigned int frame_counter = 0;
 DECLARE_WAIT_QUEUE_HEAD(read_event);
-DEFINE_MUTEX(buffer_lock);
-
 
 /* modifiable video options */
 static int fps = 30;
@@ -87,6 +85,8 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh, struct v4l2_fmtdesc 
                                void *priv,
                                struct v4l2_format *fmt) {
    /* TODO(vasaka) maybe should add sanity checks here */
+  if (fmt->fmt.pix.pixelformat != video_format.pixelformat)
+    return -EINVAL;   
   fmt->fmt.pix = video_format;
   return 0; 
 }
@@ -219,9 +219,7 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
     case V4L2_MEMORY_USERPTR:
     {      
       buffer_alloc_type = b->memory;
-      buffers_asked = b->count > MAX_BUFFERS;
-      if (buffers_asked > MAX_BUFFERS)
-        return -EINVAL;
+      buffers_asked = b->count > MAX_BUFFERS ? MAX_BUFFERS:b->count;
       if (buffers_asked < 1) 
         buffers_asked = 1;
       my_buffers[0].memory = buffer_alloc_type;      
@@ -383,14 +381,12 @@ static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_
 		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
 		return -EINVAL;
 	}
-  mutex_lock_interruptible(&buffer_lock);
 	if (copy_to_user((void*)buf, (void*)image, count)) {
 		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", buf, image);
 		return -EFAULT;
 	}    
 	//memcpy(buf,image,count);
   --frame_counter;
-  mutex_unlock(&buffer_lock);
 #ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_read(), read frame: %d\n",frame_counter);
 #endif
@@ -404,7 +400,6 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
 		printk(KERNEL_PREFIX "ERROR : you are attempting to write too much data\n");
 		return -EINVAL;
 	}
-  mutex_lock_interruptible(&buffer_lock);
 	// Copy of the input image
   fail_count = copy_from_user((void*)image, (void*)buf, count);
 	if (fail_count) {
@@ -418,7 +413,6 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
   ++frame_counter;
   my_buffers[0].sequence++;
   do_gettimeofday(&my_buffers[0].timestamp);
-  mutex_unlock(&buffer_lock);
   wake_up_all(&read_event);
 #ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_counter);
@@ -503,10 +497,10 @@ int init_module() {
   video_format.width = 640;
   video_format.pixelformat = V4L2_PIX_FMT_YUYV;
   video_format.field = V4L2_FIELD_NONE;
-  video_format.bytesperline = video_format.width*3;
-  video_format.sizeimage = video_format.height*video_format.width*3;
+  video_format.bytesperline = video_format.width*2;
+  video_format.sizeimage = video_format.height*video_format.width*2;
   video_format.colorspace = V4L2_COLORSPACE_SRGB;
-  BUFFER_SIZE = video_format.sizeimage;
+  BUFFER_SIZE = PAGE_ALIGN(video_format.sizeimage);
   
   /* default straming parameters */
   capture_param.capability = 0; 
@@ -539,8 +533,6 @@ int init_module() {
   my_buffers[0].timestamp.tv_usec = 0;
   my_buffers[0].type = V4L2_BUF_TYPE_VIDEO_CAPTURE; /* TODO(vasaka) make adjustable */
   
-  mutex_init(&buffer_lock);
-
   printk(KERNEL_PREFIX "module installed\n");
 
 	return 0;
