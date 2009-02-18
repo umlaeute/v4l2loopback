@@ -1,16 +1,5 @@
 /*
-YAVLD - Another Video Loopback Device
-
-Version : 0.1.4
-
-YAVLD is a V4L dummy video device built to simulate an input video device like a webcam or a video
-capture card. You just have to send the video stream on it (using, for instance, mplayer or ffmpeg),
-that's all. Then, you can use this device by watching the video on it with your favorite video player. But,
-one of the most useful interest, is obviously to use it with a VideoConferencing software to show a video
-over internet. According to the software you are using, you could also be able to capture your screen in
-realtime. A third interest, and maybe not the last one, could be to use it with an image processing (or
-other) software which has been designed to use a video device as input.
-
+YAVLD - Yet Another Video Loopback Device
 Distributed according to the GPL.
 */
 #include <linux/version.h>
@@ -27,6 +16,7 @@ Distributed according to the GPL.
 #define DEBUG
 //#define DEBUG_OUT
 //#define DEBUG_RW
+//#define YAVLD_STREAMING
 
 #define KERNEL_PREFIX "YAVLD device: " /* Prefix of each kernel message */
 
@@ -36,6 +26,7 @@ static int usage = -1;
 /* read increases frame_counter, write decreases it */
 static unsigned int frame_counter = 0;
 DECLARE_WAIT_QUEUE_HEAD(read_event);
+DEFINE_MUTEX(buffer_lock);
 
 
 /* modifiable video options */
@@ -64,7 +55,11 @@ static int vidioc_querycap(struct file *file,
   strcpy(cap->card, "Dummy video device");
   cap->version = 1;
   cap->capabilities =	V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
-                      V4L2_CAP_READWRITE | V4L2_CAP_STREAMING; 
+                      V4L2_CAP_READWRITE 
+#ifdef YAVLD_STREAMING
+                      | V4L2_CAP_STREAMING
+#endif
+  ;
   return 0;
 }
 /******************************************************************************/
@@ -154,15 +149,21 @@ static int vidioc_g_parm(struct file *file, void *priv, struct v4l2_streamparm *
       return -1;
   }
 }
+/* sets a tv standart, actually we do not need to handle this any spetial way
+ *added to support effecttv */
+static int vidioc_s_std(struct file *file, void *private_data, 
+                        v4l2_std_id *norm) {
+  return 0;
+}
 /******************************************************************************/
 /*get some data flaw parameters, only capability, fps and readbuffers has effect
  *on this driver, called on VIDIOC_S_PARM */
 static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *parm) {
-	#ifdef DEBUG
+#ifdef DEBUG
 		printk(KERNEL_PREFIX "vidioc_s_parm called frate=%d/%d\n", 
            parm->parm.capture.timeperframe.numerator, 
            parm->parm.capture.timeperframe.denominator);
-	#endif    
+#endif    
   switch (parm->type)
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -256,7 +257,7 @@ static int vidioc_dqbuf (struct file *file, void *private_data,
   --frame_counter;
   my_buffers[0].flags = V4L2_BUF_FLAG_DONE;
   *b = my_buffers[0];
-  b->index = my_buffers[0].sequence%buffers_asked; 
+  b->index = my_buffers[0].sequence%buffers_asked; /* skype hack */
   return 0;
 }
 static int vidioc_streamon(struct file *file, void *private_data, 
@@ -268,6 +269,16 @@ static int vidioc_streamoff(struct file *file, void *private_data,
                     enum v4l2_buf_type type) {
   return 0;
 }
+#ifdef CONFIG_VIDEO_V4L1_COMPAT
+int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p) {
+  p->frames = 2;
+  buffers_asked =2;  
+  p->offsets[0] = 0;
+  p->offsets[1] = 0;
+  p->size = BUFFER_SIZE;
+  return 0;
+}
+#endif
 /************************************************
 **************** file operations  ***************
 ************************************************/
@@ -291,9 +302,9 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
         unsigned long start = (unsigned long)vma->vm_start;
         unsigned long size = (unsigned long)(vma->vm_end-vma->vm_start);
 
-        #ifdef DEBUG
+#ifdef DEBUG
                 printk(KERNEL_PREFIX "entering v4l_mmap()\n");
-        #endif
+#endif
 
         // if userspace tries to mmap beyond end of our buffer, fail
         if (size>BUFFER_SIZE) {
@@ -320,9 +331,9 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
         vma->vm_private_data = 0; /* TODO(vasaka) put open counter there and set buffer mmaped flag */
         vm_open(vma);
 
-        #ifdef DEBUG
+#ifdef DEBUG
                 printk(KERNEL_PREFIX "leaving v4l_mmap()\n");
-        #endif
+#endif
 
         return 0;
 }
@@ -333,9 +344,9 @@ static unsigned int v4l2_poll(struct file * file, struct poll_table_struct * pts
 }
 static int v4l_open(struct inode *inode, struct file *file) {
 
-	#ifdef DEBUG
+#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_open()\n");
-	#endif
+#endif
 
 	if(usage > 0)
 		return -EBUSY;
@@ -345,9 +356,9 @@ static int v4l_open(struct inode *inode, struct file *file) {
 }
 static int v4l_close(struct inode *inode, struct file *file) {
 
-	#ifdef DEBUG
+#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_close()\n");
-	#endif
+#endif
 
 	usage--;
 
@@ -356,7 +367,7 @@ static int v4l_close(struct inode *inode, struct file *file) {
 
 static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
   wait_event_interruptible(read_event, (frame_counter>0) );
-  #ifdef DEBUG_OUT
+#ifdef DEBUG_OUT
   static int frame_count = 0;
   int i;
   ++frame_count;
@@ -365,22 +376,24 @@ static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_
   {
     image[i] = frame_count+i;
   }
-  #endif
+#endif
   
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
 		return -EINVAL;
 	}
+  mutex_lock_interruptible(&buffer_lock);
 	if (copy_to_user((void*)buf, (void*)image, count)) {
 		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", buf, image);
 		return -EFAULT;
 	}    
 	//memcpy(buf,image,count);
   --frame_counter;
-	#ifdef DEBUG_RW
+  mutex_unlock(&buffer_lock);
+#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_read(), read frame: %d\n",frame_counter);
-	#endif
+#endif
 	return count;
 }
 
@@ -391,7 +404,7 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
 		printk(KERNEL_PREFIX "ERROR : you are attempting to write too much data\n");
 		return -EINVAL;
 	}
-
+  mutex_lock_interruptible(&buffer_lock);
 	// Copy of the input image
   fail_count = copy_from_user((void*)image, (void*)buf, count);
 	if (fail_count) {
@@ -405,10 +418,11 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
   ++frame_counter;
   my_buffers[0].sequence++;
   do_gettimeofday(&my_buffers[0].timestamp);
+  mutex_unlock(&buffer_lock);
   wake_up_all(&read_event);
-	#ifdef DEBUG_RW
+#ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_counter);
-	#endif  
+#endif  
 	return count;
 }
 
@@ -416,9 +430,9 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
 **************** LINUX KERNEL ****************
 ************************************************/
 void release(struct video_device *vdev) {
-	#ifdef DEBUG
+#ifdef DEBUG
 		printk(KERNEL_PREFIX "releasing the video device\n");
-	#endif
+#endif
 	//kfree(vdev);
 }
 
@@ -436,7 +450,7 @@ static struct file_operations v4l_fops = {
 };
 static struct video_device my_device = {
 	name:		"Dummy video device",
-  tvnorms: V4L2_STD_PAL_B, /* set something */
+  tvnorms: V4L2_STD_NTSC|V4L2_STD_SECAM|V4L2_STD_PAL, /* set something */
   current_norm: V4L2_STD_PAL_B,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 	type:		VFL_TYPE_GRABBER,
@@ -456,6 +470,7 @@ static struct video_device my_device = {
   vidioc_s_fmt_video_output: &vidioc_s_fmt_video_output,
   vidioc_try_fmt_cap: &vidioc_try_fmt_cap,
   vidioc_try_fmt_video_output: &vidioc_try_fmt_video_output,
+  vidioc_s_std: &vidioc_s_std,
   vidioc_g_parm: &vidioc_g_parm,
   vidioc_s_parm: &vidioc_s_parm,
   vidioc_reqbufs: &vidioc_reqbufs,
@@ -466,13 +481,16 @@ static struct video_device my_device = {
   vidioc_streamoff: &vidioc_streamoff,
 	minor:		-1,
   debug:    V4L2_DEBUG_IOCTL|V4L2_DEBUG_IOCTL_ARG,
+#ifdef CONFIG_VIDEO_V4L1_COMPAT
+  vidiocgmbuf: &vidiocgmbuf,
+#endif  
 };
 
 int init_module() {
 
-	#ifdef DEBUG
+#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering init_module()\n");
-	#endif
+#endif
 	// we register the device -> it creates /dev/video*
 	if(video_register_device(&my_device, VFL_TYPE_GRABBER, -1) < 0) {
 //    video_device_release(&my_device); TODO(vasaka) uncomment it
@@ -521,16 +539,17 @@ int init_module() {
   my_buffers[0].timestamp.tv_usec = 0;
   my_buffers[0].type = V4L2_BUF_TYPE_VIDEO_CAPTURE; /* TODO(vasaka) make adjustable */
   
+  mutex_init(&buffer_lock);
 
-	printk(KERNEL_PREFIX "module installed\n");
+  printk(KERNEL_PREFIX "module installed\n");
 
 	return 0;
 }
 void cleanup_module() {
 
-	#ifdef DEBUG
+#ifdef DEBUG
 		printk(KERNEL_PREFIX "entering cleanup_module()\n");
-	#endif
+#endif
 
 	// we unallocate the image
 	if ( image != NULL ) {
