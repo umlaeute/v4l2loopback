@@ -14,17 +14,18 @@ Distributed according to the GPL.
 #endif
 
 #define DEBUG
-//#define DEBUG_OUT
 //#define DEBUG_RW
 #define YAVLD_STREAMING
 
 #define KERNEL_PREFIX "YAVLD device: " /* Prefix of each kernel message */
 
+/* TODO(vasaka) move all global data to private field I think 
+ * this would be better then having global variables*/
+
 /* The device can't be used by more than 2 applications ( typically : a read and a write application )
 Decrease this number if you want it to be accessible for more applications.*/
 static int usage = -1;
-/* read increases frame_counter, write decreases it */
-static unsigned int frame_counter = 0;
+static int readers = 0;
 DECLARE_WAIT_QUEUE_HEAD(read_event);
 
 /* modifiable video options */
@@ -33,14 +34,60 @@ static struct v4l2_pix_format video_format;
 
 /* buffers stuff */
 static __u8 *image = NULL;
-enum v4l2_memory  buffer_alloc_type;
 struct v4l2_captureparm	capture_param;
 #define MAX_BUFFERS 5
-static int buffers_asked = 1;
-struct v4l2_buffer my_buffers[MAX_BUFFERS];
-
+static struct v4l2_buffer my_buffers[MAX_BUFFERS];
+struct buffers_queue {
+  struct v4l2_buffer *buffers[MAX_BUFFERS]; /* just array of index */
+  int elements_number; /* how many elements queued */
+  int in_position;
+  int out_position;
+};
+static struct buffers_queue incoming_queue = { 
+                                                in_position: 0, 
+                                                out_position: 0, 
+                                                elements_number: 0,
+};
+static struct buffers_queue outgoing_queue = {                                                
+                                                in_position: 0, 
+                                                out_position: 0, 
+                                                elements_number: 0,
+};
 static long BUFFER_SIZE = 0;
-
+/****************************************************************
+**************** my queue helpers *******************************
+****************************************************************/
+/******************************************************************************/
+/* puts buffer buf into queue, returns 0 on success */
+static int queue_my_buffer (struct buffers_queue *queue, 
+                            struct v4l2_buffer *buf) {
+  if (queue->elements_number == MAX_BUFFERS)
+  {
+    #ifdef DEBUG
+      printk(KERNEL_PREFIX "queue failed\n");
+    #endif
+    return -1;
+  }
+  queue->buffers[queue->in_position++] = buf;
+  queue->in_position %= MAX_BUFFERS;
+  ++queue->elements_number;
+  return 0;
+}
+/* removes buffer from queue and puts in buf pointer, returns 0 on success */
+static int dequeue_my_buffer (struct buffers_queue *queue, 
+                              struct v4l2_buffer *buf) {
+  if (queue->elements_number == 0)
+  {
+    #ifdef DEBUG
+      printk(KERNEL_PREFIX "dequeue failed\n");
+    #endif    
+    return -1;
+  }
+  *buf = *queue->buffers[queue->out_position++];
+  queue->out_position %= MAX_BUFFERS;
+  --queue->elements_number;
+  return 0;
+}
 /****************************************************************
 **************** V4L2 ioctl caps and params calls ***************
 ****************************************************************/
@@ -213,16 +260,21 @@ int vidioc_s_input(struct file *file, void *fh, unsigned int i) {
 ***************************************************************/
 /* negotiate buffer type, called on VIDIOC_REQBUFS */
 static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffers *b) {
+  int i;
   switch (b->memory)
   {
+    /* only mmap streaming supported */
     case V4L2_MEMORY_MMAP:
-    case V4L2_MEMORY_USERPTR:
     {      
-      buffer_alloc_type = b->memory;
-      buffers_asked = b->count > MAX_BUFFERS ? MAX_BUFFERS:b->count;
-      if (buffers_asked < 1) 
-        buffers_asked = 1;
-      my_buffers[0].memory = buffer_alloc_type;      
+      if (b->count == 0) 
+      {
+        /* do nothing here, use number of RD_ONLY opens as indicator if we need
+         *to process anything */
+        return 0;
+      }
+      for(i=0;i<MAX_BUFFERS;++i)
+        my_buffers[i].memory = V4L2_MEMORY_MMAP;      
+      b->count = MAX_BUFFERS;
       return 0;
     }
     default:
@@ -232,35 +284,72 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
 /* returns buffer asked for, called on VIDIOC_QUERYBUF */
 static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 {
-  int b_index = b->index; /* skype hack */
-  /* TODO(vasaka) add validity check */
+  enum v4l2_buf_type type = b->type;
+  if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)&&
+     (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
+    return -EINVAL;
   if (b->index>MAX_BUFFERS)
     return -EINVAL;
-  *b = my_buffers[0];
-  b->index = b_index;
+  /* store type to give the app what it wants */
+  *b = my_buffers[b->index];
+  b->type = type;
   return 0;
 }
 /* put buffer to queue, called on VIDIOC_QBUF */
 static int vidioc_qbuf (struct file *file, void *private_data, 
-                 struct v4l2_buffer *buf) {
-  /* TODO(vasaka) add validity check */
-  buf->flags |= V4L2_BUF_FLAG_QUEUED;
-  return 0;
+                 struct v4l2_buffer *buf) {  
+  if (buf->index>MAX_BUFFERS)
+    return -EINVAL;
+  switch (buf->type) 
+  {
+    case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+    {
+      if (!(my_buffers[buf->index].flags&V4L2_BUF_FLAG_QUEUED))
+        queue_my_buffer(&incoming_queue,&my_buffers[buf->index]);
+      my_buffers[buf->index].flags |= V4L2_BUF_FLAG_QUEUED;
+      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_DONE;
+      return 0;
+    }
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+    {      
+      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_QUEUED;
+      my_buffers[buf->index].flags |= V4L2_BUF_FLAG_DONE;      
+      queue_my_buffer(&outgoing_queue, &my_buffers[buf->index]);
+      do_gettimeofday(&my_buffers[buf->index].timestamp);
+      wake_up_all(&read_event);      
+      return 0;
+    }
+    default:
+      return -EINVAL;
+  }
 }
+/* put buffer to dequeue, called on VIDIOC_DQBUF */
 static int vidioc_dqbuf (struct file *file, void *private_data, 
-        struct v4l2_buffer *b) {
-  int b_index = b->index;/* skype hack */
-  /* TODO(vasaka) add nonblocking */
-  wait_event_interruptible(read_event, (frame_counter>0) );
-  --frame_counter;
-  my_buffers[0].flags = V4L2_BUF_FLAG_DONE;
-  *b = my_buffers[0];
-  b->index = my_buffers[0].sequence%buffers_asked; /* skype hack */
+        struct v4l2_buffer *buf) {
+  switch (buf->type) 
+  {
+    case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+    {
+      /* TODO(vasaka) add nonblocking */
+      wait_event_interruptible(read_event, (outgoing_queue.elements_number>0) );
+      dequeue_my_buffer(&outgoing_queue, buf);
+      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_QUEUED;
+      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_DONE;
+      return 0;
+    }
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+    {      
+      /* TODO(vasaka) need to add check for empty queue and polling for buffer*/
+      dequeue_my_buffer(&incoming_queue, buf);
+      return 0;
+    }
+    default:
+      return -EINVAL;
+  }  
   return 0;
 }
 static int vidioc_streamon(struct file *file, void *private_data, 
                     enum v4l2_buf_type type) {
-  frame_counter = 0; /* TODO(vasaka) consider a better place do drop counter */
   return 0;
 }
 static int vidioc_streamoff(struct file *file, void *private_data, 
@@ -269,8 +358,7 @@ static int vidioc_streamoff(struct file *file, void *private_data,
 }
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
 int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p) {
-  p->frames = 2;
-  buffers_asked =2;  
+  p->frames = MAX_BUFFERS;
   p->offsets[0] = 0;
   p->offsets[1] = 0;
   p->size = BUFFER_SIZE;
@@ -311,7 +399,7 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
         }
 
         // start off at the start of the buffer
-        addr=(unsigned long) image;
+        addr=(unsigned long) image+vma->vm_pgoff;
 
         // loop through all the physical pages in the buffer
         while (size > 0) {
@@ -337,7 +425,8 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
 }
 static unsigned int v4l2_poll(struct file * file, struct poll_table_struct * pts) {
   /* we can read when something is in buffer */
-  wait_event_interruptible(read_event, (frame_counter>0) ); 
+  /* TODO(vasaka) make a distinction between reader and writer */
+  wait_event_interruptible(read_event, (outgoing_queue.elements_number>0) ); 
   return POLLIN|POLLRDNORM;
 }
 static int v4l_open(struct inode *inode, struct file *file) {
@@ -357,36 +446,28 @@ static int v4l_close(struct inode *inode, struct file *file) {
 #ifdef DEBUG
 		printk(KERNEL_PREFIX "entering v4l_close()\n");
 #endif
-
 	usage--;
 
 	return 0;
 }
 
 static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
-  wait_event_interruptible(read_event, (frame_counter>0) );
-#ifdef DEBUG_OUT
-  static int frame_count = 0;
-  int i;
-  ++frame_count;
-  printk(KERNEL_PREFIX "read frame number %d\n", frame_count);
-  for(i=0;i<BUFFER_SIZE;++i)
-  {
-    image[i] = frame_count+i;
-  }
-#endif
-  
+  struct v4l2_buffer my_buffer;
+  /* TODO(vasaka) fill incoming_queue before starting IO */
+  wait_event_interruptible(read_event, (outgoing_queue.elements_number>0) );
+  /* do not know other way to find out that we use basic IO */
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
 		return -EINVAL;
 	}
-	if (copy_to_user((void*)buf, (void*)image, count)) {
+  dequeue_my_buffer(&outgoing_queue, &my_buffer);
+	if (copy_to_user((void*)buf, (void*)(image+my_buffer.m.offset), count)) {
 		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", buf, image);
 		return -EFAULT;
-	}    
+	}
 	//memcpy(buf,image,count);
-  --frame_counter;
+  queue_my_buffer(&incoming_queue, &my_buffers[(my_buffer.index+1)%MAX_BUFFERS]);
 #ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_read(), read frame: %d\n",frame_counter);
 #endif
@@ -394,14 +475,25 @@ static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_
 }
 
 static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
-  int fail_count;
+  int fail_count,ret;
+  struct v4l2_buffer my_buffer;
+  static int frame_number = 0;
+  /* we do not need to write anithyng if there is no incoming buffers */
+  if (incoming_queue.elements_number == 0)
+    return count;
 	// if input size superior to the buffered image size
 	if (count > BUFFER_SIZE) {
 		printk(KERNEL_PREFIX "ERROR : you are attempting to write too much data\n");
 		return -EINVAL;
 	}
+  ret = dequeue_my_buffer(&incoming_queue, &my_buffer);
+  if (ret) 
+  {
+    printk(KERNEL_PREFIX "dequeue failed in write\n");
+    return -EFAULT;
+  }
 	// Copy of the input image
-  fail_count = copy_from_user((void*)image, (void*)buf, count);
+  fail_count = copy_from_user((void*)(image+my_buffer.m.offset), (void*)buf, count);
 	if (fail_count) {
 		printk (KERNEL_PREFIX
             "failed copy_from_user() in write buf, could not write %d of %d\n",
@@ -410,12 +502,14 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
 		return -EFAULT;
 	}
   //memcpy(image, buf, count);
-  ++frame_counter;
-  my_buffers[0].sequence++;
-  do_gettimeofday(&my_buffers[0].timestamp);
+  my_buffers[my_buffer.index].flags &= ~V4L2_BUF_FLAG_QUEUED;
+  my_buffers[my_buffer.index].flags |= V4L2_BUF_FLAG_DONE;     
+  my_buffers[my_buffer.index].sequence = frame_number++;
+  do_gettimeofday(&my_buffers[my_buffer.index].timestamp);
+  queue_my_buffer(&outgoing_queue, &my_buffers[my_buffer.index]);
   wake_up_all(&read_event);
 #ifdef DEBUG_RW
-		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_counter);
+		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_number);
 #endif  
 	return count;
 }
@@ -480,6 +574,26 @@ static struct video_device my_device = {
 #endif  
 };
 
+void init_buffers (int buffer_size)
+{
+  int i;
+  for (i=0;i<MAX_BUFFERS;++i)
+  {
+    my_buffers[i].bytesused = buffer_size; /* actual data size */
+    my_buffers[i].length = buffer_size; /* buffer size */
+    my_buffers[i].field = V4L2_FIELD_NONE; /* field of interlaced image */
+    my_buffers[i].flags = 0; /* state of buffer, flags are valid for capture mode */
+    my_buffers[i].index = i; /* index of buffer */
+    my_buffers[i].input = 0; /* this is needed for multiply inputs device */
+    my_buffers[i].m.offset = i*buffer_size; /* magic cookie of the buffer */
+    my_buffers[i].memory = V4L2_MEMORY_MMAP; /* type of buffer TODO(vasaka) make adjustable */
+    my_buffers[i].sequence = 0; /* number of frame transferred */
+    my_buffers[i].timestamp.tv_sec = 0; /* 0 means as soon as possible */
+    my_buffers[i].timestamp.tv_usec = 0;
+    my_buffers[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE; /* TODO(vasaka) make adjustable */    
+  }
+}
+
 int init_module() {
 
 #ifdef DEBUG
@@ -510,28 +624,18 @@ int init_module() {
   capture_param.timeperframe.numerator = 1;
   capture_param.timeperframe.denominator = fps;  
   
-
+  init_buffers(BUFFER_SIZE);
 	// allocation of the memory used to save the image
-	image = vmalloc (BUFFER_SIZE*3);
+  /* TODO(vasaka) move this to reqbufs in order to make it consume only memory
+   * needed */
+	image = vmalloc (BUFFER_SIZE*MAX_BUFFERS);
 	if (!image) {
     video_unregister_device(&my_device);
 		printk (KERN_INFO "failed vmalloc\n");
 		return -EINVAL;
 	}
-	memset(image,0,BUFFER_SIZE*3);
+	memset(image,0,BUFFER_SIZE*MAX_BUFFERS);
   /* buffer setup */
-  my_buffers[0].bytesused = BUFFER_SIZE; /* actual data size */
-  my_buffers[0].length = BUFFER_SIZE; /* buffer size */
-  my_buffers[0].field = V4L2_FIELD_NONE; /* field of interlaced image */
-  my_buffers[0].flags = 0; /* state of buffer */
-  my_buffers[0].index = 0; /* index of buffer */
-  my_buffers[0].input = 0; /* this is needed for multiply inputs device */
-  my_buffers[0].m.offset = 0; /* magic cookie of the buffer */
-  my_buffers[0].memory = V4L2_MEMORY_MMAP; /* type of buffer TODO(vasaka) make adjustable */
-  my_buffers[0].sequence = 0; /* number of frame transferred */
-  my_buffers[0].timestamp.tv_sec = 0; /* 0 means as soon as possible */
-  my_buffers[0].timestamp.tv_usec = 0;
-  my_buffers[0].type = V4L2_BUF_TYPE_VIDEO_CAPTURE; /* TODO(vasaka) make adjustable */
   
   printk(KERNEL_PREFIX "module installed\n");
 
