@@ -42,6 +42,7 @@ static struct v4l2_buffer my_buffers[MAX_BUFFERS];
 static int queued_number = 0;
 static int done_number = 0;
 static long BUFFER_SIZE = 0;
+static int num_collect=1; /* how many buffers to capture before give it to app*/
 /****************************************************************
 **************** my queue helpers *******************************
 ****************************************************************/
@@ -51,13 +52,13 @@ static int find_oldest_done(void)
 {
   int i;
   int oldest_index = -1;
-  __u32 oldest_frame = -1;
+  __u32 oldest_frame = -1; /* this should be max __u32 */
   if (done_number == 0)
     return -1;
   for(i=0;i<MAX_BUFFERS;++i)
   {
     if ((my_buffers[i].flags&V4L2_BUF_FLAG_DONE)&&
-            (my_buffers[i].sequence<oldest_index))
+        (my_buffers[i].sequence<oldest_index))
     {
       oldest_frame = my_buffers[i].sequence;
       oldest_index = i;
@@ -72,7 +73,7 @@ static int find_next_queued(int index)
   int queued_index = -1;
   if (queued_number == 0)
     return -1;
-  for(i=0;i<MAX_BUFFERS;++i)
+  for(i=1;i<=MAX_BUFFERS;++i)
   {
     if (my_buffers[(index+i)%MAX_BUFFERS].flags&V4L2_BUF_FLAG_QUEUED)
     {
@@ -336,6 +337,8 @@ static int vidioc_qbuf (struct file *file, void *private_data,
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
     {
+      if (my_buffers[buf->index].flags&V4L2_BUF_FLAG_DONE)
+        return 0;
       set_queued(&my_buffers[buf->index]);
       return 0;
     }
@@ -354,21 +357,25 @@ static int vidioc_qbuf (struct file *file, void *private_data,
 static int vidioc_dqbuf (struct file *file, void *private_data, 
         struct v4l2_buffer *buf) {
   int index;
-  static int queued_index = 0;
+  static int queued_index = MAX_BUFFERS;
   switch (buf->type) 
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
     {
       /* TODO(vasaka) add nonblocking */
-      wait_event_interruptible(read_event, (done_number>0) );
+      wait_event_interruptible(read_event, (done_number>=num_collect) );
+      /* TODO(vasaka) uncomment when blocking io will be OK */
+      /*if (done_number<num_collect)
+        return -EAGAIN;
+       */
       index = find_oldest_done();
       if (index<0)
       {
         printk (KERN_INFO "find_oldest_done failed on dqbuf\n");
         return -EFAULT;    
       }      
+      unset_all(&my_buffers[index]);
       *buf = my_buffers[index];
-      unset_all(&my_buffers[buf->index]);
       return 0;
     }
     case V4L2_BUF_TYPE_VIDEO_OUTPUT:
@@ -380,8 +387,8 @@ static int vidioc_dqbuf (struct file *file, void *private_data,
         printk (KERN_INFO "find_next_queued failed on dqbuf\n");
         return -EFAULT;    
       }      
-      *buf = my_buffers[queued_index];
       unset_all(&my_buffers[queued_index]);
+      *buf = my_buffers[queued_index];
       return 0;
     }
     default:
@@ -430,7 +437,8 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
         unsigned long size = (unsigned long)(vma->vm_end-vma->vm_start);
 
 #ifdef DEBUG
-                printk(KERNEL_PREFIX "entering v4l_mmap()\n");
+                printk(KERNEL_PREFIX "entering v4l_mmap(), offset: %lu\n",
+                       vma->vm_pgoff<<PAGE_SHIFT);
 #endif
 
         // if userspace tries to mmap beyond end of our buffer, fail
@@ -440,7 +448,7 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
         }
 
         // start off at the start of the buffer
-        addr=(unsigned long) image+vma->vm_pgoff;
+        addr=(unsigned long) image+(vma->vm_pgoff<<PAGE_SHIFT);
 
         // loop through all the physical pages in the buffer
         while (size > 0) {
@@ -467,7 +475,7 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
 static unsigned int v4l2_poll(struct file * file, struct poll_table_struct * pts) {
   /* we can read when something is in buffer */
   /* TODO(vasaka) make a distinction between reader and writer */
-  wait_event_interruptible(read_event, (done_number>0) ); 
+  wait_event_interruptible(read_event, (done_number>=num_collect) ); 
   return POLLIN|POLLRDNORM;
 }
 static int v4l_open(struct inode *inode, struct file *file) {
@@ -495,7 +503,7 @@ static int v4l_close(struct inode *inode, struct file *file) {
 static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
   int done_index;
   /* TODO(vasaka) fill incoming_queue before starting basic IO */
-  wait_event_interruptible(read_event, (done_number>0) );
+  wait_event_interruptible(read_event, (done_number>=num_collect) );
 	// we can write only what we have already
 	if (count > BUFFER_SIZE) 
     count = BUFFER_SIZE;
@@ -520,13 +528,19 @@ static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_
 }
 
 static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
-  static int  queued_index = 0;
+  static int queued_index = 0;
   static int frame_number = 0;
 #ifdef DEBUG_RW
-		printk(KERNEL_PREFIX "v4l_write(), enter write frame: %d\n",frame_number);
+		printk(KERNEL_PREFIX 
+           "in v4l_write() frame: %d done: %d queued: %d buf: %d count %d\n",
+           frame_number,
+           done_number,
+           queued_number,
+           queued_index,
+           count);
 #endif    
   /* we do not need to write anithyng if there is no incoming buffers */
-  if (queued_number == 0)
+  if (queued_number < 2)
     return count;
 	// we simply throw away what is more than we want
 	if (count > BUFFER_SIZE) 
@@ -551,7 +565,13 @@ static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count
   set_done(&my_buffers[queued_index]);
   wake_up_all(&read_event);
 #ifdef DEBUG_RW
-		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_number);
+		printk(KERNEL_PREFIX 
+           "out v4l_write() frame: %d done: %d queued: %d buf: %d offset %d\n",
+           frame_number,
+           done_number,
+           queued_number,
+           queued_index,
+           my_buffers[queued_index].m.offset);
 #endif  
 	return count;
 }
