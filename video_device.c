@@ -14,7 +14,7 @@ Distributed according to the GPL.
 #endif
 
 #define DEBUG
-//#define DEBUG_RW
+#define DEBUG_RW
 #define YAVLD_STREAMING
 
 #define KERNEL_PREFIX "YAVLD device: " /* Prefix of each kernel message */
@@ -36,57 +36,91 @@ static struct v4l2_pix_format video_format;
 static __u8 *image = NULL;
 struct v4l2_captureparm	capture_param;
 #define MAX_BUFFERS 5
+/* TODO(vasaka) make set of buffers for each opener, in order to give them only
+ *buffers they mmaped */
 static struct v4l2_buffer my_buffers[MAX_BUFFERS];
-struct buffers_queue {
-  struct v4l2_buffer *buffers[MAX_BUFFERS]; /* just array of index */
-  int elements_number; /* how many elements queued */
-  int in_position;
-  int out_position;
-};
-static struct buffers_queue incoming_queue = { 
-                                                in_position: 0, 
-                                                out_position: 0, 
-                                                elements_number: 0,
-};
-static struct buffers_queue outgoing_queue = {                                                
-                                                in_position: 0, 
-                                                out_position: 0, 
-                                                elements_number: 0,
-};
+static int queued_number = 0;
+static int done_number = 0;
 static long BUFFER_SIZE = 0;
 /****************************************************************
 **************** my queue helpers *******************************
 ****************************************************************/
 /******************************************************************************/
-/* puts buffer buf into queue, returns 0 on success */
-static int queue_my_buffer (struct buffers_queue *queue, 
-                            struct v4l2_buffer *buf) {
-  if (queue->elements_number == MAX_BUFFERS)
-  {
-    #ifdef DEBUG
-      printk(KERNEL_PREFIX "queue failed\n");
-    #endif
+/*finds oldest index in outgoing queue, returns index on success -1 on failure*/
+static int find_oldest_done(void)
+{
+  int i;
+  int oldest_index = -1;
+  __u32 oldest_frame = -1;
+  if (done_number == 0)
     return -1;
+  for(i=0;i<MAX_BUFFERS;++i)
+  {
+    if ((my_buffers[i].flags&V4L2_BUF_FLAG_DONE)&&
+            (my_buffers[i].sequence<oldest_index))
+    {
+      oldest_frame = my_buffers[i].sequence;
+      oldest_index = i;
+    }
   }
-  queue->buffers[queue->in_position++] = buf;
-  queue->in_position %= MAX_BUFFERS;
-  ++queue->elements_number;
-  return 0;
+  return oldest_index;
 }
-/* removes buffer from queue and puts in buf pointer, returns 0 on success */
-static int dequeue_my_buffer (struct buffers_queue *queue, 
-                              struct v4l2_buffer *buf) {
-  if (queue->elements_number == 0)
-  {
-    #ifdef DEBUG
-      printk(KERNEL_PREFIX "dequeue failed\n");
-    #endif    
+/* finds next index in incoming queue, returns index on success -1 on failure */
+static int find_next_queued(int index)
+{
+  int i;
+  int queued_index = -1;
+  if (queued_number == 0)
     return -1;
+  for(i=0;i<MAX_BUFFERS;++i)
+  {
+    if (my_buffers[(index+i)%MAX_BUFFERS].flags&V4L2_BUF_FLAG_QUEUED)
+    {
+      queued_index = (index+i)%MAX_BUFFERS;
+      return queued_index;
+    }
   }
-  *buf = *queue->buffers[queue->out_position++];
-  queue->out_position %= MAX_BUFFERS;
-  --queue->elements_number;
-  return 0;
+  return queued_index;
+}
+/* next functions sets buffer flags and adjusts counters accordingly */
+void set_done(struct v4l2_buffer *buffer)
+{
+  if (!(buffer->flags&V4L2_BUF_FLAG_DONE))
+  {
+    buffer->flags |= V4L2_BUF_FLAG_DONE;
+    ++done_number;
+  }
+  if (buffer->flags&V4L2_BUF_FLAG_QUEUED)
+  {
+    buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
+    --queued_number;
+  }  
+}
+void set_queued(struct v4l2_buffer *buffer)
+{
+  if (!(buffer->flags&V4L2_BUF_FLAG_QUEUED))
+  {
+    buffer->flags |= V4L2_BUF_FLAG_QUEUED;
+    ++queued_number;
+  }
+  if (buffer->flags&V4L2_BUF_FLAG_DONE)
+  {
+    buffer->flags &= ~V4L2_BUF_FLAG_DONE;
+    --done_number;
+  }    
+}
+void unset_all(struct v4l2_buffer *buffer)
+{
+  if (buffer->flags&V4L2_BUF_FLAG_QUEUED)
+  {
+    buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
+    --queued_number;
+  }
+  if (buffer->flags&V4L2_BUF_FLAG_DONE)
+  {
+    buffer->flags &= ~V4L2_BUF_FLAG_DONE;
+    --done_number;
+  }   
 }
 /****************************************************************
 **************** V4L2 ioctl caps and params calls ***************
@@ -205,7 +239,8 @@ static int vidioc_s_std(struct file *file, void *private_data,
 /******************************************************************************/
 /*get some data flaw parameters, only capability, fps and readbuffers has effect
  *on this driver, called on VIDIOC_S_PARM */
-static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *parm) {
+static int vidioc_s_parm(struct file *file, void *priv, 
+                         struct v4l2_streamparm *parm) {
 #ifdef DEBUG
 		printk(KERNEL_PREFIX "vidioc_s_parm called frate=%d/%d\n", 
            parm->parm.capture.timeperframe.numerator, 
@@ -230,7 +265,8 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 }
 /* returns set of device inputs, in our case there is only one, but later I may
  * add more, called on VIDIOC_ENUMINPUT */
-static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp) {
+static int vidioc_enum_input(struct file *file, void *fh, 
+                             struct v4l2_input *inp) {
   if (inp->index==0) 
   {
     strcpy(inp->name,"loopback");
@@ -260,7 +296,6 @@ int vidioc_s_input(struct file *file, void *fh, unsigned int i) {
 ***************************************************************/
 /* negotiate buffer type, called on VIDIOC_REQBUFS */
 static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffers *b) {
-  int i;
   switch (b->memory)
   {
     /* only mmap streaming supported */
@@ -268,12 +303,9 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
     {      
       if (b->count == 0) 
       {
-        /* do nothing here, use number of RD_ONLY opens as indicator if we need
-         *to process anything */
+        /* do nothing here, buffers are always allocated */
         return 0;
       }
-      for(i=0;i<MAX_BUFFERS;++i)
-        my_buffers[i].memory = V4L2_MEMORY_MMAP;      
       b->count = MAX_BUFFERS;
       return 0;
     }
@@ -284,13 +316,13 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
 /* returns buffer asked for, called on VIDIOC_QUERYBUF */
 static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 {
+  /* store type to give the app what it wants */
   enum v4l2_buf_type type = b->type;
   if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)&&
      (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
     return -EINVAL;
   if (b->index>MAX_BUFFERS)
     return -EINVAL;
-  /* store type to give the app what it wants */
   *b = my_buffers[b->index];
   b->type = type;
   return 0;
@@ -304,18 +336,13 @@ static int vidioc_qbuf (struct file *file, void *private_data,
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
     {
-      if (!(my_buffers[buf->index].flags&V4L2_BUF_FLAG_QUEUED))
-        queue_my_buffer(&incoming_queue,&my_buffers[buf->index]);
-      my_buffers[buf->index].flags |= V4L2_BUF_FLAG_QUEUED;
-      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_DONE;
+      set_queued(&my_buffers[buf->index]);
       return 0;
     }
     case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     {      
-      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_QUEUED;
-      my_buffers[buf->index].flags |= V4L2_BUF_FLAG_DONE;      
-      queue_my_buffer(&outgoing_queue, &my_buffers[buf->index]);
       do_gettimeofday(&my_buffers[buf->index].timestamp);
+      set_done(&my_buffers[buf->index]);
       wake_up_all(&read_event);      
       return 0;
     }
@@ -326,21 +353,35 @@ static int vidioc_qbuf (struct file *file, void *private_data,
 /* put buffer to dequeue, called on VIDIOC_DQBUF */
 static int vidioc_dqbuf (struct file *file, void *private_data, 
         struct v4l2_buffer *buf) {
+  int index;
+  static int queued_index = 0;
   switch (buf->type) 
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
     {
       /* TODO(vasaka) add nonblocking */
-      wait_event_interruptible(read_event, (outgoing_queue.elements_number>0) );
-      dequeue_my_buffer(&outgoing_queue, buf);
-      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_QUEUED;
-      my_buffers[buf->index].flags &= ~V4L2_BUF_FLAG_DONE;
+      wait_event_interruptible(read_event, (done_number>0) );
+      index = find_oldest_done();
+      if (index<0)
+      {
+        printk (KERN_INFO "find_oldest_done failed on dqbuf\n");
+        return -EFAULT;    
+      }      
+      *buf = my_buffers[index];
+      unset_all(&my_buffers[buf->index]);
       return 0;
     }
     case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     {      
       /* TODO(vasaka) need to add check for empty queue and polling for buffer*/
-      dequeue_my_buffer(&incoming_queue, buf);
+      queued_index = find_next_queued(queued_index);
+      if (queued_index<0)
+      {
+        printk (KERN_INFO "find_next_queued failed on dqbuf\n");
+        return -EFAULT;    
+      }      
+      *buf = my_buffers[queued_index];
+      unset_all(&my_buffers[queued_index]);
       return 0;
     }
     default:
@@ -426,7 +467,7 @@ static int v4l2_mmap(struct file *file, struct vm_area_struct *vma) {
 static unsigned int v4l2_poll(struct file * file, struct poll_table_struct * pts) {
   /* we can read when something is in buffer */
   /* TODO(vasaka) make a distinction between reader and writer */
-  wait_event_interruptible(read_event, (outgoing_queue.elements_number>0) ); 
+  wait_event_interruptible(read_event, (done_number>0) ); 
   return POLLIN|POLLRDNORM;
 }
 static int v4l_open(struct inode *inode, struct file *file) {
@@ -452,61 +493,62 @@ static int v4l_close(struct inode *inode, struct file *file) {
 }
 
 static ssize_t v4l_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
-  struct v4l2_buffer my_buffer;
-  /* TODO(vasaka) fill incoming_queue before starting IO */
-  wait_event_interruptible(read_event, (outgoing_queue.elements_number>0) );
-  /* do not know other way to find out that we use basic IO */
-	// if input size superior to the buffered image size
-	if (count > BUFFER_SIZE) {
-		printk(KERNEL_PREFIX "ERROR : you are attempting to read too much data : %d/%lu\n",count,BUFFER_SIZE);
-		return -EINVAL;
-	}
-  dequeue_my_buffer(&outgoing_queue, &my_buffer);
-	if (copy_to_user((void*)buf, (void*)(image+my_buffer.m.offset), count)) {
-		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", buf, image);
+  int done_index;
+  /* TODO(vasaka) fill incoming_queue before starting basic IO */
+  wait_event_interruptible(read_event, (done_number>0) );
+	// we can write only what we have already
+	if (count > BUFFER_SIZE) 
+    count = BUFFER_SIZE;
+  done_index = find_oldest_done();
+  if (done_index<0)
+  {
+		printk (KERN_INFO "find_oldest_done failed on read\n");
+		return -EFAULT;    
+  }
+  unset_all(&my_buffers[done_index]);
+	if (copy_to_user((void*)buf, 
+                   (void*)(image+my_buffers[done_index].m.offset), count)) {
+		printk (KERN_INFO "failed copy_from_user() in write buf: %p, image: %p\n", 
+            buf, image);
 		return -EFAULT;
 	}
-	//memcpy(buf,image,count);
-  queue_my_buffer(&incoming_queue, &my_buffers[(my_buffer.index+1)%MAX_BUFFERS]);
+  set_queued(&my_buffers[done_index]);
 #ifdef DEBUG_RW
-		printk(KERNEL_PREFIX "v4l_read(), read frame: %d\n",frame_counter);
+		printk(KERNEL_PREFIX "leave v4l_read()\n");
 #endif
 	return count;
 }
 
 static ssize_t v4l_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
-  int fail_count,ret;
-  struct v4l2_buffer my_buffer;
+  static int  queued_index = 0;
   static int frame_number = 0;
+#ifdef DEBUG_RW
+		printk(KERNEL_PREFIX "v4l_write(), enter write frame: %d\n",frame_number);
+#endif    
   /* we do not need to write anithyng if there is no incoming buffers */
-  if (incoming_queue.elements_number == 0)
+  if (queued_number == 0)
     return count;
-	// if input size superior to the buffered image size
-	if (count > BUFFER_SIZE) {
-		printk(KERNEL_PREFIX "ERROR : you are attempting to write too much data\n");
-		return -EINVAL;
-	}
-  ret = dequeue_my_buffer(&incoming_queue, &my_buffer);
-  if (ret) 
+	// we simply throw away what is more than we want
+	if (count > BUFFER_SIZE) 
+    count = BUFFER_SIZE;
+  queued_index = find_next_queued(queued_index);
+  if (queued_index<0)
   {
-    printk(KERNEL_PREFIX "dequeue failed in write\n");
-    return -EFAULT;
+		printk (KERN_INFO "find_next_queued failed on write\n");
+		return -EFAULT;    
   }
+  unset_all(&my_buffers[queued_index]);
 	// Copy of the input image
-  fail_count = copy_from_user((void*)(image+my_buffer.m.offset), (void*)buf, count);
-	if (fail_count) {
+	if (copy_from_user((void*)(image+my_buffers[queued_index].m.offset), 
+                     (void*)buf, count)) {
 		printk (KERNEL_PREFIX
-            "failed copy_from_user() in write buf, could not write %d of %d\n",
-            fail_count,
+            "failed copy_from_user() in write buf, could not write %d\n",
             count);
 		return -EFAULT;
 	}
-  //memcpy(image, buf, count);
-  my_buffers[my_buffer.index].flags &= ~V4L2_BUF_FLAG_QUEUED;
-  my_buffers[my_buffer.index].flags |= V4L2_BUF_FLAG_DONE;     
-  my_buffers[my_buffer.index].sequence = frame_number++;
-  do_gettimeofday(&my_buffers[my_buffer.index].timestamp);
-  queue_my_buffer(&outgoing_queue, &my_buffers[my_buffer.index]);
+  my_buffers[queued_index].sequence = frame_number++;
+  do_gettimeofday(&my_buffers[queued_index].timestamp);
+  set_done(&my_buffers[queued_index]);
   wake_up_all(&read_event);
 #ifdef DEBUG_RW
 		printk(KERNEL_PREFIX "v4l_write(), written frame: %d\n",frame_number);
