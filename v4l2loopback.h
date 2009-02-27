@@ -16,37 +16,36 @@
  * it is needed */
 /* struct keeping state and settings of loopback device */
 struct v4l2_loopback_device {
-  struct video_device *vdev;
-  /* pixel and stream format */
-  struct v4l2_pix_format pix_format;
-  struct v4l2_captureparm	capture_param;
-  /* buffers stuff */
-  __u8 *image; /* pointer to actual buffers data */
-  int buffers_number; /* should not be big 4 is a good choise */
-  struct v4l2_buffer *buffers; /* inner driver buffers */
-  int queued_number; /* number of buffers in incoming queue */
-  int done_number;   /* number of buffers in outgoing queue 
-                      * queued_number + done_number <= buffers_number 
-                      * should be changed by helper functions only */                      
-  long buffer_size;
-  int num_collect; /* how many buffers to capture before give it to app*/
-  /* sync stuff */
-  int open_count;
-  int redy_for_capture; /* set to true when at least one writer opened device 
-                         * and negotiated format */
-  wait_queue_head_t read_event;
+	struct video_device *vdev;
+	/* pixel and stream format */
+	struct v4l2_pix_format pix_format;
+	struct v4l2_captureparm capture_param;
+	/* buffers stuff */
+	__u8 *image;		/* pointer to actual buffers data */
+	int buffers_number;	/* should not be big 4 is a good choise */
+	struct v4l2_buffer *buffers;	/* inner driver buffers */
+	int queued_number;	/* number of buffers in incoming queue */
+	int done_number;	/* number of buffers in outgoing queue 
+				 * queued_number + done_number <= buffers_number 
+				 * should be changed by helper functions only */
+	long buffer_size;
+	int num_collect;	/* how many buffers to capture before give it to app */
+	/* sync stuff */
+	int open_count;
+	int redy_for_capture;	/* set to true when at least one writer opened device 
+				 * and negotiated format */
+	wait_queue_head_t read_event;
 };
 /* types of opener shows what opener wants to do with loopback */
 enum opener_type {
-  UNNEGOTIATED = 0,
-  READER = 1,
-  WRITER = 2,
+	UNNEGOTIATED = 0,
+	READER = 1,
+	WRITER = 2,
 };
 /* struct keeping state and type of opener */
 struct opener {
-  enum opener_type type;
-  int buffers_number;
-  struct v4l2_buffer *buffer;
+	enum opener_type type;
+	int buffers_number;
+	struct v4l2_buffer *buffer;
 };
-#endif	/* _V4L2LOOPBACK_H */
-
+#endif				/* _V4L2LOOPBACK_H */

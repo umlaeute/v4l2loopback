@@ -5,7 +5,7 @@
 
 
 MODULE_NAME = yavld
-$(MODULE_NAME)-objs = video_device.o
+$(MODULE_NAME)-objs = v4l2loopback.o
 
 PWD	:= $(shell pwd)
 
