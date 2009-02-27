@@ -11,8 +11,8 @@ Distributed according to the GPL.
 #endif
 #include "v4l2loopback.h"
 
-#define DEBUG
-#define DEBUG_RW
+//#define DEBUG
+//#define DEBUG_RW
 #define YAVLD_STREAMING
 #define KERNEL_PREFIX "YAVLD device: " /* Prefix of each kernel message */
 /* global module data */
@@ -31,7 +31,9 @@ static int find_oldest_done(void)
   int oldest_index = -1;
   __u32 oldest_frame = -1; /* this should be max __u32 */
   if (dev->done_number == 0)
+  {
     return -1;
+  }
   for(i=0;i < dev->buffers_number;++i)
   {
     if ((dev->buffers[i].flags&V4L2_BUF_FLAG_DONE)&&
@@ -49,7 +51,9 @@ static int find_next_queued(int index)
   int i;
   int queued_index = -1;
   if (dev->queued_number == 0)
+  {
     return -1;
+  }
   for(i=1;i <= dev->buffers_number;++i)
   {
     if (dev->buffers[(index+i)%dev->buffers_number].flags&V4L2_BUF_FLAG_QUEUED)
@@ -124,9 +128,13 @@ static int vidioc_querycap(struct file *file,
 static int vidioc_enum_fmt_cap(struct file *file, void *fh, 
                                struct v4l2_fmtdesc *f) {
   if (dev->redy_for_capture == 0) /* format is not negotiated yet */
+  {
     return -EINVAL;
+  }
   if (f->index) /* we only support one format */
+  {
     return -EINVAL;
+  }
   strcpy(f->description, "current format");
   f->pixelformat = dev->pix_format.pixelformat;
   return 0;
@@ -137,7 +145,9 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
                                void *priv,
                                struct v4l2_format *fmt) {
   if (dev->redy_for_capture == 0) /* format is not negotiated yet */
+  {
     return -EINVAL;   
+  }
   fmt->fmt.pix = dev->pix_format;
   return 0; 
 }
@@ -149,11 +159,15 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
                                void *priv,
                                struct v4l2_format *fmt) {
   if (dev->redy_for_capture == 0) /* format is not negotiated yet */
+  {
     return -EINVAL;      
+  }
    /* just check that pixelformat is OK and set other parameters, app should 
     * obey this decidion */
   if (fmt->fmt.pix.pixelformat != dev->pix_format.pixelformat)
+  {
     return -EINVAL; 
+  }
   fmt->fmt.pix = dev->pix_format;
   return 0; 
 }
@@ -166,9 +180,17 @@ static int vidioc_try_fmt_video_output(struct file *file,
   /* TODO(vasaka) loopback does not care about formats writer want to set, but
    * maybe it is a good idea to restrict format somehow */
   if (dev->redy_for_capture)/*if one writer negotiated format,do not change it*/
+  {
     fmt->fmt.pix = dev->pix_format;
+  }
   else
+  {
+    if (fmt->fmt.pix.sizeimage == 0)
+    {
+      return -1;
+    }
     dev->pix_format = fmt->fmt.pix;
+  }
   return 0;
 };
 /******************************************************************************/
@@ -194,8 +216,17 @@ static int vidioc_s_fmt_video_output(struct file *file,
     /* allocate data here because we do not know if it will be streaming or
      * read/write IO */
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+    fmt->fmt.pix.sizeimage = dev->buffer_size;
     /* vfree on close file operation in case no open handles left */
     dev->image = vmalloc(dev->buffer_size*dev->buffers_number);
+    if (dev->image == NULL)
+    {
+      return -EINVAL;
+    }
+#ifdef DEBUG
+		printk(KERNEL_PREFIX "vmallocated %ld bytes\n",
+           dev->buffer_size*dev->buffers_number);
+#endif      
     init_buffers(dev->buffer_size);
     dev->redy_for_capture = 1;
   }
@@ -248,7 +279,9 @@ static int vidioc_s_std(struct file *file, void *private_data,
 static int vidioc_enum_input(struct file *file, void *fh, 
                              struct v4l2_input *inp) {
   if (dev->redy_for_capture == 0) /* format is not negotiated yet */
+  {
     return -EINVAL;   
+  }
   if (inp->index==0) 
   {
     strcpy(inp->name,"loopback");
@@ -264,7 +297,9 @@ static int vidioc_enum_input(struct file *file, void *fh,
 /* which input is currently active, called on VIDIOC_G_INPUT */
 int vidioc_g_input(struct file *file, void *fh, unsigned int *i) {
   if (dev->redy_for_capture == 0) /* format is not negotiated yet */
+  {
     return -EINVAL;   
+  }
   *i = 0;
   return 0;
 }
@@ -272,9 +307,13 @@ int vidioc_g_input(struct file *file, void *fh, unsigned int *i) {
  * called on VIDIOC_S_INPUT */
 int vidioc_s_input(struct file *file, void *fh, unsigned int i) {
   if (dev->redy_for_capture == 0) /* format is not negotiated yet */
+  {
     return -EINVAL;   
+  }
   if (i == 0)
+  {
     return 0;
+  }
   return -EINVAL;
 }
 /***************************************************************
@@ -307,9 +346,13 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
   int index = b->index;
   if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)&&
      (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
+  {
     return -EINVAL;
+  }
   if (b->index > 100)
+  {
     return -EINVAL;
+  }
   /* allow as many buffers as app wants if it less than 100 :-) */
   *b = dev->buffers[b->index%dev->buffers_number];
   b->type = type;
@@ -321,7 +364,9 @@ static int vidioc_qbuf (struct file *file, void *private_data,
                  struct v4l2_buffer *buf) {  
   int index = buf->index%dev->buffers_number;
   if (buf->index>100)
+  {
     return -EINVAL;
+  }
   switch (buf->type) 
   {
     case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -384,7 +429,6 @@ static int vidioc_dqbuf (struct file *file, void *private_data,
     default:
       return -EINVAL;
   }  
-  return 0;
 }
 static int vidioc_streamon(struct file *file, void *private_data, 
                     enum v4l2_buf_type type) {
@@ -482,6 +526,11 @@ static int v4l_loopback_open(struct inode *inode, struct file *file) {
 #ifdef DEBUG
       printk(KERNEL_PREFIX "entering v4l_open()\n");
 #endif
+/* TODO(vasaka) remove this when multy reader is ready */
+if (dev->open_count == 2)
+{
+  return -EBUSY;
+}
 ++dev->open_count;
 return 0; /* success */
 }
@@ -506,7 +555,9 @@ static ssize_t v4l_loopback_read(struct file *file, char __user *buf, size_t cou
                            (dev->done_number>=dev->num_collect));
 	// we can write only what we have already
 	if (count > dev->buffer_size) 
+  {
     count = dev->buffer_size;
+  }
   done_index = find_oldest_done();
   if (done_index<0)
   {
@@ -528,14 +579,20 @@ static ssize_t v4l_loopback_read(struct file *file, char __user *buf, size_t cou
 }
 
 static ssize_t v4l_loopback_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
-  static int queued_index = 0;
+  static int queued_index = -1; /* on first pass we want to search from 0 */
   static int frame_number = 0;
+#ifdef DEBUG_RW
+		printk(KERNEL_PREFIX "v4l2_loopback_write() trying to write %d bytes\n",
+           count);
+#endif    
   /* we do not need to write anithyng if there is no incoming buffers */
   if (dev->queued_number < 2)
     return count;
 	// we simply throw away what is more than we want
 	if (count > dev->buffer_size) 
+  {
     count = dev->buffer_size;
+  }
   queued_index = find_next_queued(queued_index);
   if (queued_index<0)
   {
@@ -580,6 +637,8 @@ static void init_buffers (int buffer_size) {
     dev->buffers[i].timestamp.tv_usec = 0;
     dev->buffers[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE; /* TODO(vasaka) make adjustable */    
   }
+  dev->done_number = 0;
+  dev->queued_number = 0;
 }
 /* fills and register video device */
 static void init_vdev(struct video_device *vdev) {
@@ -628,7 +687,7 @@ static void init_pix_format(struct v4l2_pix_format *pix_format) {
   pix_format->width = 0;
   pix_format->pixelformat = V4L2_PIX_FMT_YUYV;
   pix_format->field = V4L2_FIELD_NONE;
-  pix_format->bytesperline = pix_format->width*2;
+  pix_format->bytesperline = 0;
   pix_format->sizeimage = 0;
   pix_format->colorspace = V4L2_COLORSPACE_SRGB;
   dev->buffer_size = 0;  
@@ -648,17 +707,22 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev) {
   /* video device init part */
   dev->vdev = video_device_alloc();
   if (dev->vdev == NULL)
+  {
     return -1;
+  }
   init_vdev(dev->vdev);
   init_pix_format(&dev->pix_format);
   init_capture_param(&dev->capture_param);
   dev->buffers_number = V4L2_LOOPBACK_BUFFERS_NUMBER;
   dev->open_count = 0;
   dev->redy_for_capture = 0;
+  dev->num_collect = 1;
   /* kfree on module release */
   dev->buffers = kzalloc(sizeof(*dev->buffers)*dev->buffers_number, GFP_KERNEL);
   if (dev->buffers == NULL)
+  {
     return -ENOMEM;
+  }
   init_waitqueue_head(&dev->read_event);
   return 0;
 };
@@ -684,11 +748,16 @@ int __init init_module() {
   /* kfree on module release */
   dev = kzalloc(sizeof(*dev), GFP_KERNEL);
   if (dev == NULL)
+  {
     return -ENOMEM;  
+  }
   if (v4l2_loopback_init(dev) < 0)
+  {
     return -EINVAL;
+  }
   /* register the device -> it creates /dev/video* */
-	if(video_register_device(dev->vdev, VFL_TYPE_GRABBER, -1) < 0) {
+	if(video_register_device(dev->vdev, VFL_TYPE_GRABBER, -1) < 0)
+  {
     video_device_release(dev->vdev); 
 		printk (KERN_INFO "failed video_register_device()\n");
 		return -EINVAL;
