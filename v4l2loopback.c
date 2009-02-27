@@ -173,7 +173,7 @@ static int vidioc_try_fmt_cap(struct file *file,
 static int vidioc_try_fmt_video_output(struct file *file,
 				       void *priv, struct v4l2_format *fmt)
 {
-	/* TODO(vasaka) loopback does not care about formats writer want to set, but
+	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow */
 	if (dev->redy_for_capture) {
 		fmt->fmt.pix = dev->pix_format;
@@ -254,7 +254,8 @@ static int vidioc_s_parm(struct file *file, void *priv,
 			return 0;
 		}
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:{
-			/* TODO(vasaka) do nothing now, but should set fps if needed */
+			/* TODO(vasaka) do nothing now, but should set fps if 
+			 * needed */
 			parm->parm.capture = dev->capture_param;
 			return 0;
 		}
@@ -326,7 +327,8 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	switch (b->memory) {
 	case V4L2_MEMORY_MMAP:{
 			if (b->count == 0) {
-				/* do nothing here, buffers are always allocated, TODO(vasaka) ? */
+				/* do nothing here, buffers are always allocated
+				 * TODO(vasaka) ? */
 				return 0;
 			}
 			b->count = dev->buffers_number;
@@ -413,7 +415,8 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 			return 0;
 		}
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:{
-			/* TODO(vasaka) need to add check for empty queue and polling for buffer */
+			/* TODO(vasaka) need to add check for empty incoming 
+			 * queue and polling for buffer */
 			queued_index = find_next_queued(queued_index);
 			if (queued_index < 0) {
 				printk(KERN_INFO
@@ -510,8 +513,8 @@ static int v4l2_loopback_mmap(struct file *file,
 	}
 
 	vma->vm_ops = &vm_ops;
-	vma->vm_private_data = 0;	/* TODO(vasaka) put open counter there and set
-					 * buffer mmaped flag */
+	vma->vm_private_data = 0;/* TODO(vasaka) put open counter there and set
+				  * buffer mmaped flag */
 	vm_open(vma);
 
 #ifdef DEBUG
@@ -542,7 +545,7 @@ static int v4l_loopback_open(struct inode *inode, struct file *file)
 		return -EBUSY;
 	}
 	++dev->open_count;
-	return 0;		/* success */
+	return 0;
 }
 
 static int v4l_loopback_close(struct inode *inode, struct file *file)
@@ -551,8 +554,8 @@ static int v4l_loopback_close(struct inode *inode, struct file *file)
 	printk(KERNEL_PREFIX "entering v4l_close()\n");
 #endif
 	--dev->open_count;
-	/* TODO(vasaka) does the closed file means that mmaped buffers are no more 
-	 * valid and one can free data? */
+	/* TODO(vasaka) does the closed file means that mmaped buffers are 
+	 * no more valid and one can free data? */
 	if (dev->open_count == 0) {
 		vfree(dev->image);
 		dev->redy_for_capture = 0;
@@ -594,7 +597,7 @@ static ssize_t v4l_loopback_write(struct file *file,
 				  const char __user * buf, size_t count,
 				  loff_t * ppos)
 {
-	static int queued_index = -1;	/* on first pass we want to search from 0 */
+	static int queued_index = -1;/* on first pass we want to search from 0*/
 	static int frame_number = 0;
 #ifdef DEBUG_RW
 	printk(KERNEL_PREFIX
@@ -617,8 +620,8 @@ static ssize_t v4l_loopback_write(struct file *file,
 	    ((void *) (dev->image + dev->buffers[queued_index].m.offset),
 	     (void *) buf, count)) {
 		printk(KERNEL_PREFIX
-		       "failed copy_from_user() in write buf, could not write %d\n",
-		       count);
+		  "failed copy_from_user() in write buf, could not write %d\n",
+		   count);
 		return -EFAULT;
 	}
 	dev->buffers[queued_index].sequence = frame_number++;
@@ -634,25 +637,24 @@ static ssize_t v4l_loopback_write(struct file *file,
 /************************************************
 **************** init functions *****************
 ************************************************/
+/* init inner buffers, they are capture mode and flags are set as 
+ * for capture mod buffers */
 static void init_buffers(int buffer_size)
 {
 	int i;
 	for (i = 0; i < dev->buffers_number; ++i) {
-		dev->buffers[i].bytesused = buffer_size;	/* actual data size */
-		dev->buffers[i].length = buffer_size;	/* buffer size */
-		dev->buffers[i].field = V4L2_FIELD_NONE;	/* field of interlaced image */
-		dev->buffers[i].flags = 0;	/* state of buffer, flags are valid 
-						 * for capture mode */
-		dev->buffers[i].index = i;	/* index of buffer */
-		dev->buffers[i].input = 0;	/* this is needed for multiply inputs device */
-		dev->buffers[i].m.offset = i * buffer_size;	/* magic cookie of the buffer */
-		dev->buffers[i].memory = V4L2_MEMORY_MMAP;	/* type of buffer TODO(vasaka) 
-								 * make adjustable */
-		dev->buffers[i].sequence = 0;	/* number of frame transferred */
-		dev->buffers[i].timestamp.tv_sec = 0;	/* 0 means as soon as possible */
+		dev->buffers[i].bytesused = buffer_size;
+		dev->buffers[i].length = buffer_size;
+		dev->buffers[i].field = V4L2_FIELD_NONE;
+		dev->buffers[i].flags = 0;	
+		dev->buffers[i].index = i;
+		dev->buffers[i].input = 0;
+		dev->buffers[i].m.offset = i * buffer_size;
+		dev->buffers[i].memory = V4L2_MEMORY_MMAP;
+		dev->buffers[i].sequence = 0;
+		dev->buffers[i].timestamp.tv_sec = 0;
 		dev->buffers[i].timestamp.tv_usec = 0;
-		dev->buffers[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE;	/* TODO(vasaka) 
-									 * make adjustable */
+		dev->buffers[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	}
 	dev->done_number = 0;
 	dev->queued_number = 0;
@@ -662,8 +664,8 @@ static void init_buffers(int buffer_size)
 static void init_vdev(struct video_device *vdev)
 {
 	strcpy(vdev->name, "Dummy video device");
-	vdev->tvnorms = V4L2_STD_NTSC | V4L2_STD_SECAM | V4L2_STD_PAL;	/* set something */
-	vdev->current_norm = V4L2_STD_PAL_B,	/* do not know what is best here */
+	vdev->tvnorms = V4L2_STD_NTSC | V4L2_STD_SECAM | V4L2_STD_PAL;/* TODO */
+	vdev->current_norm = V4L2_STD_PAL_B, /* do not know what is best here */
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
 	    vdev->type = VFL_TYPE_GRABBER;
 	vdev->type2 = VID_TYPE_CAPTURE;
@@ -708,7 +710,7 @@ static void init_capture_param(struct v4l2_captureparm *capture_param)
 	capture_param->extendedmode = 0;
 	capture_param->readbuffers = V4L2_LOOPBACK_BUFFERS_NUMBER;
 	capture_param->timeperframe.numerator = 1;
-	capture_param->timeperframe.denominator = 30;	/* default fps, set by writer */
+	capture_param->timeperframe.denominator = 30;
 }
 
 /* init loopback main structure */
