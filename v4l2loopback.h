@@ -48,6 +48,5 @@ struct opener {
   int buffers_number;
   struct v4l2_buffer *buffer;
 };
-extern const struct v4l2_file_operations v4l2_loopback_fops;
 #endif	/* _V4L2LOOPBACK_H */
 
