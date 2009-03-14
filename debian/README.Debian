@@ -1,0 +1,19 @@
+v4l2loopback for Debian
+--------------------
+
+0. Support kernel version
+=========================
+Version since 2.6.26
+
+1. module-assistant
+===================
+
+The module-assistant tool helps users & package maintainers with managing
+external kernel modules packaged for Debian
+
+Documentation on building modules with module-assistant is in the
+module-assistant package in `/usr/share/doc/module-assistant/HOWTO`
+
+Essentially, you must download the v4l2loopback source, as with kernel-package
+
+Then you can run `module-assistant build <v4l2loopback_source>`

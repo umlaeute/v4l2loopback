@@ -4,7 +4,7 @@
 #
 
 
-MODULE_NAME = yavld
+MODULE_NAME = v4l2loopback
 $(MODULE_NAME)-objs = v4l2loopback.o
 
 PWD	:= $(shell pwd)

@@ -1,0 +1,19 @@
+Source: v4l2loopback
+Section: graphics
+Priority: optional
+Maintainer: Vasily Levin <vasaka@gmail.com>
+Build-Depends: cdbs, debhelper (>= 7), bzip2, dpatch
+Standards-Version: 3.8.0.1
+
+Package: vloopback-modules-_KVERS_
+Architecture: any
+Depends: linux-image-_KVERS_ | kernel-image-_KVERS_
+Description: vloopback modules for Linux (for kernel _KVERS_)
+ v4l2loopback is a video4linux2 driver providing video pipes.  With this driver you
+ can use the output of a user program as input to another program which can only
+ communicate with a video4linux or video4linux2 device. Unlike vloopback driver
+ this module does not take videodata from standart input and acts as v4l2 output
+ device instead, if you need to feed it from standart input - you need a helper
+ program.
+      . 
+ This package contains compiled module for kernel _KVERS_

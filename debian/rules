@@ -1,0 +1,42 @@
+#!/usr/bin/make -f
+
+PACKAGE := v4l2loopback-modules
+MA_DIR ?= /usr/share/modass
+-include $(MA_DIR)/include/generic.make
+-include $(MA_DIR)/include/common-rules.make
+
+.PHONY: kdist_config
+kdist_config: prep-deb-files
+
+.PHONY: binary-modules
+binary-modules: kdist_config
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	# Build modules
+	$(MAKE) -C $(CURDIR) v4l2loopback \
+	KERNEL_DIR=$(KSRC) KERNEL_VERSION=$(KVERS) KERNELCONF=$(KSRC)/.config 
+	# Install modules
+	$(MAKE) -C $(CURDIR) install \
+	KERNEL_DIR=$(KSRC) KERNEL_VERSION=$(KVERS) KERNELCONF=$(KSRC)/.config \
+	INSTALL_MOD_PATH=$(CURDIR)/debian/$(PKGNAME) KMODPATH=/lib/modules/$(KVERS)/kernel/drivers/usb/media
+	# remove depmod result
+	-rm -f $(CURDIR)/debian/$(PKGNAME)/lib/modules/$(KVERS)/modules.*
+
+	dh_installdocs
+	dh_installchangelogs
+	dh_compress
+	dh_fixperms
+	dh_installmodules
+	dh_installdeb
+	dh_gencontrol -- -v$(VERSION)
+	dh_md5sums
+	dh_builddeb --destdir=$(DEB_DESTDIR)
+
+.PHONY: kdist_clean
+kdist_clean:
+	dh_testdir
+	dh_testroot
+	dh_clean
+	$(MAKE) -C $(CURDIR) clean \
+	KERNELPATH=$(KSRC) KERNELRELEASE=$(KVERS) KERNELCONF=$(KSRC)/.config 

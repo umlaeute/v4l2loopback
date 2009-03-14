@@ -4,7 +4,7 @@ make && make install
 
 --- RUN ---
 Load the YAVLD module as root :
-modprobe yavld
+modprobe v4l2loopback
 
 now you can feed device created with data and fetch this data by any v4l2 capable program.
 try http://code.google.com/p/v4lsink/ as source of video data, it is only tested input program.
