@@ -7,9 +7,7 @@ Distributed according to the GPL.
 #include <linux/mm.h>
 #include <linux/time.h>
 #include <linux/module.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
 #include <media/v4l2-ioctl.h>
-#endif
 #include "v4l2loopback.h"
 
 //#define DEBUG
