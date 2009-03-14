@@ -21,6 +21,7 @@ struct v4l2_loopback_device *dev;
 /* forward declarations */
 static void init_buffers(int buffer_size);
 static const struct file_operations v4l2_loopback_fops;
+static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 /****************************************************************
 **************** my queue helpers *******************************
 ****************************************************************/
@@ -50,6 +51,9 @@ static int find_next_queued(int index)
 	int i;
 	int queued_index = -1;
 	if (dev->queued_number == 0) {
+		return -1;
+	}
+	if (index < -1) {
 		return -1;
 	}
 	for (i = 1; i <= dev->buffers_number; ++i) {
@@ -667,39 +671,13 @@ static void init_vdev(struct video_device *vdev)
 	strcpy(vdev->name, "Dummy video device");
 	vdev->tvnorms = V4L2_STD_NTSC | V4L2_STD_SECAM | V4L2_STD_PAL;/* TODO */
 	vdev->current_norm = V4L2_STD_PAL_B, /* do not know what is best here */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,27)
-	    vdev->type = VFL_TYPE_GRABBER;
-	vdev->type2 = VID_TYPE_CAPTURE;
-#else
-	    vdev->vfl_type = VID_TYPE_CAPTURE;
-#endif
+	vdev->vfl_type = VID_TYPE_CAPTURE;
 	vdev->fops = &v4l2_loopback_fops;
+	vdev->ioctl_ops = &v4l2_loopback_ioctl_ops;
 	vdev->release = &video_device_release;
-	vdev->vidioc_querycap = &vidioc_querycap;
-	vdev->vidioc_enum_fmt_cap = &vidioc_enum_fmt_cap;
-	vdev->vidioc_enum_input = &vidioc_enum_input;
-	vdev->vidioc_g_input = &vidioc_g_input;
-	vdev->vidioc_s_input = &vidioc_s_input;
-	vdev->vidioc_g_fmt_cap = &vidioc_g_fmt_cap;
-	vdev->vidioc_s_fmt_cap = &vidioc_s_fmt_cap;
-	vdev->vidioc_s_fmt_video_output = &vidioc_s_fmt_video_output;
-	vdev->vidioc_try_fmt_cap = &vidioc_try_fmt_cap;
-	vdev->vidioc_try_fmt_video_output = &vidioc_try_fmt_video_output;
-	vdev->vidioc_s_std = &vidioc_s_std;
-	vdev->vidioc_g_parm = &vidioc_g_parm;
-	vdev->vidioc_s_parm = &vidioc_s_parm;
-	vdev->vidioc_reqbufs = &vidioc_reqbufs;
-	vdev->vidioc_querybuf = &vidioc_querybuf;
-	vdev->vidioc_qbuf = &vidioc_qbuf;
-	vdev->vidioc_dqbuf = &vidioc_dqbuf;
-	vdev->vidioc_streamon = &vidioc_streamon;
-	vdev->vidioc_streamoff = &vidioc_streamoff;
 	vdev->minor = -1;
 #ifdef DEBUG
 	vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
-#endif
-#ifdef CONFIG_VIDEO_V4L1_COMPAT
-	vdev->vidiocgmbuf = &vidiocgmbuf;
 #endif
 }
 
@@ -743,16 +721,41 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev)
 **************** LINUX KERNEL ****************
 ************************************************/
 static const struct file_operations v4l2_loopback_fops = {
-      owner:THIS_MODULE,
-      open:v4l_loopback_open,
-      release:v4l_loopback_close,
-      read:v4l_loopback_read,
-      write:v4l_loopback_write,
-      poll:v4l2_loopback_poll,
-      mmap:v4l2_loopback_mmap,
-      ioctl:video_ioctl2,
-      compat_ioctl:v4l_compat_ioctl32,
-      llseek:no_llseek,
+      .owner = THIS_MODULE,
+      .open = v4l_loopback_open,
+      .release = v4l_loopback_close,
+      .read = v4l_loopback_read,
+      .write = v4l_loopback_write,
+      .poll = v4l2_loopback_poll,
+      .mmap = v4l2_loopback_mmap,
+      .ioctl = video_ioctl2,
+      .compat_ioctl = v4l_compat_ioctl32,
+      .llseek = no_llseek,
+};
+
+static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
+	.vidioc_querycap = &vidioc_querycap,
+	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
+	.vidioc_enum_input = &vidioc_enum_input,
+	.vidioc_g_input = &vidioc_g_input,
+	.vidioc_s_input = &vidioc_s_input,
+	.vidioc_g_fmt_vid_cap = &vidioc_g_fmt_cap,
+	.vidioc_s_fmt_vid_cap = &vidioc_s_fmt_cap,
+	.vidioc_s_fmt_vid_out = &vidioc_s_fmt_video_output,
+	.vidioc_try_fmt_vid_cap = &vidioc_try_fmt_cap,
+	.vidioc_try_fmt_vid_out = &vidioc_try_fmt_video_output,
+	.vidioc_s_std = &vidioc_s_std,
+	.vidioc_g_parm = &vidioc_g_parm,
+	.vidioc_s_parm = &vidioc_s_parm,
+	.vidioc_reqbufs = &vidioc_reqbufs,
+	.vidioc_querybuf = &vidioc_querybuf,
+	.vidioc_qbuf = &vidioc_qbuf,
+	.vidioc_dqbuf = &vidioc_dqbuf,
+	.vidioc_streamon = &vidioc_streamon,
+	.vidioc_streamoff = &vidioc_streamoff,
+#ifdef CONFIG_VIDEO_V4L1_COMPAT
+	.vidiocgmbuf = &vidiocgmbuf,
+#endif
 };
 
 int __init init_module()
