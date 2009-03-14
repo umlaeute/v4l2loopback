@@ -1,0 +1,14 @@
+Package: v4l2loopback-source
+Source: v4l2loopback
+Version: 0.0.1-1
+Architecture: all
+Maintainer: vasaka <vasaka@sewersmobile2.nature>
+Installed-Size: 20
+Depends: module-assistant, debhelper (>= 7), make, bzip2
+Section: unknown
+Priority: extra
+Homepage: <insert the upstream URL, if relevant>
+Description: source for the v4l2loopback driver.
+ This package provides the source code for the v4l2loopback kernel modules.
+ The v4l2loopback package is also required in order to make use of these
+ modules. Kernel source or headers are required to compile these modules.

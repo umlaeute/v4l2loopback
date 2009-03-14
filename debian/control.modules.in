@@ -1,19 +1,20 @@
 Source: v4l2loopback
-Section: graphics
+Section: unknown
 Priority: optional
-Maintainer: Vasily Levin <vasaka@gmail.com>
-Build-Depends: cdbs, debhelper (>= 7), bzip2, dpatch
-Standards-Version: 3.8.0.1
+Maintainer: vasaka <vasaka@sewersmobile2.nature>
+Build-Depends: debhelper (>= 7)
+Standards-Version: 3.8.0
 
-Package: vloopback-modules-_KVERS_
+Package: v4l2loopback-modules-_KVERS_
 Architecture: any
-Depends: linux-image-_KVERS_ | kernel-image-_KVERS_
-Description: vloopback modules for Linux (for kernel _KVERS_)
- v4l2loopback is a video4linux2 driver providing video pipes.  With this driver you
- can use the output of a user program as input to another program which can only
- communicate with a video4linux or video4linux2 device. Unlike vloopback driver
- this module does not take videodata from standart input and acts as v4l2 output
- device instead, if you need to feed it from standart input - you need a helper
- program.
-      . 
- This package contains compiled module for kernel _KVERS_
+Provides: v4l2loopback-modules
+Description: v4l2loopback modules for Linux (kernel _KVERS_).
+ This package contains the set of loadable kernel modules for the
+ <description>.
+ .
+ This package contains the compiled kernel modules for _KVERS_
+ .
+ If you have compiled your own kernel, you will most likely need to build
+ your own v4l2loopback-modules. The v4l2loopback-source package has been
+ provided for use with the Debian's module-assistant or kernel-package
+ utilities to produce a version of v4l2loopback-modules for your kernel.

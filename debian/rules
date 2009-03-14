@@ -1,42 +1,221 @@
 #!/usr/bin/make -f
+# -*- makefile -*-
+# Sample debian/rules that uses debhelper.
+# This file was originally written by Joey Hess and Craig Small.
+# As a special exception, when this file is copied by dh-make into a
+# dh-make output file, you may use that output file without restriction.
+# This special exception was added by Craig Small in version 0.37 of dh-make.
+#
+# This version is for a hypothetical package that can build a kernel modules
+# architecture-dependant package via make-kpkg, as well as an
+# architecture-independent module source package, and other packages
+# either dep/indep for things like common files or userspace components
+# needed for the kernel modules.
 
-PACKAGE := v4l2loopback-modules
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+
+
+
+# some default definitions, important!
+#
+# Name of the source package
+psource:=v4l2loopback-source
+
+# The short upstream name, used for the module source directory
+sname:=v4l2loopback
+
+### KERNEL SETUP
+### Setup the stuff needed for making kernel module packages
+### taken from /usr/share/kernel-package/sample.module.rules
+
+# prefix of the target package name
+PACKAGE=v4l2loopback-modules
+# modifieable for experiments or debugging m-a
 MA_DIR ?= /usr/share/modass
+# load generic variable handling
 -include $(MA_DIR)/include/generic.make
+# load default rules, including kdist, kdist_image, ...
 -include $(MA_DIR)/include/common-rules.make
 
-.PHONY: kdist_config
+
+
+# module assistant calculates all needed things for us and sets
+# following variables:
+# KSRC (kernel source directory), KVERS (kernel version string), KDREV
+# (revision of the Debian kernel-image package), CC (the correct
+# compiler), VERSION (the final package version string), PKGNAME (full
+# package name with KVERS included), DEB_DESTDIR (path to store DEBs)
+
+# The kdist_config target is called by make-kpkg modules_config and
+# by kdist* rules by dependency. It should configure the module so it is
+# ready for compilation (mostly useful for calling configure).
+# prep-deb-files from module-assistant creates the neccessary debian/ files
 kdist_config: prep-deb-files
 
-.PHONY: binary-modules
-binary-modules: kdist_config
-	dh_testdir
-	dh_testroot
-	dh_clean -k
-	# Build modules
-	$(MAKE) -C $(CURDIR) v4l2loopback \
-	KERNEL_DIR=$(KSRC) KERNEL_VERSION=$(KVERS) KERNELCONF=$(KSRC)/.config 
-	# Install modules
-	$(MAKE) -C $(CURDIR) install \
-	KERNEL_DIR=$(KSRC) KERNEL_VERSION=$(KVERS) KERNELCONF=$(KSRC)/.config \
-	INSTALL_MOD_PATH=$(CURDIR)/debian/$(PKGNAME) KMODPATH=/lib/modules/$(KVERS)/kernel/drivers/usb/media
-	# remove depmod result
-	-rm -f $(CURDIR)/debian/$(PKGNAME)/lib/modules/$(KVERS)/modules.*
+# the kdist_clean target is called by make-kpkg modules_clean and from
+# kdist* rules. It is responsible for cleaning up any changes that have
+# been made by the other kdist_commands (except for the .deb files created)
+kdist_clean: clean
+	$(MAKE) $(MFLAGS) -f debian/rules clean
+#	rm -f driver/*.o driver/*.ko
+#
+### end  KERNEL SETUP
 
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+	# Add here commands to configure the package.
+
+	touch configure-stamp
+
+
+build-arch: configure-stamp  build-arch-stamp
+build-arch-stamp: 
+	dh_testdir
+
+	# Add here command to compile/build the package.
+	$(MAKE)
+
+	touch $@
+
+#k = $(shell echo $(KVERS) | grep -q ^2.6 && echo k)
+
+# the binary-modules rule is invoked by module-assistant while processing the
+# kdist* targets. It is called by module-assistant or make-kpkg and *not*
+# during a normal build
+binary-modules:
+	dh_testroot
+	dh_prep
+	dh_installdirs lib/modules/$(KVERS)/misc
+
+	# Build the module
+	$(MAKE)  KERNEL_DIR=$(KSRC) KVERS=$(KVERS)
+
+	# Install the module
+	#### only 2.6 :)
+	cp *.ko  debian/$(PKGNAME)/lib/modules/$(KVERS)/misc
 	dh_installdocs
 	dh_installchangelogs
 	dh_compress
 	dh_fixperms
-	dh_installmodules
 	dh_installdeb
 	dh_gencontrol -- -v$(VERSION)
 	dh_md5sums
 	dh_builddeb --destdir=$(DEB_DESTDIR)
+	depmod
+	dh_prep
 
-.PHONY: kdist_clean
-kdist_clean:
+build-indep:  configure-stamp build-indep-stamp
+build-indep-stamp: 
+	dh_testdir
+
+	# Add here command to compile/build the arch indep package.
+	# It's ok not to do anything here, if you don't need to build
+	#  anything for this package.
+	#docbook-to-man debian/v4l2loopback.sgml > v4l2loopback.1
+
+	touch $@
+
+build: build-indep
+
+clean: 
+	dh_testdir
+	#dh_testroot
+	rm -f build-arch-stamp build-indep-stamp configure-stamp
+
+	# Add here commands to clean up after the build process.
+#	$(MAKE) clean
+
+	dh_clean
+
+install: DH_OPTIONS=
+install: build
 	dh_testdir
 	dh_testroot
-	dh_clean
-	$(MAKE) -C $(CURDIR) clean \
-	KERNELPATH=$(KSRC) KERNELRELEASE=$(KVERS) KERNELCONF=$(KSRC)/.config 
+	dh_prep
+	dh_installdirs
+
+	# Create the directories to install the source into
+	dh_installdirs -p$(psource)  usr/src/modules/$(sname)/debian
+
+	# Copy only the driver source to the proper location
+	cp -r driver/*  debian/$(psource)/usr/src/modules/$(sname)
+	# Copy the needed debian/ pieces to the proper location
+	cp debian/*modules.in* \
+		debian/$(psource)/usr/src/modules/$(sname)/debian
+	cp debian/*_KVERS_* debian/rules debian/changelog debian/copyright \
+		debian/compat debian/$(psource)/usr/src/modules/$(sname)/debian/
+	cp debian/control debian/rules debian/changelog debian/copyright \
+		debian/compat debian/$(psource)/usr/src/modules/$(sname)/debian/
+	cd debian/$(psource)/usr/src && tar c modules | bzip2 -9 > $(sname).tar.bz2 && rm -rf modules
+
+	# Add here commands to install the package into debian/v4l2loopback.
+#	$(MAKE) DESTDIR=$(CURDIR)/debian/v4l2loopback install
+
+	dh_install
+
+# Build architecture-independent files here.
+# Pass -i to all debhelper commands in this target to reduce clutter.
+binary-indep: build install
+	dh_testdir -i
+	dh_testroot -i
+	dh_installchangelogs  -i
+	dh_installdocs -i
+	dh_installexamples -i
+#	dh_install -i
+#	dh_installmenu -i
+#	dh_installdebconf -i
+#	dh_installlogrotate -i
+#	dh_installemacsen -i
+#	dh_installpam -i
+#	dh_installmime -i
+#	dh_installinit -i
+#	dh_installcron -i
+#	dh_installinfo -i
+	dh_installman -i
+	dh_link -i
+	dh_compress -i
+	dh_fixperms -i
+	dh_installdeb -i
+#	dh_perl -i
+#	dh_python -i
+#	dh_makeshlibs -i
+	dh_installdeb -i
+	dh_shlibdeps -i
+	dh_gencontrol -i
+	dh_md5sums -i
+	dh_builddeb -i
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir -s
+	dh_testroot -s
+#	dh_installdebconf -s
+	dh_installdocs -s
+	dh_installexamples -s
+	dh_installmenu -s
+#	dh_installlogrotate -s
+#	dh_installemacsen -s
+#	dh_installpam -s
+#	dh_installmime -s
+#	dh_installinit -s
+	dh_installcron -s
+#	dh_installman -s
+	dh_installinfo -s
+	dh_installchangelogs  -s
+	dh_strip -s
+	dh_link -s
+	dh_compress -s
+	dh_fixperms -s
+#	dh_makeshlibs -s
+	dh_installdeb -s
+#	dh_perl -s
+	dh_shlibdeps -s
+	dh_gencontrol -s
+	dh_md5sums -s
+	dh_builddeb -s
+
+binary: binary-indep 
+.PHONY: build clean binary-indep binary-arch binary install configure binary-modules kdist kdist_configure kdist_image kdist_clean

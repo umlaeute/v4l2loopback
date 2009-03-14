@@ -1,19 +1,20 @@
 Source: v4l2loopback
-Section: graphics
-Priority: optional
-Maintainer: Vasily Levin <vasaka@gmail.com>
-Dm-Upload-Allowed: yes
-Build-Depends: cdbs, debhelper (>= 7), bzip2, dpatch
-Standards-Version: 3.8.0.1
-Homepage: http://code.google.com/p/v4l2loopback/
+Section: unknown
+Priority: extra
+Maintainer: vasaka <vasaka@sewersmobile2.nature>
+Build-Depends: debhelper (>= 7), bzip2
+Standards-Version: 3.8.0
+Homepage: <insert the upstream URL, if relevant>
+
+Package: v4l2loopback-utils
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description> <insert long description, indented with spaces>
 
 Package: v4l2loopback-source
 Architecture: all
-Depends: ${shlibs:Depends}, ${misc:Depends}, debhelper, module-assistant, bzip2
-Description: v4l2loopback modules for Linux
- v4l2loopback is a video4linux2 driver providing video pipes.  With this driver you
- can use the output of a user program as input to another program which can only
- communicate with a video4linux or video4linux2 device. Unlike vloopback driver
- this module does not take videodata from standart input and acts as v4l2 output
- device instead, if you need to feed it from standart input - you need a helper
- program.
+Depends: module-assistant, debhelper (>= 7), make, bzip2
+Description: source for the v4l2loopback driver.
+ This package provides the source code for the v4l2loopback kernel modules.
+ The v4l2loopback package is also required in order to make use of these
+ modules. Kernel source or headers are required to compile these modules.

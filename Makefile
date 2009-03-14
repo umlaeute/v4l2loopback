@@ -1,34 +1,18 @@
-# Makefile for YAVLD
-#
-# Distributed according to the GPL.
-#
+KERNEL_VERSION	:= `uname -r`
+KERNEL_DIR	:= /lib/modules/$(KERNEL_VERSION)/build
 
+PWD		:= $(shell pwd)
 
-MODULE_NAME = v4l2loopback
-$(MODULE_NAME)-objs = v4l2loopback.o
+obj-m		:= v4l2loopback.o
 
-PWD	:= $(shell pwd)
-
-# First pass, kernel Makefile reads module objects
-ifneq ($(KERNELRELEASE),)
-obj-m	:= $(MODULE_NAME).o
-
-EXTRA_CFLAGS += -I$(PWD)/../include
-
-# Second pass, the actual build.
-else
-KDIR	:= /lib/modules/$(shell uname -r)/build
-
-all:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules
-
+all: v4l2loopback
+v4l2loopback:
+	@echo "Building vloopback driver..."
+	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
+install:
+	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
+	depmod -ae
 clean:
 	rm -f *~
 	rm -f Module.symvers Module.markers modules.order
-	$(MAKE) -C $(KDIR) M=$(PWD) clean
-
-install:
-	$(MAKE) -C $(KDIR) M=$(PWD) modules_install
-	depmod -ae
-
-endif
+	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
