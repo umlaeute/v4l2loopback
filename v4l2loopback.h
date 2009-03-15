@@ -24,12 +24,11 @@ struct v4l2_loopback_device {
 	__u8 *image;         /* pointer to actual buffers data */
 	int buffers_number;  /* should not be big, 4 is a good choise */
 	struct v4l2_buffer *buffers;	/* inner driver buffers */
-	int queued_number;   /* number of buffers in incoming queue */
-	int done_number;     /* number of buffers in outgoing queue 
-			      * queued_number + done_number <= buffers_number 
-			      * should be changed by helper functions only */
+        int write_position; /* number of last written frame + 1 */
+        int read_position; /* number of last read frame + 1 or
+                            * write_position - 1 if reader went out of sinc
+                            * TODO(vasaka) use position from opener structure */
 	long buffer_size;
-	int num_collect; /* how many buffers to capture before give it to app */
 	/* sync stuff */
 	int open_count;
 	int redy_for_capture;/* set to true when at least one writer opened 
@@ -46,6 +45,7 @@ enum opener_type {
 struct opener {
 	enum opener_type type;
 	int buffers_number;
+        int position;
 	struct v4l2_buffer *buffers;
 };
 #endif				/* _V4L2LOOPBACK_H */

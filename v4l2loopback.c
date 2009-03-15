@@ -10,8 +10,8 @@ Distributed according to the GPL.
 #include <media/v4l2-ioctl.h>
 #include "v4l2loopback.h"
 
-//#define DEBUG
-//#define DEBUG_RW
+#define DEBUG
+#define DEBUG_RW
 #define YAVLD_STREAMING
 #define KERNEL_PREFIX "YAVLD device: "	/* Prefix of each kernel message */
 /* global module data */
@@ -23,84 +23,24 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 /****************************************************************
 **************** my queue helpers *******************************
 ****************************************************************/
-/******************************************************************************/
-/*finds oldest index in outgoing queue, returns index on success -1 on failure*/
-static int find_oldest_done(void)
-{
-	int i;
-	int oldest_index = -1;
-	__u32 oldest_frame = -1;	/* this should be max __u32 */
-	if (dev->done_number == 0) {
-		return -1;
-	}
-	for (i = 0; i < dev->buffers_number; ++i) {
-		if ((dev->buffers[i].flags & V4L2_BUF_FLAG_DONE) &&
-		    (dev->buffers[i].sequence < oldest_index)) {
-			oldest_frame = dev->buffers[i].sequence;
-			oldest_index = i;
-		}
-	}
-	return oldest_index;
-}
-
-/* finds next index in incoming queue, returns index on success -1 on failure */
-static int find_next_queued(int index)
-{
-	int i;
-	int queued_index = -1;
-	if (dev->queued_number == 0) {
-		return -1;
-	}
-	if (index < -1) {
-		return -1;
-	}
-	for (i = 1; i <= dev->buffers_number; ++i) {
-		if (dev->buffers[(index + i) % dev->buffers_number].
-		    flags & V4L2_BUF_FLAG_QUEUED) {
-			queued_index = (index + i) % dev->buffers_number;
-			return queued_index;
-		}
-	}
-	return queued_index;
-}
-
 /* next functions sets buffer flags and adjusts counters accordingly */
 void set_done(struct v4l2_buffer *buffer)
 {
-	if (!(buffer->flags & V4L2_BUF_FLAG_DONE)) {
-		buffer->flags |= V4L2_BUF_FLAG_DONE;
-		++dev->done_number;
-	}
-	if (buffer->flags & V4L2_BUF_FLAG_QUEUED) {
-		buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
-		--dev->queued_number;
-	}
+	buffer->flags |= V4L2_BUF_FLAG_DONE;
+	buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
 }
 
 void set_queued(struct v4l2_buffer *buffer)
 {
-	if (!(buffer->flags & V4L2_BUF_FLAG_QUEUED)) {
-		buffer->flags |= V4L2_BUF_FLAG_QUEUED;
-		++dev->queued_number;
-	}
-	if (buffer->flags & V4L2_BUF_FLAG_DONE) {
-		buffer->flags &= ~V4L2_BUF_FLAG_DONE;
-		--dev->done_number;
-	}
+	buffer->flags |= V4L2_BUF_FLAG_QUEUED;
+	buffer->flags &= ~V4L2_BUF_FLAG_DONE;
 }
 
 void unset_all(struct v4l2_buffer *buffer)
 {
-	if (buffer->flags & V4L2_BUF_FLAG_QUEUED) {
-		buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
-		--dev->queued_number;
-	}
-	if (buffer->flags & V4L2_BUF_FLAG_DONE) {
-		buffer->flags &= ~V4L2_BUF_FLAG_DONE;
-		--dev->done_number;
-	}
+	buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
+	buffer->flags &= ~V4L2_BUF_FLAG_DONE;
 }
-
 /****************************************************************
 **************** V4L2 ioctl caps and params calls ***************
 ****************************************************************/
@@ -374,8 +314,6 @@ static int vidioc_qbuf(struct file *file, void *private_data,
 	}
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:{
-			if (dev->buffers[index].flags & V4L2_BUF_FLAG_DONE)
-				return 0;
 			set_queued(&dev->buffers[index]);
 			return 0;
 		}
@@ -396,42 +334,40 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 			struct v4l2_buffer *buf)
 {
 	int index;
-	static int queued_index = V4L2_LOOPBACK_BUFFERS_NUMBER;
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:{
 			/* TODO(vasaka) add nonblocking */
 			wait_event_interruptible(dev->read_event,
-						 (dev->done_number >=
-						  dev->num_collect));
+						 (dev->write_position >
+						 dev->read_position));
 			/* TODO(vasaka) uncomment when blocking io will be OK */
 			/*if (done_number<num_collect)
 			   return -EAGAIN;
 			 */
-			index = find_oldest_done();
-			if (index < 0) {
-				printk(KERN_INFO
-				       "find_oldest_done failed on dqbuf\n");
-				return -EFAULT;
+			if (dev->write_position > dev->read_position+2) {
+				dev->read_position = dev->write_position - 1;
 			}
+			index = dev->read_position % dev->buffers_number;
+			if (!(dev->buffers[index].flags&V4L2_BUF_FLAG_MAPPED)) {
+				printk(KERN_INFO
+				       "trying to g\return not mapped buf\n");
+				return -EINVAL;
+			}
+			++dev->read_position;
 			unset_all(&dev->buffers[index]);
 			*buf = dev->buffers[index];
 			return 0;
 		}
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:{
-			/* TODO(vasaka) need to add check for empty incoming 
-			 * queue and polling for buffer */
-			queued_index = find_next_queued(queued_index);
-			if (queued_index < 0) {
-				printk(KERN_INFO
-				       "find_next_queued failed on dqbuf\n");
-				return -EFAULT;
-			}
-			unset_all(&dev->buffers[queued_index]);
-			*buf = dev->buffers[queued_index];
+			index = dev->write_position % dev->buffers_number;
+			unset_all(&dev->buffers[index]);
+			*buf = dev->buffers[index];
+			++dev->write_position;
 			return 0;
 		}
-	default:
-		return -EINVAL;
+	default:{
+			return -EINVAL;
+		}
 	}
 }
 
@@ -487,7 +423,7 @@ static int v4l2_loopback_mmap(struct file *file,
 
 #ifdef DEBUG
 	printk(KERNEL_PREFIX "entering v4l_mmap(), offset: %lu\n",
-	       vma->vm_pgoff << PAGE_SHIFT);
+	       vma->vm_pgoff);
 #endif
 	if (size > dev->buffer_size) {
 		printk(KERNEL_PREFIX
@@ -516,8 +452,10 @@ static int v4l2_loopback_mmap(struct file *file,
 	}
 
 	vma->vm_ops = &vm_ops;
-	vma->vm_private_data = 0;/* TODO(vasaka) put open counter there and set
-				  * buffer mmaped flag */
+	vma->vm_private_data = 0;
+	dev->buffers[(vma->vm_pgoff<<PAGE_SHIFT)/dev->buffer_size].flags |=
+		V4L2_BUF_FLAG_MAPPED;
+
 	vm_open(vma);
 
 #ifdef DEBUG
@@ -532,7 +470,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 {
 	/* TODO(vasaka) make a distinction between reader and writer */
 	wait_event_interruptible(dev->read_event,
-				 (dev->done_number >= dev->num_collect));
+				 (dev->write_position > dev->read_position));
 	return POLLIN | POLLRDNORM;
 }
 
@@ -544,7 +482,7 @@ static int v4l_loopback_open(struct inode *inode, struct file *file)
 	printk(KERNEL_PREFIX "entering v4l_open()\n");
 #endif
 	/* TODO(vasaka) remove this when multy reader is ready */
-	if (dev->open_count == 2) {
+	if (dev->open_count == 10) {
 		return -EBUSY;
 	}
 	++dev->open_count;
@@ -569,27 +507,23 @@ static int v4l_loopback_close(struct inode *inode, struct file *file)
 static ssize_t v4l_loopback_read(struct file *file, char __user * buf,
 				 size_t count, loff_t * ppos)
 {
-	int done_index;
+	int read_index;
 	/* TODO(vasaka) fill incoming_queue before starting basic IO */
 	wait_event_interruptible(dev->read_event,
-				 (dev->done_number >= dev->num_collect));
+				 (dev->write_position > dev->read_position));
 	if (count > dev->buffer_size) {
 		count = dev->buffer_size;
 	}
-	done_index = find_oldest_done();
-	if (done_index < 0) {
-		printk(KERN_INFO "find_oldest_done failed on read\n");
-		return -EFAULT;
+	if (dev->write_position > dev->read_position+2) {
+		dev->read_position = dev->write_position - 1;
 	}
-	unset_all(&dev->buffers[done_index]);
-	if (copy_to_user((void *) buf,
-			 (void *) (dev->image +
-				   dev->buffers[done_index].m.offset),
-			 count)) {
+	read_index = dev->read_position % dev->buffers_number;
+	if (copy_to_user((void *) buf, (void *) (dev->image +
+			 dev->buffers[read_index].m.offset), count)) {
 		printk(KERN_INFO "failed copy_from_user() in write buf\n");
 		return -EFAULT;
 	}
-	set_queued(&dev->buffers[done_index]);
+	++dev->read_position;
 #ifdef DEBUG_RW
 	printk(KERNEL_PREFIX "leave v4l2_loopback_read()\n");
 #endif
@@ -600,36 +534,24 @@ static ssize_t v4l_loopback_write(struct file *file,
 				  const char __user * buf, size_t count,
 				  loff_t * ppos)
 {
-	static int queued_index = -1;/* on first pass we want to search from 0*/
-	static int frame_number = 0;
+	int write_index = dev->write_position % dev->buffers_number;
 #ifdef DEBUG_RW
 	printk(KERNEL_PREFIX
 	       "v4l2_loopback_write() trying to write %d bytes\n", count);
 #endif
-	if (dev->queued_number < 2) {
-		return count;
-	}
 	if (count > dev->buffer_size) {
 		count = dev->buffer_size;
 	}
-	queued_index = find_next_queued(queued_index);
-	if (queued_index < 0) {
-		printk(KERN_INFO "find_next_queued failed on write\n");
-		return -EFAULT;
-	}
-	unset_all(&dev->buffers[queued_index]);
-
-	if (copy_from_user
-	    ((void *) (dev->image + dev->buffers[queued_index].m.offset),
-	     (void *) buf, count)) {
+	if (copy_from_user(
+		   (void *) (dev->image + dev->buffers[write_index].m.offset),
+		   (void *) buf, count)) {
 		printk(KERNEL_PREFIX
-		  "failed copy_from_user() in write buf, could not write %d\n",
+		   "failed copy_from_user() in write buf, could not write %d\n",
 		   count);
 		return -EFAULT;
 	}
-	dev->buffers[queued_index].sequence = frame_number++;
-	do_gettimeofday(&dev->buffers[queued_index].timestamp);
-	set_done(&dev->buffers[queued_index]);
+	do_gettimeofday(&dev->buffers[write_index].timestamp);
+	dev->buffers[write_index].sequence = dev->write_position++;
 	wake_up_all(&dev->read_event);
 #ifdef DEBUG_RW
 	printk(KERNEL_PREFIX "leave v4l2_loopback_write()\n");
@@ -659,8 +581,8 @@ static void init_buffers(int buffer_size)
 		dev->buffers[i].timestamp.tv_usec = 0;
 		dev->buffers[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	}
-	dev->done_number = 0;
-	dev->queued_number = 0;
+        dev->write_position = 0;
+        dev->read_position = 0;
 }
 
 /* fills and register video device */
@@ -702,7 +624,6 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev)
 	dev->buffers_number = V4L2_LOOPBACK_BUFFERS_NUMBER;
 	dev->open_count = 0;
 	dev->redy_for_capture = 0;
-	dev->num_collect = 1;
 	dev->buffer_size = 0;
 	/* kfree on module release */
 	dev->buffers =
