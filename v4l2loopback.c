@@ -482,7 +482,7 @@ static int v4l_loopback_open(struct inode *inode, struct file *file)
 	printk(KERNEL_PREFIX "entering v4l_open()\n");
 #endif
 	/* TODO(vasaka) remove this when multy reader is ready */
-	if (dev->open_count == 10) {
+	if (dev->open_count == V4L2_LOOPBACK_MAX_OPENERS) {
 		return -EBUSY;
 	}
 	++dev->open_count;

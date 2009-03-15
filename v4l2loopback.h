@@ -10,7 +10,9 @@
 #include <linux/videodev2.h>
 #include <media/v4l2-common.h>
  /* fixed inner buffers number */
+/* TODO(vasaka) make this module parameter */
 #define V4L2_LOOPBACK_BUFFERS_NUMBER 4
+#define V4L2_LOOPBACK_MAX_OPENERS 10
 
 /* TODO(vasaka) use typenames which are common to kernel, but first find out if
  * it is needed */
