@@ -27,9 +27,6 @@ struct v4l2_loopback_device {
 	int buffers_number;  /* should not be big, 4 is a good choise */
 	struct v4l2_buffer *buffers;	/* inner driver buffers */
         int write_position; /* number of last written frame + 1 */
-        int read_position; /* number of last read frame + 1 or
-                            * write_position - 1 if reader went out of sinc
-                            * TODO(vasaka) use position from opener structure */
 	long buffer_size;
 	/* sync stuff */
 	int open_count;
@@ -44,10 +41,11 @@ enum opener_type {
 	WRITER = 2,
 };
 /* struct keeping state and type of opener */
-struct opener {
+struct v4l2_loopback_opener {
 	enum opener_type type;
 	int buffers_number;
-        int position;
+        int position; /* number of last processed frame + 1 or
+                       * write_position - 1 if reader went out of sinc */
 	struct v4l2_buffer *buffers;
 };
 #endif				/* _V4L2LOOPBACK_H */

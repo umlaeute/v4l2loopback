@@ -334,26 +334,27 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 			struct v4l2_buffer *buf)
 {
 	int index;
+	struct v4l2_loopback_opener *opener = file->private_data;
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:{
 			/* TODO(vasaka) add nonblocking */
 			wait_event_interruptible(dev->read_event,
 						 (dev->write_position >
-						 dev->read_position));
+						 opener->position));
 			/* TODO(vasaka) uncomment when blocking io will be OK */
 			/*if (done_number<num_collect)
 			   return -EAGAIN;
 			 */
-			if (dev->write_position > dev->read_position+2) {
-				dev->read_position = dev->write_position - 1;
+			if (dev->write_position > opener->position+2) {
+				opener->position = dev->write_position - 1;
 			}
-			index = dev->read_position % dev->buffers_number;
+			index = opener->position % dev->buffers_number;
 			if (!(dev->buffers[index].flags&V4L2_BUF_FLAG_MAPPED)) {
 				printk(KERN_INFO
 				       "trying to g\return not mapped buf\n");
 				return -EINVAL;
 			}
-			++dev->read_position;
+			++opener->position;
 			unset_all(&dev->buffers[index]);
 			*buf = dev->buffers[index];
 			return 0;
@@ -468,9 +469,10 @@ static int v4l2_loopback_mmap(struct file *file,
 static unsigned int v4l2_loopback_poll(struct file *file,
 				       struct poll_table_struct *pts)
 {
+	struct v4l2_loopback_opener *opener = file->private_data;
 	/* TODO(vasaka) make a distinction between reader and writer */
 	wait_event_interruptible(dev->read_event,
-				 (dev->write_position > dev->read_position));
+				 (dev->write_position > opener->position));
 	return POLLIN | POLLRDNORM;
 }
 
@@ -478,6 +480,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
  * writers are limited by means of setting writer field */
 static int v4l_loopback_open(struct inode *inode, struct file *file)
 {
+	struct v4l2_loopback_opener *opener;
 #ifdef DEBUG
 	printk(KERNEL_PREFIX "entering v4l_open()\n");
 #endif
@@ -485,12 +488,19 @@ static int v4l_loopback_open(struct inode *inode, struct file *file)
 	if (dev->open_count == V4L2_LOOPBACK_MAX_OPENERS) {
 		return -EBUSY;
 	}
+	/* kfree on close */
+	opener = kzalloc(sizeof(*opener), GFP_KERNEL);
+	if (opener == NULL) {
+		return -ENOMEM;
+	}
+	file->private_data = opener;
 	++dev->open_count;
 	return 0;
 }
 
 static int v4l_loopback_close(struct inode *inode, struct file *file)
 {
+	struct v4l2_loopback_opener *opener = file->private_data;
 #ifdef DEBUG
 	printk(KERNEL_PREFIX "entering v4l_close()\n");
 #endif
@@ -501,6 +511,7 @@ static int v4l_loopback_close(struct inode *inode, struct file *file)
 		vfree(dev->image);
 		dev->redy_for_capture = 0;
 	}
+	kfree(opener);
 	return 0;
 }
 
@@ -508,22 +519,23 @@ static ssize_t v4l_loopback_read(struct file *file, char __user * buf,
 				 size_t count, loff_t * ppos)
 {
 	int read_index;
+	struct v4l2_loopback_opener *opener = file->private_data;
 	/* TODO(vasaka) fill incoming_queue before starting basic IO */
 	wait_event_interruptible(dev->read_event,
-				 (dev->write_position > dev->read_position));
+				 (dev->write_position > opener->position));
 	if (count > dev->buffer_size) {
 		count = dev->buffer_size;
 	}
-	if (dev->write_position > dev->read_position+2) {
-		dev->read_position = dev->write_position - 1;
+	if (dev->write_position > opener->position+2) {
+		opener->position = dev->write_position - 1;
 	}
-	read_index = dev->read_position % dev->buffers_number;
+	read_index = opener->position % dev->buffers_number;
 	if (copy_to_user((void *) buf, (void *) (dev->image +
 			 dev->buffers[read_index].m.offset), count)) {
 		printk(KERN_INFO "failed copy_from_user() in write buf\n");
 		return -EFAULT;
 	}
-	++dev->read_position;
+	++opener->position;
 #ifdef DEBUG_RW
 	printk(KERNEL_PREFIX "leave v4l2_loopback_read()\n");
 #endif
@@ -582,7 +594,6 @@ static void init_buffers(int buffer_size)
 		dev->buffers[i].type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	}
         dev->write_position = 0;
-        dev->read_position = 0;
 }
 
 /* fills and register video device */
