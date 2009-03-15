@@ -1,7 +1,7 @@
 Source: v4l2loopback
 Section: unknown
 Priority: extra
-Maintainer: vasaka <vasaka@sewersmobile2.nature>
+Maintainer: vasaka <vasaka@gmaial.com>
 Build-Depends: debhelper (>= 7), bzip2
 Standards-Version: 3.8.0
 Homepage: <insert the upstream URL, if relevant>
@@ -9,7 +9,12 @@ Homepage: <insert the upstream URL, if relevant>
 Package: v4l2loopback-utils
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: <insert up to 60 chars description> <insert long description, indented with spaces>
+Description: this is v4l2 loopback device which output is it's own input.
+ this is useful for feeding different v4l2 applications with video from
+ non v4l2 sources, for example one can feed Skype with video enhanced by
+ gstreamer effects; or use input device which does not have v4l2 compliant
+ driver; or to share one v4l device with many programs, as many drovers
+ are block device, when opened. 
 
 Package: v4l2loopback-source
 Architecture: all

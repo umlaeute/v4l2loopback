@@ -1,23 +1,13 @@
-v4l2loopback for Debian
------------------------
+--- INSTALL ---
+Log in as root and type :
+make && make install
 
-Please see ./README for a description of the v4l2loopback software.
+--- RUN ---
+Load the YAVLD module as root :
+modprobe v4l2loopback
 
-The Debian v4l2loopback source package provides two packages,
+now you can feed device created with data and fetch this data by any v4l2 capable program.
+try http://code.google.com/p/v4lsink/ as source of video data, it is only tested input program.
+v4l1 should also work with little to no additional efforts(effecttv still does not).
 
- 1) v4l2loopback, which the provides the userspace daemon
- 2) v4l2loopback-source, which provides the source for the kernel modules
-
-The v4l2loopback-source package can be used in several ways,
-
- - Using the make-kpkg(1) command provided by the kernel-package Debian
-   package. This will produce a corresponding v4l2loopback-modules package for
-   the Debian kernel-image package that you are using. This is "the Debian
-   way". See the "modules_image" section of the make-kpkg(1) man page.
-
- - Changing to the /usr/src/modules/v4l2loopback/ directory and building as
-   the README file instructs using "make; make install". This will build
-   and install a module specific to the system you are building on and is
-   not under control of the packaging system.
-
- -- vasaka <vasaka@sewersmobile2.nature>  Mon, 09 Mar 2009 02:58:34 +0200
+works with 2.6.28 kernel only

@@ -1,12 +1,11 @@
-This package was debianized by vasaka <vasaka@sewersmobile2.nature> on
+This package was debianized by vasaka <vasaka@gmail.com> on
 Mon, 09 Mar 2009 02:58:34 +0200.
 
-It was downloaded from <url://example.com>
+It was downloaded from http://code.google.com/p/v4l2loopback/
 
 Upstream Author(s):
 
-    <put author's name and email here>
-    <likewise for another author>
+    Vasily Levin <vasaka@gmail.com>
 
 Copyright:
 
@@ -15,9 +14,9 @@ Copyright:
 
 License:
 
-    <Put the license of the package here indented by 4 spaces>
+    GPLv2 or later
 
-The Debian packaging is copyright 2009, vasaka <vasaka@sewersmobile2.nature> and
+The Debian packaging is copyright 2009, vasaka <vasaka@gmail.com> and
 is licensed under the GPL, see `/usr/share/common-licenses/GPL'.
 
 # Please also look if there are files or directories which have a

@@ -59,7 +59,7 @@ kdist_config: prep-deb-files
 # been made by the other kdist_commands (except for the .deb files created)
 kdist_clean: clean
 	$(MAKE) $(MFLAGS) -f debian/rules clean
-#	rm -f driver/*.o driver/*.ko
+#	rm -f *.o *.ko
 #
 ### end  KERNEL SETUP
 
@@ -141,7 +141,7 @@ install: build
 	dh_installdirs -p$(psource)  usr/src/modules/$(sname)/debian
 
 	# Copy only the driver source to the proper location
-	cp -r driver/*  debian/$(psource)/usr/src/modules/$(sname)
+	cp -r *.h *.c Makefile  debian/$(psource)/usr/src/modules/$(sname)
 	# Copy the needed debian/ pieces to the proper location
 	cp debian/*modules.in* \
 		debian/$(psource)/usr/src/modules/$(sname)/debian

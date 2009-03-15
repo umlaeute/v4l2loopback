@@ -1,5 +1,11 @@
+v4l2loopback (0.1.0-1) unstable; urgency=low
+
+  * New upstream release
+
+ -- vasaka <vasaka@gmail.com>  Mon, 09 Mar 2009 02:58:34 +0200
+
 v4l2loopback (0.0.1-1) unstable; urgency=low
 
   * Initial release (Closes: #nnnn)  <nnnn is the bug number of your ITP>
 
- -- vasaka <vasaka@sewersmobile2.nature>  Mon, 09 Mar 2009 02:58:34 +0200
+ -- vasaka <vasaka@gmail.com>  Mon, 09 Mar 2009 02:58:34 +0200

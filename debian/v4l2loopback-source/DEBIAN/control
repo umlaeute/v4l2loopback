@@ -1,8 +1,8 @@
 Package: v4l2loopback-source
 Source: v4l2loopback
-Version: 0.0.1-1
+Version: 0.1.0-1
 Architecture: all
-Maintainer: vasaka <vasaka@sewersmobile2.nature>
+Maintainer: vasaka <vasaka@gmaial.com>
 Installed-Size: 20
 Depends: module-assistant, debhelper (>= 7), make, bzip2
 Section: unknown

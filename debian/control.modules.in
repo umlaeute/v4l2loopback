@@ -1,7 +1,7 @@
 Source: v4l2loopback
 Section: unknown
 Priority: optional
-Maintainer: vasaka <vasaka@sewersmobile2.nature>
+Maintainer: vasaka <vasaka@gmail.com>
 Build-Depends: debhelper (>= 7)
 Standards-Version: 3.8.0
 
