@@ -75,7 +75,7 @@ static int vidioc_querycap(struct file *file,
 static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
-	if (dev->redy_for_capture == 0) {
+	if (dev->ready_for_capture == 0) {
 		return -EINVAL;
 	}
 	if (f->index) {
@@ -91,7 +91,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
-	if (dev->redy_for_capture == 0) {
+	if (dev->ready_for_capture == 0) {
 		return -EINVAL;
 	}
 	fmt->fmt.pix = dev->pix_format;
@@ -107,7 +107,9 @@ static int vidioc_g_fmt_cap(struct file *file,
 static int vidioc_try_fmt_cap(struct file *file,
 			      void *priv, struct v4l2_format *fmt)
 {
-	if (dev->redy_for_capture == 0) {
+	struct v4l2_loopback_opener *opener = file->private_data;
+	opener->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if (dev->ready_for_capture == 0) {
 		return -EINVAL;
 	}
 	if (fmt->fmt.pix.pixelformat != dev->pix_format.pixelformat) {
@@ -124,9 +126,11 @@ static int vidioc_try_fmt_cap(struct file *file,
 static int vidioc_try_fmt_video_output(struct file *file,
 				       void *priv, struct v4l2_format *fmt)
 {
+	struct v4l2_loopback_opener *opener = file->private_data;
+	opener->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow */
-	if (dev->redy_for_capture) {
+	if (dev->ready_for_capture) {
 		fmt->fmt.pix = dev->pix_format;
 	} else {
 		if (fmt->fmt.pix.sizeimage == 0) {
@@ -157,7 +161,7 @@ static int vidioc_s_fmt_video_output(struct file *file,
 				     void *priv, struct v4l2_format *fmt)
 {
 	vidioc_try_fmt_video_output(file, priv, fmt);
-	if (dev->redy_for_capture == 0) {
+	if (dev->ready_for_capture == 0) {
 		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 		fmt->fmt.pix.sizeimage = dev->buffer_size;
 		/* vfree on close file operation in case no open handles left */
@@ -171,7 +175,7 @@ static int vidioc_s_fmt_video_output(struct file *file,
 		       dev->buffer_size * dev->buffers_number);
 #endif
 		init_buffers(dev->buffer_size);
-		dev->redy_for_capture = 1;
+		dev->ready_for_capture = 1;
 	}
 	return 0;
 }
@@ -229,7 +233,7 @@ static int vidioc_s_std(struct file *file, void *private_data,
 static int vidioc_enum_input(struct file *file, void *fh,
 			     struct v4l2_input *inp)
 {
-	if (dev->redy_for_capture == 0) {
+	if (dev->ready_for_capture == 0) {
 		return -EINVAL;
 	}
 	if (inp->index == 0) {
@@ -247,7 +251,7 @@ static int vidioc_enum_input(struct file *file, void *fh,
 /* which input is currently active, called on VIDIOC_G_INPUT */
 int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
 {
-	if (dev->redy_for_capture == 0) {
+	if (dev->ready_for_capture == 0) {
 		return -EINVAL;
 	}
 	*i = 0;
@@ -258,7 +262,7 @@ int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
  * called on VIDIOC_S_INPUT */
 int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 {
-	if (dev->redy_for_capture == 0) {
+	if (dev->ready_for_capture == 0) {
 		return -EINVAL;
 	}
 	if (i == 0) {
@@ -345,14 +349,13 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 	struct v4l2_loopback_opener *opener = file->private_data;
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:{
-			/* TODO(vasaka) add nonblocking */
+			if ((dev->write_position <= opener->position) &&
+				(file->f_flags&O_NONBLOCK)) {
+			   return -EAGAIN;
+			}
 			wait_event_interruptible(dev->read_event,
 						 (dev->write_position >
 						 opener->position));
-			/* TODO(vasaka) uncomment when blocking io will be OK */
-			/*if (done_number<num_collect)
-			   return -EAGAIN;
-			 */
 			if (dev->write_position > opener->position+2) {
 				opener->position = dev->write_position - 1;
 			}
@@ -478,10 +481,22 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 				       struct poll_table_struct *pts)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
-	/* TODO(vasaka) make a distinction between reader and writer */
-	wait_event_interruptible(dev->read_event,
-				 (dev->write_position > opener->position));
-	return POLLIN | POLLRDNORM;
+	int ret_mask = 0;
+	switch (opener->type) {
+		case WRITER: {
+			ret_mask = POLLOUT | POLLWRNORM;
+		}
+		case READER: {
+			poll_wait(file, &dev->read_event, pts);
+			if (dev->write_position > opener->position) {
+				ret_mask =  POLLIN | POLLRDNORM;
+			}
+		}
+		default: {
+			ret_mask = -POLLERR;
+		}
+	}
+	return ret_mask;
 }
 
 /* do not want to limit device opens, it can be as many readers as user want,
@@ -517,7 +532,8 @@ static int v4l_loopback_close(struct inode *inode, struct file *file)
 	 * no more valid and one can free data? */
 	if (dev->open_count == 0) {
 		vfree(dev->image);
-		dev->redy_for_capture = 0;
+		dev->image = NULL;
+		dev->ready_for_capture = 0;
 	}
 	kfree(opener);
 	return 0;
@@ -528,7 +544,10 @@ static ssize_t v4l_loopback_read(struct file *file, char __user * buf,
 {
 	int read_index;
 	struct v4l2_loopback_opener *opener = file->private_data;
-	/* TODO(vasaka) fill incoming_queue before starting basic IO */
+	if ((dev->write_position <= opener->position) &&
+		(file->f_flags&O_NONBLOCK)) {
+	   return -EAGAIN;
+	}
 	wait_event_interruptible(dev->read_event,
 				 (dev->write_position > opener->position));
 	if (count > dev->buffer_size) {
@@ -642,8 +661,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev)
 	init_capture_param(&dev->capture_param);
 	dev->buffers_number = V4L2_LOOPBACK_BUFFERS_NUMBER;
 	dev->open_count = 0;
-	dev->redy_for_capture = 0;
+	dev->ready_for_capture = 0;
 	dev->buffer_size = 0;
+	dev->image = NULL;
 	/* kfree on module release */
 	dev->buffers =
 	    kzalloc(sizeof(*dev->buffers) * dev->buffers_number,

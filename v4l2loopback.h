@@ -37,7 +37,7 @@ struct v4l2_loopback_device {
 	long buffer_size;
 	/* sync stuff */
 	int open_count;
-	int redy_for_capture;/* set to true when at least one writer opened 
+	int ready_for_capture;/* set to true when at least one writer opened
 			      * device and negotiated format */
 	wait_queue_head_t read_event;
 };
