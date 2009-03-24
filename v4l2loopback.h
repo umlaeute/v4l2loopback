@@ -33,7 +33,7 @@ struct v4l2_loopback_device {
 	__u8 *image;         /* pointer to actual buffers data */
 	int buffers_number;  /* should not be big, 4 is a good choise */
 	struct v4l2_buffer *buffers;	/* inner driver buffers */
-        int write_position; /* number of last written frame + 1 */
+	int write_position; /* number of last written frame + 1 */
 	long buffer_size;
 	/* sync stuff */
 	int open_count;
@@ -51,8 +51,8 @@ enum opener_type {
 struct v4l2_loopback_opener {
 	enum opener_type type;
 	int buffers_number;
-        int position; /* number of last processed frame + 1 or
-                       * write_position - 1 if reader went out of sinc */
+	int position; /* number of last processed frame + 1 or
+		       * write_position - 1 if reader went out of sinc */
 	struct v4l2_buffer *buffers;
 };
 #endif				/* _V4L2LOOPBACK_H */
