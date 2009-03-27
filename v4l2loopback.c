@@ -18,10 +18,28 @@
 #include <media/v4l2-ioctl.h>
 #include "v4l2loopback.h"
 
-#define DEBUG
-#define DEBUG_RW
+/* #define DEBUG 
+#define DEBUG_RW */
 #define YAVLD_STREAMING
-#define KERNEL_PREFIX "YAVLD device: "	/* Prefix of each kernel message */
+
+#ifdef DEBUG
+#define dprintk(fmt, args...)\
+	do {\
+		printk(KERN_INFO "v4l2-loopback: " fmt, ##args);\
+	} while (0)
+#else
+#define dprintk(fmt, args...)
+#endif
+
+#ifdef DEBUG_RW
+#define dprintkrw(fmt, args...)\
+	do {\
+		printk(KERN_INFO "v4l2-loopback: " fmt, ##args);\
+	} while (0)
+#else
+#define dprintkrw(fmt, args...)
+#endif
+
 /* global module data */
 struct v4l2_loopback_device *dev;
 /* forward declarations */
@@ -32,19 +50,19 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 **************** my queue helpers *******************************
 ****************************************************************/
 /* next functions sets buffer flags and adjusts counters accordingly */
-void set_done(struct v4l2_buffer *buffer)
+static void set_done(struct v4l2_buffer *buffer)
 {
 	buffer->flags |= V4L2_BUF_FLAG_DONE;
 	buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
 }
 
-void set_queued(struct v4l2_buffer *buffer)
+static void set_queued(struct v4l2_buffer *buffer)
 {
 	buffer->flags |= V4L2_BUF_FLAG_QUEUED;
 	buffer->flags &= ~V4L2_BUF_FLAG_DONE;
 }
 
-void unset_all(struct v4l2_buffer *buffer)
+static void unset_all(struct v4l2_buffer *buffer)
 {
 	buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
 	buffer->flags &= ~V4L2_BUF_FLAG_DONE;
@@ -154,7 +172,9 @@ static int vidioc_s_fmt_cap(struct file *file,
 static int vidioc_s_fmt_video_output(struct file *file,
 				     void *priv, struct v4l2_format *fmt)
 {
-	vidioc_try_fmt_video_output(file, priv, fmt);
+	int ret = vidioc_try_fmt_video_output(file, priv, fmt);
+	if (ret < 0)
+		return ret;
 	if (dev->ready_for_capture == 0) {
 		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 		fmt->fmt.pix.sizeimage = dev->buffer_size;
@@ -162,15 +182,13 @@ static int vidioc_s_fmt_video_output(struct file *file,
 		dev->image =
 		    vmalloc(dev->buffer_size * dev->buffers_number);
 		if (dev->image == NULL)
-			return -EINVAL;
-#ifdef DEBUG
-		printk(KERNEL_PREFIX "vmallocated %ld bytes\n",
-		       dev->buffer_size * dev->buffers_number);
-#endif
+			return -EFAULT;
+		dprintk("vmallocated %ld bytes\n",
+			dev->buffer_size * dev->buffers_number);
 		init_buffers(dev->buffer_size);
 		dev->ready_for_capture = 1;
 	}
-	return 0;
+	return ret;
 }
 
 /******************************************************************************/
@@ -191,11 +209,9 @@ static int vidioc_g_parm(struct file *file, void *priv,
 static int vidioc_s_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "vidioc_s_parm called frate=%d/%d\n",
+	dprintk("vidioc_s_parm called frate=%d/%d\n",
 	       parm->parm.capture.timeperframe.numerator,
 	       parm->parm.capture.timeperframe.denominator);
-#endif
 	switch (parm->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:{
 			parm->parm.capture = dev->capture_param;
@@ -214,7 +230,7 @@ static int vidioc_s_parm(struct file *file, void *priv,
 }
 
 /* sets a tv standart, actually we do not need to handle this any spetial way
- *added to support effecttv */
+ * added to support effecttv, can not be inline as I need pointer to it */
 static int vidioc_s_std(struct file *file, void *private_data,
 			v4l2_std_id *norm)
 {
@@ -344,7 +360,7 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 				opener->position = dev->write_position - 1;
 			index = opener->position % dev->buffers_number;
 			if (!(dev->buffers[index].flags&V4L2_BUF_FLAG_MAPPED)) {
-				printk(KERN_INFO
+				printk(KERN_INFO "v4l2-loopback: "
 				       "trying to g\return not mapped buf\n");
 				return -EINVAL;
 			}
@@ -416,18 +432,15 @@ static int v4l2_loopback_mmap(struct file *file,
 	unsigned long start = (unsigned long) vma->vm_start;
 	unsigned long size = (unsigned long) (vma->vm_end - vma->vm_start);
 
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "entering v4l_mmap(), offset: %lu\n",
-	       vma->vm_pgoff);
-#endif
+	dprintk("entering v4l_mmap(), offset: %lu\n", vma->vm_pgoff);
 	if (size > dev->buffer_size) {
-		printk(KERNEL_PREFIX
+		printk(KERN_INFO "v4l2-loopback: "
 		       "userspace tries to mmap to much, fail\n");
 		return -EINVAL;
 	}
 	if ((vma->vm_pgoff << PAGE_SHIFT) >
 	    dev->buffer_size * (dev->buffers_number - 1)) {
-		printk(KERNEL_PREFIX
+		printk(KERN_INFO "v4l2-loopback: "
 		       "userspace tries to mmap to far, fail\n");
 		return -EINVAL;
 	}
@@ -451,9 +464,7 @@ static int v4l2_loopback_mmap(struct file *file,
 
 	vm_open(vma);
 
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "leaving v4l_mmap()\n");
-#endif
+	dprintk("leaving v4l_mmap()\n");
 
 	return 0;
 }
@@ -484,9 +495,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 static int v4l_loopback_open(struct file *file)
 {
 	struct v4l2_loopback_opener *opener;
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "entering v4l_open()\n");
-#endif
+	dprintk("entering v4l_open()\n");
 	if (dev->open_count == V4L2_LOOPBACK_MAX_OPENERS)
 		return -EBUSY;
 	/* kfree on close */
@@ -501,9 +510,7 @@ static int v4l_loopback_open(struct file *file)
 static int v4l_loopback_close(struct file *file)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "entering v4l_close()\n");
-#endif
+	dprintk("entering v4l_close()\n");
 	--dev->open_count;
 	/* TODO(vasaka) does the closed file means that mmaped buffers are
 	 * no more valid and one can free data? */
@@ -534,13 +541,12 @@ static ssize_t v4l_loopback_read(struct file *file, char __user *buf,
 	read_index = opener->position % dev->buffers_number;
 	if (copy_to_user((void *) buf, (void *) (dev->image +
 			 dev->buffers[read_index].m.offset), count)) {
-		printk(KERN_INFO "failed copy_from_user() in write buf\n");
+		printk(KERN_INFO "v4l2-loopback: "
+			"failed copy_from_user() in write buf\n");
 		return -EFAULT;
 	}
 	++opener->position;
-#ifdef DEBUG_RW
-	printk(KERNEL_PREFIX "leave v4l2_loopback_read()\n");
-#endif
+	dprintkrw("leave v4l2_loopback_read()\n");
 	return count;
 }
 
@@ -549,16 +555,13 @@ static ssize_t v4l_loopback_write(struct file *file,
 				  loff_t *ppos)
 {
 	int write_index = dev->write_position % dev->buffers_number;
-#ifdef DEBUG_RW
-	printk(KERNEL_PREFIX
-	       "v4l2_loopback_write() trying to write %d bytes\n", count);
-#endif
+	dprintkrw("v4l2_loopback_write() trying to write %d bytes\n", count);
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
 	if (copy_from_user(
 		   (void *) (dev->image + dev->buffers[write_index].m.offset),
 		   (void *) buf, count)) {
-		printk(KERNEL_PREFIX
+		printk(KERN_INFO "v4l2-loopback: "
 		   "failed copy_from_user() in write buf, could not write %d\n",
 		   count);
 		return -EFAULT;
@@ -566,9 +569,7 @@ static ssize_t v4l_loopback_write(struct file *file,
 	do_gettimeofday(&dev->buffers[write_index].timestamp);
 	dev->buffers[write_index].sequence = dev->write_position++;
 	wake_up_all(&dev->read_event);
-#ifdef DEBUG_RW
-	printk(KERNEL_PREFIX "leave v4l2_loopback_write()\n");
-#endif
+	dprintkrw("leave v4l2_loopback_write()\n");
 	return count;
 }
 
@@ -629,7 +630,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev)
 {
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL)
-		return -1;
+		return -ENOMEM;
 	init_vdev(dev->vdev);
 	init_capture_param(&dev->capture_param);
 	dev->buffers_number = V4L2_LOOPBACK_BUFFERS_NUMBER;
@@ -688,39 +689,37 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 
 int __init init_module()
 {
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "entering init_module()\n");
-#endif
+	int ret;
+	dprintk("entering init_module()\n");
 	/* kfree on module release */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (dev == NULL)
 		return -ENOMEM;
-	if (v4l2_loopback_init(dev) < 0)
-		return -EINVAL;
+	ret = v4l2_loopback_init(dev);
+	if (ret < 0)
+		return ret;
 	/* register the device -> it creates /dev/video* */
 	if (video_register_device(dev->vdev, VFL_TYPE_GRABBER, -1) < 0) {
 		video_device_release(dev->vdev);
 		printk(KERN_INFO "failed video_register_device()\n");
-		return -EINVAL;
+		return -EFAULT;
 	}
-	printk(KERNEL_PREFIX "module installed\n");
+	printk(KERN_INFO "v4l2-loopback module installed\n");
 	return 0;
 }
 
 void __exit cleanup_module()
 {
-#ifdef DEBUG
-	printk(KERNEL_PREFIX "entering cleanup_module()\n");
-#endif
+	dprintk("entering cleanup_module()\n");
 	/* unregister the device -> it deletes /dev/video* */
 	video_unregister_device(dev->vdev);
 	kfree(dev->buffers);
 	kfree(dev);
-	printk(KERNEL_PREFIX "module removed\n");
+	printk(KERN_INFO "v4l2-loopback module removed\n");
 }
 
 
-MODULE_DESCRIPTION("YAVLD - V4L2 loopback video device");
-MODULE_VERSION("0.0.1");
+MODULE_DESCRIPTION("V4L2 loopback video device");
+MODULE_VERSION("0.1.0");
 MODULE_AUTHOR("Vasily Levin");
 MODULE_LICENSE("GPL");
