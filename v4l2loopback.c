@@ -15,8 +15,8 @@
 #include <linux/mm.h>
 #include <linux/time.h>
 #include <linux/module.h>
-#include <media/v4l2-ioctl.h>
 #include <linux/videodev2.h>
+#include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 
 #define YAVLD_STREAMING
@@ -65,30 +65,30 @@ struct v4l2_loopback_opener {
 };
 
 /* module parameters */
-static int debug = 0;
+static int debug = 1;
 module_param(debug, int, 0);
-MODULE_PARM_DESC(debug,"if debug output is enabled, values are 0, 1 or 2");
+MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 2 or 3");
 
 static int max_buffers_number = 4;
 module_param(max_buffers_number, int, 0);
-MODULE_PARM_DESC(max_buffers_number,"how many buffers should be allocated");
+MODULE_PARM_DESC(max_buffers_number, "how many buffers should be allocated");
 
 static int max_openers = 10;
 module_param(max_openers, int, 0);
-MODULE_PARM_DESC(max_openers,"how many users can open loopback device");
+MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
 /* module constants */
-#define MAX_MMAP_BUFFERS 100 /* max buffers that can be mmaped, actuale they
+#define MAX_MMAP_BUFFERS 100  /* max buffers that can be mapped, actually they
 				* are all mapped to max_buffers_number buffers*/
 
 #define dprintk(fmt, args...)\
-	if (debug) {\
+	if (debug > 1) {\
 		printk(KERN_INFO "v4l2-loopback: " fmt, ##args);\
 	}
 
 
 #define dprintkrw(fmt, args...)\
-	if (debug > 1) {\
+	if (debug > 2) {\
 		printk(KERN_INFO "v4l2-loopback: " fmt, ##args);\
 	}
 
@@ -113,7 +113,7 @@ static inline void set_queued(struct v4l2_buffer *buffer)
 	buffer->flags |= V4L2_BUF_FLAG_QUEUED;
 }
 
-static inline void unset_all(struct v4l2_buffer *buffer)
+static inline void unset_flags(struct v4l2_buffer *buffer)
 {
 	buffer->flags &= ~V4L2_BUF_FLAG_QUEUED;
 	buffer->flags &= ~V4L2_BUF_FLAG_DONE;
@@ -227,8 +227,8 @@ static int vidioc_s_fmt_video_output(struct file *file,
 	return ret;
 }
 
-/* get some data flaw parameters, only capability, fps and readbuffers has effect
- * on this driver, called on VIDIOC_G_PARM*/
+/* get some data flaw parameters, only capability, fps and readbuffers has
+ * effect on this driver, called on VIDIOC_G_PARM */
 static int vidioc_g_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
@@ -238,8 +238,8 @@ static int vidioc_g_parm(struct file *file, void *priv,
 	return 0;
 }
 
-/* get some data flaw parameters, only capability, fps and readbuffers has effect
- * on this driver, called on VIDIOC_S_PARM */
+/* get some data flaw parameters, only capability, fps and readbuffers has
+ * effect on this driver, called on VIDIOC_S_PARM */
 static int vidioc_s_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
@@ -383,16 +383,16 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 		index = opener->position % dev->buffers_number;
 		if (!(dev->buffers[index].flags&V4L2_BUF_FLAG_MAPPED)) {
 			printk(KERN_INFO "v4l2-loopback: "
-			       "trying to g\return not mapped buf\n");
+			       "trying to return not mapped buf\n");
 			return -EINVAL;
 		}
 		++opener->position;
-		unset_all(&dev->buffers[index]);
+		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index];
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		index = dev->write_position % dev->buffers_number;
-		unset_all(&dev->buffers[index]);
+		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index];
 		++dev->write_position;
 		return 0;
@@ -547,7 +547,7 @@ static int v4l_loopback_close(struct file *file)
 
 	dprintk("entering v4l_close()\n");
 	atomic_dec(&dev->open_count);
-	/* TODO(vasaka) does the closed file means that mmaped buffers are
+	/* TODO(vasaka) does the closed file means that mapped buffers are
 	 * no more valid and one can free data? */
 	if (dev->open_count.counter == 0) {
 		vfree(dev->image);
@@ -578,7 +578,7 @@ static ssize_t v4l_loopback_read(struct file *file, char __user *buf,
 	read_index = opener->position % dev->buffers_number;
 	if (copy_to_user((void *) buf, (void *) (dev->image +
 			 dev->buffers[read_index].m.offset), count)) {
-		printk(KERN_INFO "v4l2-loopback: "
+		printk(KERN_ERR "v4l2-loopback: "
 			"failed copy_from_user() in write buf\n");
 		return -EFAULT;
 	}
@@ -600,14 +600,14 @@ static ssize_t v4l_loopback_write(struct file *file,
 			return ret;
 		init_buffers(dev->buffer_size);
 		dev->ready_for_capture = 1;
-	}	
+	}
 	dprintkrw("v4l2_loopback_write() trying to write %d bytes\n", count);
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
 	if (copy_from_user(
 		   (void *) (dev->image + dev->buffers[write_index].m.offset),
 		   (void *) buf, count)) {
-		printk(KERN_INFO "v4l2-loopback: "
+		printk(KERN_ERR "v4l2-loopback: "
 		   "failed copy_from_user() in write buf, could not write %d\n",
 		   count);
 		return -EFAULT;
@@ -666,9 +666,8 @@ static void init_vdev(struct video_device *vdev)
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
-#ifdef DEBUG
-	vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
-#endif
+	if (debug > 1)
+		vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
 }
 
 /* init default capture parameters, only fps may be changed in future */
@@ -745,7 +744,7 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 int __init init_module()
 {
 	int ret;
-	
+
 	dprintk("entering init_module()\n");
 	/* kfree on module release */
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
@@ -757,7 +756,7 @@ int __init init_module()
 	/* register the device -> it creates /dev/video* */
 	if (video_register_device(dev->vdev, VFL_TYPE_GRABBER, -1) < 0) {
 		video_device_release(dev->vdev);
-		printk(KERN_INFO "failed video_register_device()\n");
+		printk(KERN_ERR "failed video_register_device()\n");
 		return -EFAULT;
 	}
 	printk(KERN_INFO "v4l2-loopback module installed\n");
