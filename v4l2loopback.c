@@ -19,6 +19,10 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 
+// sm-note: added
+
+#include <linux/sched.h>
+
 #define YAVLD_STREAMING
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
