@@ -79,7 +79,7 @@ struct v4l2_loopback_opener {
 /* module parameters */
 static int debug = 1;
 module_param(debug, int, 0);
-MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 2 or 3");
+MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
 
 static int max_buffers_number = 4;
 module_param(max_buffers_number, int, 0);
@@ -93,7 +93,7 @@ MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 #define MAX_PIPES 8
 static int pipes = -1;
 module_param(pipes, int, 000);
-MODULE_PARM_DESC(pipes, " Nr of pipes to create");
+MODULE_PARM_DESC(pipes, "how many devices should be created");
 
 
 /* module constants */
@@ -113,6 +113,7 @@ MODULE_PARM_DESC(pipes, " Nr of pipes to create");
 
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_PIPES];
+
 static struct v4l2_loopback_device*v4l2loopback_getdevice(struct file*f) {
     struct video_device *loopdev = video_devdata(f);
   #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)    
@@ -122,6 +123,7 @@ static struct v4l2_loopback_device*v4l2loopback_getdevice(struct file*f) {
     priv_ptr ptr = (priv_ptr)loopdev->vd_private_data;
 #endif
     int nr = ptr->pipenr;
+    if(nr<0 || nr>=pipes){printk(KERN_ERR "v4l2-loopback: illegal device %d\n",nr);return NULL;}
     return devs[nr];
 }
 
@@ -422,8 +424,7 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 			opener->position = dev->write_position - 1;
 		index = opener->position % dev->buffers_number;
 		if (!(dev->buffers[index].flags&V4L2_BUF_FLAG_MAPPED)) {
-			printk(KERN_INFO "v4l2-loopback: "
-			       "trying to return not mapped buf\n");
+			dprintk("trying to return not mapped buf\n");
 			return -EINVAL;
 		}
 		++opener->position;
@@ -510,14 +511,12 @@ static int v4l2_loopback_mmap(struct file *file,
 
 	dprintk("entering v4l_mmap(), offset: %lu\n", vma->vm_pgoff);
 	if (size > dev->buffer_size) {
-		printk(KERN_INFO "v4l2-loopback: "
-		       "userspace tries to mmap to much, fail\n");
+		dprintk("userspace tries to mmap to much, fail\n");
 		return -EINVAL;
 	}
 	if ((vma->vm_pgoff << PAGE_SHIFT) >
 	    dev->buffer_size * (dev->buffers_number - 1)) {
-		printk(KERN_INFO "v4l2-loopback: "
-		       "userspace tries to mmap to far, fail\n");
+		dprintk("userspace tries to mmap to far, fail\n");
 		return -EINVAL;
 	}
 	addr = (unsigned long) dev->image + (vma->vm_pgoff << PAGE_SHIFT);
@@ -820,6 +819,7 @@ int __init init_module()
 	dprintk("entering init_module()\n");
 	/* kfree on module release */
 	for(pipe=0; pipe<pipes; pipe++) {
+	  dprintk("creating loopback-device #%d\n", pipe);
 	  devs[pipe] = kzalloc(sizeof(*devs[pipe]), GFP_KERNEL);
 	  if (devs[pipe] == NULL)
 	    return -ENOMEM;
@@ -833,7 +833,7 @@ int __init init_module()
 	    return -EFAULT;
 	  }
 	}
-	printk(KERN_INFO "v4l2-loopback module installed\n");
+	dprintk("module installed\n");
 	return 0;
 }
 
@@ -847,5 +847,5 @@ void __exit cleanup_module()
 	  kfree(devs[pipe]->buffers);
 	  kfree(devs[pipe]);
 	}
-	printk(KERN_INFO "v4l2-loopback module removed\n");
+	dprintk("module removed\n");
 }
