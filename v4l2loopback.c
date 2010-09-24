@@ -31,6 +31,14 @@ MODULE_AUTHOR("Vasily Levin");
 MODULE_LICENSE("GPL");
 
 /* module structures */
+
+struct v4l2loopback_private {
+    int pipenr;
+};
+
+typedef struct v4l2loopback_private *priv_ptr;
+
+
 /* TODO(vasaka) use typenames which are common to kernel, but first find out if
  * it is needed */
 /* struct keeping state and settings of loopback device */
@@ -81,6 +89,13 @@ static int max_openers = 10;
 module_param(max_openers, int, 0);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
+
+#define MAX_PIPES 8
+static int pipes = -1;
+module_param(pipes, int, 000);
+MODULE_PARM_DESC(pipes, " Nr of pipes to create");
+
+
 /* module constants */
 #define MAX_MMAP_BUFFERS 100  /* max buffers that can be mapped, actually they
 				* are all mapped to max_buffers_number buffers*/
@@ -97,10 +112,22 @@ MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 	}
 
 /* global module data */
-struct v4l2_loopback_device *dev;
+struct v4l2_loopback_device *devs[MAX_PIPES];
+static struct v4l2_loopback_device*v4l2loopback_getdevice(struct file*f) {
+    struct video_device *loopdev = video_devdata(f);
+  #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)    
+    priv_ptr ptr = (priv_ptr)video_get_drvdata(loopdev);
+#else
+#error old kernel not supported
+    priv_ptr ptr = (priv_ptr)loopdev->vd_private_data;
+#endif
+    int nr = ptr->pipenr;
+    return devs[nr];
+}
+
 /* forward declarations */
-static void init_buffers(int buffer_size);
-static int allocate_buffers(void);
+static void init_buffers(struct v4l2_loopback_device *dev);
+static int allocate_buffers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 /* Queue helpers */
@@ -144,6 +171,7 @@ static int vidioc_querycap(struct file *file,
 static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	if (dev->ready_for_capture == 0)
 		return -EINVAL;
 	if (f->index)
@@ -157,10 +185,11 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
-	if (dev->ready_for_capture == 0)
-		return -EINVAL;
-	fmt->fmt.pix = dev->pix_format;
-	return 0;
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  if (dev->ready_for_capture == 0)
+    return -EINVAL;
+  fmt->fmt.pix = dev->pix_format;
+  return 0;
 }
 
 /* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl
@@ -172,7 +201,7 @@ static int vidioc_try_fmt_cap(struct file *file,
 			      void *priv, struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
-
+	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	opener->type = READER;
 	if (dev->ready_for_capture == 0)
 		return -EINVAL;
@@ -189,7 +218,7 @@ static int vidioc_try_fmt_video_output(struct file *file,
 				       void *priv, struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
-
+	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	opener->type = WRITER;
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow */
@@ -221,7 +250,7 @@ static int vidioc_s_fmt_video_output(struct file *file,
 				     void *priv, struct v4l2_format *fmt)
 {
 	int ret = vidioc_try_fmt_video_output(file, priv, fmt);
-
+	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	if (ret < 0)
 		return ret;
 	if (dev->ready_for_capture == 0) {
@@ -238,6 +267,7 @@ static int vidioc_g_parm(struct file *file, void *priv,
 {
 	/* do not care about type of opener, hope this enums would always be
 	 * compatible */
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	parm->parm.capture = dev->capture_param;
 	return 0;
 }
@@ -247,6 +277,7 @@ static int vidioc_g_parm(struct file *file, void *priv,
 static int vidioc_s_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	dprintk("vidioc_s_parm called frate=%d/%d\n",
 	       parm->parm.capture.timeperframe.numerator,
 	       parm->parm.capture.timeperframe.denominator);
@@ -277,6 +308,7 @@ static int vidioc_s_std(struct file *file, void *private_data,
 static int vidioc_enum_input(struct file *file, void *fh,
 			     struct v4l2_input *inp)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	if (dev->ready_for_capture == 0)
 		return -EINVAL;
 	if (inp->index == 0) {
@@ -313,6 +345,7 @@ int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 static int vidioc_reqbufs(struct file *file, void *fh,
 			  struct v4l2_requestbuffers *b)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	switch (b->memory) {
 	case V4L2_MEMORY_MMAP:
 		/* do nothing here, buffers are always allocated*/
@@ -333,6 +366,7 @@ static int vidioc_querybuf(struct file *file, void *fh,
 {
 	enum v4l2_buf_type type = b->type;
 	int index = b->index;
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
 	if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 	    (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
@@ -350,6 +384,7 @@ static int vidioc_querybuf(struct file *file, void *fh,
 static int vidioc_qbuf(struct file *file, void *private_data,
 		       struct v4l2_buffer *buf)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	int index = buf->index % dev->buffers_number;
 
 	if (buf->index > MAX_MMAP_BUFFERS)
@@ -372,6 +407,7 @@ static int vidioc_qbuf(struct file *file, void *private_data,
 static int vidioc_dqbuf(struct file *file, void *private_data,
 			struct v4l2_buffer *buf)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	int index;
 	struct v4l2_loopback_opener *opener = file->private_data;
 
@@ -408,14 +444,15 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 static int vidioc_streamon(struct file *file, void *private_data,
 			   enum v4l2_buf_type type)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	int ret;
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		if (dev->ready_for_capture == 0) {
-			ret = allocate_buffers();
+			ret = allocate_buffers(dev);
 			if (ret < 0)
 				return ret;
-			init_buffers(dev->buffer_size);
+			init_buffers(dev);
 			dev->ready_for_capture = 1;
 		}
 		return 0;
@@ -437,6 +474,7 @@ static int vidioc_streamoff(struct file *file, void *private_data,
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
 int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	p->frames = dev->buffers_number;
 	p->offsets[0] = 0;
 	p->offsets[1] = 0;
@@ -468,6 +506,7 @@ static int v4l2_loopback_mmap(struct file *file,
 	unsigned long addr;
 	unsigned long start = (unsigned long) vma->vm_start;
 	unsigned long size = (unsigned long) (vma->vm_end - vma->vm_start);
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
 	dprintk("entering v4l_mmap(), offset: %lu\n", vma->vm_pgoff);
 	if (size > dev->buffer_size) {
@@ -510,6 +549,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 				       struct poll_table_struct *pts)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	int ret_mask = 0;
 
 	switch (opener->type) {
@@ -532,6 +572,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 static int v4l_loopback_open(struct file *file)
 {
 	struct v4l2_loopback_opener *opener;
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
 	dprintk("entering v4l_open()\n");
 	if (dev->open_count.counter == max_openers)
@@ -548,6 +589,7 @@ static int v4l_loopback_open(struct file *file)
 static int v4l_loopback_close(struct file *file)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
 	dprintk("entering v4l_close()\n");
 	atomic_dec(&dev->open_count);
@@ -568,6 +610,7 @@ static ssize_t v4l_loopback_read(struct file *file, char __user *buf,
 {
 	int read_index;
 	struct v4l2_loopback_opener *opener = file->private_data;
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
 	if ((dev->write_position <= opener->position) &&
 		(file->f_flags&O_NONBLOCK)) {
@@ -595,14 +638,15 @@ static ssize_t v4l_loopback_write(struct file *file,
 				  const char __user *buf, size_t count,
 				  loff_t *ppos)
 {
+        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	int write_index = dev->write_position % dev->buffers_number;
 	int ret;
 
 	if (dev->ready_for_capture == 0) {
-		ret = allocate_buffers();
+		ret = allocate_buffers(dev);
 		if (ret < 0)
 			return ret;
-		init_buffers(dev->buffer_size);
+		init_buffers(dev);
 		dev->ready_for_capture = 1;
 	}
 	dprintkrw("v4l2_loopback_write() trying to write %d bytes\n", count);
@@ -625,7 +669,7 @@ static ssize_t v4l_loopback_write(struct file *file,
 
 /* init functions */
 /* allocates buffers, if buffer_size is set */
-static int allocate_buffers(void)
+static int allocate_buffers(struct v4l2_loopback_device *dev)
 {
 	/* vfree on close file operation in case no open handles left */
 	if (dev->buffer_size == 0)
@@ -639,9 +683,10 @@ static int allocate_buffers(void)
 }
 /* init inner buffers, they are capture mode and flags are set as
  * for capture mod buffers */
-static void init_buffers(int buffer_size)
+static void init_buffers(struct v4l2_loopback_device *dev)
 {
 	int i;
+	int buffer_size=dev->buffer_size;
 	for (i = 0; i < dev->buffers_number; ++i) {
 		dev->buffers[i].bytesused         = buffer_size;
 		dev->buffers[i].length            = buffer_size;
@@ -686,11 +731,25 @@ static void init_capture_param(struct v4l2_captureparm *capture_param)
 }
 
 /* init loopback main structure */
-static int v4l2_loopback_init(struct v4l2_loopback_device *dev)
+static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 {
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL)
 		return -ENOMEM;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
+	video_set_drvdata(dev->vdev, kmalloc(sizeof(struct v4l2loopback_private),
+						GFP_KERNEL));
+
+	if (video_get_drvdata(dev->vdev) == NULL) {
+	  kfree(dev->vdev);
+	  return -ENOMEM;
+	}
+	
+	((priv_ptr)video_get_drvdata(dev->vdev))->pipenr = nr;
+#else
+#error old kernel not supported
+#endif
+
 	init_vdev(dev->vdev);
 	init_capture_param(&dev->capture_param);
 	dev->buffers_number = max_buffers_number;
@@ -748,20 +807,31 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 int __init init_module()
 {
 	int ret;
+	int pipe=0;
+
+	if (pipes == -1) 
+	  pipes = 1;
+
+	if (pipes > MAX_PIPES) {
+	  pipes = MAX_PIPES;
+	  dprintk("Nr of pipes is limited to: %d\n", MAX_PIPES);
+	}
 
 	dprintk("entering init_module()\n");
 	/* kfree on module release */
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (dev == NULL)
-		return -ENOMEM;
-	ret = v4l2_loopback_init(dev);
-	if (ret < 0)
-		return ret;
-	/* register the device -> it creates /dev/video* */
-	if (video_register_device(dev->vdev, VFL_TYPE_GRABBER, -1) < 0) {
-		video_device_release(dev->vdev);
-		printk(KERN_ERR "failed video_register_device()\n");
-		return -EFAULT;
+	for(pipe=0; pipe<pipes; pipe++) {
+	  devs[pipe] = kzalloc(sizeof(*devs[pipe]), GFP_KERNEL);
+	  if (devs[pipe] == NULL)
+	    return -ENOMEM;
+	  ret = v4l2_loopback_init(devs[pipe], pipe);
+	  if (ret < 0)
+	    return ret;
+	  /* register the device -> it creates /dev/video* */
+	  if (video_register_device(devs[pipe]->vdev, VFL_TYPE_GRABBER, -1) < 0) {
+	    video_device_release(devs[pipe]->vdev);
+	    printk(KERN_ERR "failed video_register_device()\n");
+	    return -EFAULT;
+	  }
 	}
 	printk(KERN_INFO "v4l2-loopback module installed\n");
 	return 0;
@@ -769,10 +839,13 @@ int __init init_module()
 
 void __exit cleanup_module()
 {
+        int pipe=0;
 	dprintk("entering cleanup_module()\n");
 	/* unregister the device -> it deletes /dev/video* */
-	video_unregister_device(dev->vdev);
-	kfree(dev->buffers);
-	kfree(dev);
+	for(pipe=0; pipe<pipes; pipe++) {
+	  video_unregister_device(devs[pipe]->vdev);
+	  kfree(devs[pipe]->buffers);
+	  kfree(devs[pipe]);
+	}
 	printk(KERN_INFO "v4l2-loopback module removed\n");
 }
