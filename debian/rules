@@ -141,7 +141,7 @@ install: build
 	dh_installdirs -p$(psource)  usr/src/modules/$(sname)/debian
 
 	# Copy only the driver source to the proper location
-	cp -r *.h *.c Makefile  debian/$(psource)/usr/src/modules/$(sname)
+	cp -r v4l2loopback.c Makefile  debian/$(psource)/usr/src/modules/$(sname)
 	# Copy the needed debian/ pieces to the proper location
 	cp debian/*modules.in* \
 		debian/$(psource)/usr/src/modules/$(sname)/debian
