@@ -18,7 +18,7 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#define VIDEO_DEVICE "/dev/video1"
+#define VIDEO_DEVICE "/dev/video0"
 #define FRAME_WIDTH  640
 #define FRAME_HEIGHT 480
 
