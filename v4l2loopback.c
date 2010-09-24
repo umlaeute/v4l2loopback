@@ -33,7 +33,7 @@ MODULE_LICENSE("GPL");
 /* module structures */
 
 struct v4l2loopback_private {
-    int pipenr;
+    int devicenr;
 };
 
 typedef struct v4l2loopback_private *priv_ptr;
@@ -90,10 +90,10 @@ module_param(max_openers, int, 0);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
 
-#define MAX_PIPES 8
-static int pipes = -1;
-module_param(pipes, int, 000);
-MODULE_PARM_DESC(pipes, "how many devices should be created");
+#define MAX_DEVICES 8
+static int devices = -1;
+module_param(devices, int, 000);
+MODULE_PARM_DESC(devices, "how many devices should be created");
 
 
 /* module constants */
@@ -112,7 +112,7 @@ MODULE_PARM_DESC(pipes, "how many devices should be created");
 	}
 
 /* global module data */
-struct v4l2_loopback_device *devs[MAX_PIPES];
+struct v4l2_loopback_device *devs[MAX_DEVICES];
 
 static struct v4l2_loopback_device*v4l2loopback_getdevice(struct file*f) {
     struct video_device *loopdev = video_devdata(f);
@@ -122,8 +122,8 @@ static struct v4l2_loopback_device*v4l2loopback_getdevice(struct file*f) {
 #error old kernel not supported
     priv_ptr ptr = (priv_ptr)loopdev->vd_private_data;
 #endif
-    int nr = ptr->pipenr;
-    if(nr<0 || nr>=pipes){printk(KERN_ERR "v4l2-loopback: illegal device %d\n",nr);return NULL;}
+    int nr = ptr->devicenr;
+    if(nr<0 || nr>=devices){printk(KERN_ERR "v4l2-loopback: illegal device %d\n",nr);return NULL;}
     return devs[nr];
 }
 
@@ -749,9 +749,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	  return -ENOMEM;
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
-	((priv_ptr)video_get_drvdata(dev->vdev))->pipenr = nr;
+	((priv_ptr)video_get_drvdata(dev->vdev))->devicenr = nr;
 #else
-	((priv_ptr)dev->vdev->vd_private_data)->pipenr = nr;
+	((priv_ptr)dev->vdev->vd_private_data)->devicenr = nr;
 #endif
 
 	init_vdev(dev->vdev);
@@ -815,26 +815,26 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #endif
 };
 
-static void zero_pipes (void) {
+static void zero_devices (void) {
    int i=0;
-   for(i=0; i<MAX_PIPES; i++) {
+   for(i=0; i<MAX_DEVICES; i++) {
      devs[i]=NULL;
    }
 }
 
-static void free_pipes (void) {
-   int pipe=0;
-   for(pipe=0; pipe<pipes; pipe++) {
-     if(NULL!=devs[pipe]) {
+static void free_devices (void) {
+   int i=0;
+   for(i=0; i<devices; i++) {
+     if(NULL!=devs[i]) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)            
-       kfree(video_get_drvdata(devs[pipe]->vdev));
+       kfree(video_get_drvdata(devs[i]->vdev));
 #else
-       kfree(devs[pipe]->vdev->vd_private_data);
+       kfree(devs[i]->vdev->vd_private_data);
 #endif     
-       video_unregister_device(devs[pipe]->vdev);
-       kfree(devs[pipe]->buffers);
-       kfree(devs[pipe]);
-       devs[pipe]=NULL;
+       video_unregister_device(devs[i]->vdev);
+       kfree(devs[i]->buffers);
+       kfree(devs[i]);
+       devs[i]=NULL;
      }
    }
  }
@@ -842,35 +842,35 @@ static void free_pipes (void) {
 int __init init_module()
 {
 	int ret;
-	int pipe=0;
-	zero_pipes();
-	if (pipes == -1) 
-	  pipes = 1;
+	int i=0;
+	zero_devices();
+	if (devices == -1) 
+	  devices = 1;
 
-	if (pipes > MAX_PIPES) {
-	  pipes = MAX_PIPES;
-	  printk(KERN_INFO "number of pipes is limited to: %d\n", MAX_PIPES);
+	if (devices > MAX_DEVICES) {
+	  devices = MAX_DEVICES;
+	  printk(KERN_INFO "number of devices is limited to: %d\n", MAX_DEVICES);
 	}
 
 	dprintk("entering init_module()\n");
 	/* kfree on module release */
-	for(pipe=0; pipe<pipes; pipe++) {
-	  dprintk("creating loopback-device #%d\n", pipe);
-	  devs[pipe] = kzalloc(sizeof(*devs[pipe]), GFP_KERNEL);
-	  if (devs[pipe] == NULL) {
-	    free_pipes();
+	for(i=0; i<devices; i++) {
+	  dprintk("creating loopback-device #%d\n", i);
+	  devs[i] = kzalloc(sizeof(*devs[i]), GFP_KERNEL);
+	  if (devs[i] == NULL) {
+	    free_devices();
 	    return -ENOMEM;
 	  }
-	  ret = v4l2_loopback_init(devs[pipe], pipe);
+	  ret = v4l2_loopback_init(devs[i], i);
 	  if (ret < 0) {
-	    free_pipes();
+	    free_devices();
 	    return ret;
 	  }
 	  /* register the device -> it creates /dev/video* */
-	  if (video_register_device(devs[pipe]->vdev, VFL_TYPE_GRABBER, -1) < 0) {
-	    video_device_release(devs[pipe]->vdev);
+	  if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, -1) < 0) {
+	    video_device_release(devs[i]->vdev);
 	    printk(KERN_ERR "failed video_register_device()\n");
-	    free_pipes();
+	    free_devices();
 	    return -EFAULT;
 	  }
 	}
@@ -882,6 +882,6 @@ void __exit cleanup_module()
 {
 	dprintk("entering cleanup_module()\n");
 	/* unregister the device -> it deletes /dev/video* */
-	free_pipes();
+	free_devices();
 	dprintk("module removed\n");
 }
