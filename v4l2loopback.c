@@ -736,17 +736,22 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	if (dev->vdev == NULL)
 		return -ENOMEM;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
-	video_set_drvdata(dev->vdev, kmalloc(sizeof(struct v4l2loopback_private),
-						GFP_KERNEL));
+	video_set_drvdata(dev->vdev, kzalloc(sizeof(struct v4l2loopback_private),
+					     GFP_KERNEL));
 
 	if (video_get_drvdata(dev->vdev) == NULL) {
+#else
+	dev->vdev->vd_private_data = kzalloc(sizeof(struct v4l2loopback_private),
+					       GFP_KERNEL);
+	if (dev->vdev->vd_private_data == NULL) {
+#endif
 	  kfree(dev->vdev);
 	  return -ENOMEM;
 	}
-	
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
 	((priv_ptr)video_get_drvdata(dev->vdev))->pipenr = nr;
 #else
-#error old kernel not supported
+	((priv_ptr)dev->vdev->vd_private_data)->pipenr = nr;
 #endif
 
 	init_vdev(dev->vdev);
@@ -760,8 +765,15 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->buffers =
 	    kzalloc(sizeof(*dev->buffers) * dev->buffers_number,
 		    GFP_KERNEL);
-	if (dev->buffers == NULL)
+	if (dev->buffers == NULL) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)            
+	        kfree(video_get_drvdata(dev->vdev));
+#else
+	        kfree(dev->vdev->vd_private_data);
+#endif  
+	        kfree(dev->vdev);
 		return -ENOMEM;
+	}
 	init_waitqueue_head(&dev->read_event);
 	return 0;
 };
@@ -803,17 +815,41 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #endif
 };
 
+static void zero_pipes (void) {
+   int i=0;
+   for(i=0; i<MAX_PIPES; i++) {
+     devs[i]=NULL;
+   }
+}
+
+static void free_pipes (void) {
+   int pipe=0;
+   for(pipe=0; pipe<pipes; pipe++) {
+     if(NULL!=devs[pipe]) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)            
+       kfree(video_get_drvdata(devs[pipe]->vdev));
+#else
+       kfree(devs[pipe]->vdev->vd_private_data);
+#endif     
+       video_unregister_device(devs[pipe]->vdev);
+       kfree(devs[pipe]->buffers);
+       kfree(devs[pipe]);
+       devs[pipe]=NULL;
+     }
+   }
+ }
+
 int __init init_module()
 {
 	int ret;
 	int pipe=0;
-
+	zero_pipes();
 	if (pipes == -1) 
 	  pipes = 1;
 
 	if (pipes > MAX_PIPES) {
 	  pipes = MAX_PIPES;
-	  dprintk("Nr of pipes is limited to: %d\n", MAX_PIPES);
+	  printk(KERN_INFO "number of pipes is limited to: %d\n", MAX_PIPES);
 	}
 
 	dprintk("entering init_module()\n");
@@ -821,15 +857,20 @@ int __init init_module()
 	for(pipe=0; pipe<pipes; pipe++) {
 	  dprintk("creating loopback-device #%d\n", pipe);
 	  devs[pipe] = kzalloc(sizeof(*devs[pipe]), GFP_KERNEL);
-	  if (devs[pipe] == NULL)
+	  if (devs[pipe] == NULL) {
+	    free_pipes();
 	    return -ENOMEM;
+	  }
 	  ret = v4l2_loopback_init(devs[pipe], pipe);
-	  if (ret < 0)
+	  if (ret < 0) {
+	    free_pipes();
 	    return ret;
+	  }
 	  /* register the device -> it creates /dev/video* */
 	  if (video_register_device(devs[pipe]->vdev, VFL_TYPE_GRABBER, -1) < 0) {
 	    video_device_release(devs[pipe]->vdev);
 	    printk(KERN_ERR "failed video_register_device()\n");
+	    free_pipes();
 	    return -EFAULT;
 	  }
 	}
@@ -839,13 +880,8 @@ int __init init_module()
 
 void __exit cleanup_module()
 {
-        int pipe=0;
 	dprintk("entering cleanup_module()\n");
 	/* unregister the device -> it deletes /dev/video* */
-	for(pipe=0; pipe<pipes; pipe++) {
-	  video_unregister_device(devs[pipe]->vdev);
-	  kfree(devs[pipe]->buffers);
-	  kfree(devs[pipe]);
-	}
+	free_pipes();
 	dprintk("module removed\n");
 }
