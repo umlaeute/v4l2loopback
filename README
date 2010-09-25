@@ -1,13 +1,67 @@
 --- INSTALL ---
-Log in as root and type :
-make && make install
+--- BUILDING / INSTALLING ---
+to build the kernel module run "make"
+to install the module run "make install" (you might have to be 'root' to have
+all nevessary permissions to install the module).
+
+if your system has "sudo", do:
+$ make && sudo make install
+
+if your system lacks "sudo", do:
+$ make
+$ su
+(enter root password)
+# make install
+# exit
 
 --- RUN ---
-Load the YAVLD module as root :
-modprobe v4l2loopback
+Load the v4l2loopback module as root :
+# modprobe v4l2loopback
 
-now you can feed device created with data and fetch this data by any v4l2 capable program.
-try http://code.google.com/p/v4lsink/ as source of video data, it is only tested input program.
-v4l1 should also work with little to no additional efforts(effecttv still does not).
+using sudo use:
+$ sudo modprobe v4l2loopback
 
-works with 2.6.28 kernel only
+this will create an additional video-device, e.g. /dev/video0 (the number
+depends on whether you already had video devices on your system), which can be
+fed by various programs.
+tested feeders:
+	gstreamer: using the  "v4l2loopback" element 
+		http://www.github.com/umlaeute/gst-v4l2loopback
+	Gem(>=0.93) using the "recordV4L2" plugin
+in theory most programs capable of _writing to_ a v4l2 device should work
+
+the data sent to the v4l2loopback device can then be read by any v4l2-capable
+application
+
+--- OPTIONS ---
+if you need several independent loopback devices, you can pass the "devices"
+option, when loading the module; e.g.
+# modprobe v4l2loopback devices=4
+will give you 4 loopback devices (e.g. /dev/video1 ... /dev/video5)
+
+
+--- KERNELs ---
+the original module has been developed for linux-2.6.28;
+further development has been done on linux-2.6.32 and linux-2.6.35, so these 2
+are the last kernels known to work with this module
+
+
+--- LICENSE/COPYNG ---
+Copyright (c) 2010 IOhannes m zmoelnig <zmoelnig@iem.at>
+Copyright (c) 2010 Scott Maines <smaines@alaya.com>
+Copyright (c) 2009 Gorinich Zmey
+
+    This package is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This package is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this package; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301 USA
+
