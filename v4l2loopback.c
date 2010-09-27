@@ -19,11 +19,8 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 
-// sm-note: added
-
 #include <linux/sched.h>
-
-#define YAVLD_STREAMING
+#include <linux/slab.h>
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_VERSION("0.2");
@@ -162,9 +159,7 @@ static int vidioc_querycap(struct file *file,
 	cap->capabilities =
 	    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
 	    V4L2_CAP_READWRITE
-#ifdef YAVLD_STREAMING
 	    | V4L2_CAP_STREAMING
-#endif
 	    ;
 	return 0;
 }
