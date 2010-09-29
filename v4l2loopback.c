@@ -179,12 +179,19 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 };
 
 /* returns current video format format fmt, called on VIDIOC_G_FMT ioctl */
+/* NOTE: this can be called from both the consumer and the producer
+ * if called from the producer, "ready_for_capture" will not be true yet!
+ *
+ * because of this, GStreamer's "v4l2sink" fails
+ */
 static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  /*
   if (dev->ready_for_capture == 0)
     return -EINVAL;
+  */
   fmt->fmt.pix = dev->pix_format;
   return 0;
 }
