@@ -238,7 +238,7 @@ static int vidioc_g_fmt_cap(struct file *file,
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
   if (dev->ready_for_capture == 0) {
-#if 0
+#if 1
     dev->pix_format.width=640;
     dev->pix_format.height=480;
     dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
@@ -879,7 +879,7 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_querycap         = &vidioc_querycap,
 	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
 	.vidioc_enum_framesizes  = &vidioc_enum_framesizes,
-  //	.vidioc_enum_output       = &vidioc_enum_output,
+  	.vidioc_enum_output       = &vidioc_enum_output,
 	.vidioc_enum_input       = &vidioc_enum_input,
 	.vidioc_g_input          = &vidioc_g_input,
 	.vidioc_s_input          = &vidioc_s_input,
