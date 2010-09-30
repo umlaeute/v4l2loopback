@@ -237,10 +237,21 @@ static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  if (dev->ready_for_capture == 0) {
 #if 0
-  if (dev->ready_for_capture == 0)
+    dev->pix_format.width=640;
+    dev->pix_format.height=480;
+    dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
+    dev->pix_format.field=V4L2_FIELD_NONE;
+    dev->pix_format.bytesperline=dev->pix_format.width*2;
+    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
+    dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
+#endif
+
+#if 0
     return -EINVAL;
 #endif
+  }
   fmt->fmt.pix = dev->pix_format;
   return 0;
 }
@@ -357,12 +368,34 @@ static int vidioc_s_std(struct file *file, void *private_data,
 	return 0;
 }
 
+/* returns set of device outputs, in our case there is only one
+ * called on VIDIOC_ENUMOUTPUT */
+static int vidioc_enum_output(struct file *file, void *fh,
+			     struct v4l2_output *outp)
+{
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+ 	if (outp->index) {
+		return -EINVAL;
+  }
+
+	if (dev->ready_for_capture)
+		return -EINVAL;
+
+ 
+  strlcpy(outp->name, "loopback out", sizeof(outp->name));
+  outp->type = V4L2_OUTPUT_TYPE_ANALOG;
+  outp->audioset = 0;
+  outp->modulator = 0;
+  outp->std = V4L2_STD_ALL;
+  return 0;
+}
+
 /* returns set of device inputs, in our case there is only one, but later I may
  * add more, called on VIDIOC_ENUMINPUT */
 static int vidioc_enum_input(struct file *file, void *fh,
 			     struct v4l2_input *inp)
 {
-        struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	if (dev->ready_for_capture == 0)
 		return -EINVAL;
 	if (inp->index == 0) {
@@ -846,6 +879,7 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_querycap         = &vidioc_querycap,
 	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
 	.vidioc_enum_framesizes  = &vidioc_enum_framesizes,
+  //	.vidioc_enum_output       = &vidioc_enum_output,
 	.vidioc_enum_input       = &vidioc_enum_input,
 	.vidioc_g_input          = &vidioc_g_input,
 	.vidioc_s_input          = &vidioc_s_input,
