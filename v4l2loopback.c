@@ -157,9 +157,9 @@ static int vidioc_querycap(struct file *file,
 	strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
 	cap->version = 1;
 	cap->capabilities =
-	    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
-	    V4L2_CAP_READWRITE
-	    | V4L2_CAP_STREAMING
+    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+    V4L2_CAP_STREAMING |
+    V4L2_CAP_READWRITE
 	    ;
 	return 0;
 }
@@ -169,14 +169,63 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-	if (dev->ready_for_capture == 0)
-		return -EINVAL;
+  dprintk("enum format %d [%d] %d", f->index, dev->ready_for_capture, f->type);
 	if (f->index)
 		return -EINVAL;
-	strlcpy(f->description, "current format", sizeof(f->description));
-	f->pixelformat = dev->pix_format.pixelformat;
+	if (dev->ready_for_capture) {
+    strlcpy(f->description, "current format", sizeof(f->description));
+    f->pixelformat = dev->pix_format.pixelformat;
+  } else {
+#if 0
+    /* JMZ: currently doesn't work... */
+    if(V4L2_BUF_TYPE_VIDEO_OUTPUT!=f->type) {
+       return -EINVAL;
+    }
+#endif
+    /* fill in a dummy format */
+    f->pixelformat=V4L2_PIX_FMT_UYVY;
+    strlcpy(f->description, "dummy format", sizeof(f->description));
+   }
+  f->flags=0;
+
+  dprintk("returned format %d for %d", f->pixelformat, f->type);
 	return 0;
 };
+
+
+static int vidioc_enum_framesizes(struct file *file, void *fh, 
+                                  struct v4l2_frmsizeenum *argp)
+{
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+
+	if (argp->index)
+		return -EINVAL;
+  if (dev->ready_for_capture) {
+    struct  v4l2_frmsize_discrete discr=argp->discrete;
+    argp->type=V4L2_FRMSIZE_TYPE_DISCRETE;
+
+    discr.width=dev->pix_format.width;
+    discr.height=dev->pix_format.height;
+
+    dprintk("fixed size: %dx%d", discr.width, discr.height);
+  } else {
+    struct v4l2_frmsize_stepwise steps=argp->stepwise;
+    argp->type=V4L2_FRMSIZE_TYPE_CONTINUOUS;
+
+    steps.min_width=48;
+    steps.min_height=32;
+
+    steps.max_width=8192;
+    steps.max_height=8192;
+
+    steps.step_width=1;
+    steps.step_height=1;
+    dprintk("vari size: %dx%d .. %dx%d", 
+            steps.min_width,  steps.min_height,
+            steps.max_width,  steps.max_height);
+  }
+  return 0;
+}
 
 /* returns current video format format fmt, called on VIDIOC_G_FMT ioctl */
 /* NOTE: this can be called from both the consumer and the producer
@@ -188,10 +237,10 @@ static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-  /*
+#if 0
   if (dev->ready_for_capture == 0)
     return -EINVAL;
-  */
+#endif
   fmt->fmt.pix = dev->pix_format;
   return 0;
 }
@@ -207,6 +256,7 @@ static int vidioc_try_fmt_cap(struct file *file,
 	struct v4l2_loopback_opener *opener = file->private_data;
 	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	opener->type = READER;
+
 	if (dev->ready_for_capture == 0)
 		return -EINVAL;
 	if (fmt->fmt.pix.pixelformat != dev->pix_format.pixelformat)
@@ -795,6 +845,7 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_querycap         = &vidioc_querycap,
 	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
+	.vidioc_enum_framesizes  = &vidioc_enum_framesizes,
 	.vidioc_enum_input       = &vidioc_enum_input,
 	.vidioc_g_input          = &vidioc_g_input,
 	.vidioc_s_input          = &vidioc_s_input,
