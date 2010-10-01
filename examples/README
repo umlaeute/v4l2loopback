@@ -6,7 +6,7 @@ the image will be 640x480 pixels in UYVY colorspace (and since all pixels are
 set to "0" it will be green).
 the video-device is currently hard-coded to /dev/video1
 
-USEAGE:
+USAGE:
 $ make test
 $ ./test &
 $ xawtv -c /dev/video1
