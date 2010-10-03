@@ -1,5 +1,5 @@
 /*
- * v4l2loopback.c  --  video 4 linux loopback driver
+ * v4l2loopback.c  --  video4linux2 loopback driver
  *
  * Copyright (C) 2005-2009 Vasily Levin (vasaka@gmail.com)
  * Copyright (C) 2010 IOhannes m zmoelnig (zmoelnig@iem.at)
@@ -149,95 +149,49 @@ static inline void unset_flags(struct v4l2_buffer *buffer)
 	buffer->flags &= ~V4L2_BUF_FLAG_DONE;
 }
 /* V4L2 ioctl caps and params calls */
-/* returns device capabilities, called on VIDIOC_QUERYCAP ioctl*/
+/* returns device capabilities
+ * called on VIDIOC_QUERYCAP
+ */
 static int vidioc_querycap(struct file *file,
 			   void *priv, struct v4l2_capability *cap)
 {
-	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
-	strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
-	cap->version = 1;
-	cap->capabilities =
+  strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
+  strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
+  cap->version = 1;
+  cap->capabilities =
     V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
     V4L2_CAP_STREAMING |
     V4L2_CAP_READWRITE
-	    ;
-	return 0;
+    ;
+  return 0;
 }
-
-/* returns device formats, called on VIDIOC_ENUM_FMT ioctl*/
-static int vidioc_enum_fmt_cap(struct file *file, void *fh,
-			       struct v4l2_fmtdesc *f)
-{
-  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-  dprintk("JMZ enum format #%d of type %d [%d]", f->index, f->type, dev->ready_for_capture);
-	if (f->index)
-		return -EINVAL;
-	if (dev->ready_for_capture) {
-    strlcpy(f->description, "current format", sizeof(f->description));
-    f->pixelformat = dev->pix_format.pixelformat;
-  } else {
-#if 1
-    /* JMZ: currently doesn't work... */
-    if(V4L2_BUF_TYPE_VIDEO_OUTPUT!=f->type) {
-       return -EINVAL;
-    }
-#endif
-    /* fill in a dummy format */
-    f->pixelformat=V4L2_PIX_FMT_UYVY;
-    strlcpy(f->description, "dummy format", sizeof(f->description));
-   }
-  f->flags=0;
-
-  dprintk("JMZ returned format %d for %d", f->pixelformat, f->type);
-	return 0;
-};
-
-/* returns device formats, called on VIDIOC_ENUM_FMT ioctl*/
-static int vidioc_enum_fmt_out(struct file *file, void *fh,
-			       struct v4l2_fmtdesc *f)
-{
- struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-  dprintk("JMZ enum format OUT #%d of type %d [%d]", f->index, f->type, dev->ready_for_capture);
-	if (f->index)
-		return -EINVAL;
-	if (dev->ready_for_capture) {
-    strlcpy(f->description, "current OUT format", sizeof(f->description));
-    f->pixelformat = dev->pix_format.pixelformat;
-  } else {
-#if 0
-    /* JMZ: currently doesn't work... */
-    if(V4L2_BUF_TYPE_VIDEO_OUTPUT!=f->type) {
-       return -EINVAL;
-    }
-#endif
-    /* fill in a dummy format */
-    f->pixelformat=V4L2_PIX_FMT_UYVY;
-    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
-   }
-  f->flags=0;
-
-  dprintk("JMZ rOUT eturned format %d for %d", f->pixelformat, f->type);
-	return 0;
-}
-
 
 static int vidioc_enum_framesizes(struct file *file, void *fh, 
                                   struct v4l2_frmsizeenum *argp)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-
-	if (argp->index)
-		return -EINVAL;
   if (dev->ready_for_capture) {
+    /* format has already been negotiated
+     * cannot change during runtime
+     */
     struct  v4l2_frmsize_discrete discr=argp->discrete;
-    argp->type=V4L2_FRMSIZE_TYPE_DISCRETE;
 
+    if (argp->index)
+      return -EINVAL;
+    
+    argp->type=V4L2_FRMSIZE_TYPE_DISCRETE;
+    
     discr.width=dev->pix_format.width;
     discr.height=dev->pix_format.height;
-
-    dprintk("JMZ fixed size: %dx%d", discr.width, discr.height);
   } else {
 #if 1
+    /* LATER: what does the index mean? 
+     * if it's about enumerating formats, we can safely ignore it
+     * (CHECK)
+     */
+    if (argp->index)
+      return -EINVAL;
+#endif
     argp->type=V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
     argp->stepwise.min_width=48;
@@ -248,94 +202,53 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 
     argp->stepwise.step_width=1;
     argp->stepwise.step_height=1;
-    dprintk("JMZ varisize: %dx%d .. %dx%d", 
-            argp->stepwise.min_width,  argp->stepwise.min_height,
-            argp->stepwise.max_width,  argp->stepwise.max_height);
-#else
-    argp->type=V4L2_FRMSIZE_TYPE_DISCRETE;
-
-    argp->discrete.width=640;
-    argp->discrete.height=480;
-
-    dprintk("JMZ fixed size: %dx%d", argp->discrete.width, argp->discrete.height);
-#endif
   }
   return 0;
 }
 
-/* returns current video format format fmt, called on VIDIOC_G_FMT ioctl */
-/* NOTE: this can be called from both the consumer and the producer
- * if called from the producer, "ready_for_capture" will not be true yet!
- *
- * because of this, GStreamer's "v4l2sink" fails
+/* ------------------ CAPTURE ----------------------- */
+
+/* returns device formats
+ * called on VIDIOC_ENUM_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
+ */
+static int vidioc_enum_fmt_cap(struct file *file, void *fh,
+			       struct v4l2_fmtdesc *f)
+{
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  if (f->index)
+    return -EINVAL;
+  if (dev->ready_for_capture) {
+    strlcpy(f->description, "current format", sizeof(f->description));
+    f->pixelformat = dev->pix_format.pixelformat;
+  } else {
+    return -EINVAL;
+  }
+  f->flags=0;
+
+  return 0;
+}
+
+/* returns current video format format fmt
+ * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
  */
 static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-  dprintk("JMZ GETTING FORMAT FOR %d", dev->ready_for_capture);
 
   if (dev->ready_for_capture == 0) {
-#if 1
-    dev->pix_format.width=640;
-    dev->pix_format.height=480;
-    dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
-    dev->pix_format.field=V4L2_FIELD_NONE;
-    dev->pix_format.bytesperline=dev->pix_format.width*2;
-    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
-    dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
-#endif
-
-#if 0
     return -EINVAL;
-#endif
   }
   fmt->fmt.pix = dev->pix_format;
   return 0;
 }
 
-
-/* returns current video format format fmt, called on VIDIOC_G_FMT ioctl */
-/* NOTE: this can be called from both the consumer and the producer
- * if called from the producer, "ready_for_capture" will not be true yet!
- *
- * because of this, GStreamer's "v4l2sink" fails
- */
-static int vidioc_g_fmt_out(struct file *file,
-			    void *priv, struct v4l2_format *fmt)
-{
-  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-  dprintk("JMZ g_fmt_out for %d", dev->ready_for_capture);
-
-  if (dev->ready_for_capture == 0) {
-    dev->pix_format.width=640;
-    dev->pix_format.height=480;
-    dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
-    dev->pix_format.field=V4L2_FIELD_NONE;
-    dev->pix_format.bytesperline=dev->pix_format.width*2;
-    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
-    dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-    allocate_buffers(dev);
-    init_buffers(dev);
-  }
-  fmt->fmt.pix = dev->pix_format;
-  return 0;
-}
-
-/* currently unsupported */
-static int vidioc_g_fmt_overlay(struct file *file,
-			    void *priv, struct v4l2_format *fmt)
-{
-  return 0;
-}
-
-
-/* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl
- * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
+/* checks if it is OK to change to format fmt;
  * actual check is done by inner_try_fmt_cap
  * just checking that pixelformat is OK and set other parameters, app should
- * obey this decision */
+ * obey this decision 
+ * called on VIDIOC_TRY_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
+ */
 static int vidioc_try_fmt_cap(struct file *file,
 			      void *priv, struct v4l2_format *fmt)
 {
@@ -343,11 +256,11 @@ static int vidioc_try_fmt_cap(struct file *file,
 	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 	opener->type = READER;
 
-	if (dev->ready_for_capture == 0) {
+	if (0 == dev->ready_for_capture) {
 #if 1
-    return 0;
+	  return 0;
 #else
-		return -EINVAL;
+	  return -EINVAL;
 #endif
   }
 	if (fmt->fmt.pix.pixelformat != dev->pix_format.pixelformat)
@@ -356,10 +269,86 @@ static int vidioc_try_fmt_cap(struct file *file,
 	return 0;
 }
 
-/* checks if it is OK to change to format fmt, called on VIDIOC_TRY_FMT ioctl
- * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
- * if format is negotiated do not change it */
-static int vidioc_try_fmt_output(struct file *file,
+/* sets new output format, if possible
+ * actually format is set  by input and we even do not check it, just return
+ * current one, but it is possible to set subregions of input TODO(vasaka) 
+ * called on VIDIOC_S_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
+ */
+static int vidioc_s_fmt_cap(struct file *file,
+			    void *priv, struct v4l2_format *fmt)
+{
+  return vidioc_try_fmt_cap(file, priv, fmt);
+}
+
+
+/* ------------------ OUTPUT ----------------------- */
+
+/* returns device formats;
+ * LATER: allow all formats 
+ * called on VIDIOC_ENUM_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
+ */
+static int vidioc_enum_fmt_out(struct file *file, void *fh,
+			       struct v4l2_fmtdesc *f)
+{
+ struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+ if (f->index)
+   return -EINVAL;
+ if (dev->ready_for_capture) {
+   strlcpy(f->description, "current OUT format", sizeof(f->description));
+   f->pixelformat = dev->pix_format.pixelformat;
+ } else {
+   /* fill in a dummy format */
+   f->pixelformat=V4L2_PIX_FMT_UYVY;
+   strlcpy(f->description, "dummy OUT format", sizeof(f->description));
+ }
+ f->flags=0;
+
+ return 0;
+}
+
+/* returns current video format format fmt */
+/* NOTE: this is called from the producer
+ * so if format has not been ngotiated yet, 
+ * it should return ALL of available formats, 
+ * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
+ */
+static int vidioc_g_fmt_out(struct file *file,
+			    void *priv, struct v4l2_format *fmt)
+{
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  /*
+   * LATER: this should return the currently valid format
+   * gstreamer doesn't like it, if this returns -EINVAL, as it 
+   * then concludes that there is _no_ valid format
+   * CHECK whether this assumption is wrong, 
+   * or whether we have to always provide a valid format
+   */ 
+  if (dev->ready_for_capture == 0) {
+    dev->pix_format.width=640;
+    dev->pix_format.height=480;
+    dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
+    dev->pix_format.field=V4L2_FIELD_NONE;
+    dev->pix_format.bytesperline=dev->pix_format.width*2;
+    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
+    dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
+#if 1
+    /* this generates a memleak in kernel, as the buffers are never freed
+     */
+#warning MEMLEACK in kernel
+    dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+    allocate_buffers(dev);
+    init_buffers(dev);
+#endif
+  }
+  fmt->fmt.pix = dev->pix_format;
+  return 0;
+}
+
+/* checks if it is OK to change to format fmt;
+ * if format is negotiated do not change it 
+ * called on VIDIOC_TRY_FMT with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
+ */
+static int vidioc_try_fmt_out(struct file *file,
 				       void *priv, struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_opener *opener = file->private_data;
@@ -375,47 +364,57 @@ static int vidioc_try_fmt_output(struct file *file,
 		dev->pix_format = fmt->fmt.pix;
 	}
 	return 0;
-};
-
-/* sets new output format, if possible, called on VIDIOC_S_FMT ioctl
- * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
- * actually format is set  by input and we even do not check it, just return
- * current one, but it is possible to set subregions of input TODO(vasaka) */
-static int vidioc_s_fmt_cap(struct file *file,
-			    void *priv, struct v4l2_format *fmt)
-{
-	return vidioc_try_fmt_cap(file, priv, fmt);
 }
 
+/* sets new output format, if possible;
+ * allocate data here because we do not know if it will be streaming or
+ * read/write IO 
+ * called on VIDIOC_S_FMT with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
+ */
+static int vidioc_s_fmt_out(struct file *file,
+				     void *priv, struct v4l2_format *fmt)
+{
+  int ret = vidioc_try_fmt_out(file, priv, fmt);
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
+  if (ret < 0)
+    return ret;
+  if (dev->ready_for_capture == 0) {
+    dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+    fmt->fmt.pix.sizeimage = dev->buffer_size;
+    init_buffers(dev);
+  }
+  return ret;
+}
+
+#define V4L2L_OVERLAY
+#ifdef V4L2L_OVERLAY
+/* ------------------ OVERLAY ----------------------- */
 /* currently unsupported */
+/* GSTreamer's v4l2sink is buggy, as it requires the overlay to work
+ * while it should only require it, if overlay is requested
+ * once the gstreamer element is fixed, remove the overlay dummies
+ */
+#warning OVERLAY dummies
+static int vidioc_g_fmt_overlay(struct file *file,
+			    void *priv, struct v4l2_format *fmt)
+{
+  return 0;
+}
 static int vidioc_s_fmt_overlay(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
   return 0;
 }
+#endif /* V4L2L_OVERLAY */
 
-/* sets new output format, if possible, called on VIDIOC_S_FMT ioctl
- * with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
- * allocate data here because we do not know if it will be streaming or
- * read/write IO */
-static int vidioc_s_fmt_out(struct file *file,
-				     void *priv, struct v4l2_format *fmt)
-{
-	int ret = vidioc_try_fmt_output(file, priv, fmt);
-	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-  dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
-	if (ret < 0)
-		return ret;
-	if (dev->ready_for_capture == 0) {
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-		fmt->fmt.pix.sizeimage = dev->buffer_size;
-    init_buffers(dev);
-	}
-	return ret;
-}
+
+/* ------------------ PARAMs ----------------------- */
 
 /* get some data flaw parameters, only capability, fps and readbuffers has
- * effect on this driver, called on VIDIOC_G_PARM */
+ * effect on this driver
+ * called on VIDIOC_G_PARM 
+ */
 static int vidioc_g_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
@@ -427,7 +426,9 @@ static int vidioc_g_parm(struct file *file, void *priv,
 }
 
 /* get some data flaw parameters, only capability, fps and readbuffers has
- * effect on this driver, called on VIDIOC_S_PARM */
+ * effect on this driver
+ * called on VIDIOC_S_PARM 
+ */
 static int vidioc_s_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
@@ -450,15 +451,18 @@ static int vidioc_s_parm(struct file *file, void *priv,
 }
 
 /* sets a tv standard, actually we do not need to handle this any special way
- * added to support effecttv, can not be inline as I need pointer to it */
+ * added to support effecttv, can not be inline as I need pointer to it 
+ * called on
+ */
 static int vidioc_s_std(struct file *file, void *private_data,
 			v4l2_std_id *norm)
 {
-	return 0;
+  return 0;
 }
 
 /* returns set of device outputs, in our case there is only one
- * called on VIDIOC_ENUMOUTPUT */
+ * called on VIDIOC_ENUMOUTPUT
+ */
 static int vidioc_enum_output(struct file *file, void *fh,
 			     struct v4l2_output *outp)
 {
@@ -479,8 +483,10 @@ static int vidioc_enum_output(struct file *file, void *fh,
   return 0;
 }
 
-/* returns set of device inputs, in our case there is only one, but later I may
- * add more, called on VIDIOC_ENUMINPUT */
+/* returns set of device inputs, in our case there is only one, 
+ * but later I may add more
+ * called on VIDIOC_ENUMINPUT 
+ */
 static int vidioc_enum_input(struct file *file, void *fh,
 			     struct v4l2_input *inp)
 {
@@ -499,25 +505,34 @@ static int vidioc_enum_input(struct file *file, void *fh,
 	return -EINVAL;
 }
 
-/* which input is currently active, called on VIDIOC_G_INPUT */
+
+
+
+/* which input is currently active, 
+ * called on VIDIOC_G_INPUT 
+ */
 int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
 {
-	*i = 0;
-	return 0;
+  *i = 0;
+  return 0;
 }
 
 /* set input, can make sense if we have more than one video src,
- * called on VIDIOC_S_INPUT */
+ * called on VIDIOC_S_INPUT 
+ */
 int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 {
-	if (i == 0)
-		return 0;
-	return -EINVAL;
+  if (i == 0)
+    return 0;
+  return -EINVAL;
 }
 
-/* V4L2 ioctl buffer related calls */
-/* negotiate buffer type, called on VIDIOC_REQBUFS
- * only mmap streaming supported */
+/* --------------- V4L2 ioctl buffer related calls ----------------- */
+
+/* negotiate buffer type
+ * only mmap streaming supported 
+ * called on VIDIOC_REQBUFS
+ */
 static int vidioc_reqbufs(struct file *file, void *fh,
 			  struct v4l2_requestbuffers *b)
 {
@@ -536,9 +551,11 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	}
 }
 
-/* returns buffer asked for, called on VIDIOC_QUERYBUF
-   give app as many buffers as it wants, if it less than MAX,
-   but map them in our inner buffers */
+/* returns buffer asked for;
+ * give app as many buffers as it wants, if it less than MAX,
+ * but map them in our inner buffers 
+ * called on VIDIOC_QUERYBUF
+ */
 static int vidioc_querybuf(struct file *file, void *fh,
 			   struct v4l2_buffer *b)
 {
@@ -559,7 +576,9 @@ static int vidioc_querybuf(struct file *file, void *fh,
 	return 0;
 }
 
-/* put buffer to queue, called on VIDIOC_QBUF */
+/* put buffer to queue
+ * called on VIDIOC_QBUF
+ */
 static int vidioc_qbuf(struct file *file, void *private_data,
 		       struct v4l2_buffer *buf)
 {
@@ -582,7 +601,9 @@ static int vidioc_qbuf(struct file *file, void *private_data,
 	}
 }
 
-/* put buffer to dequeue, called on VIDIOC_DQBUF */
+/* put buffer to dequeue
+ * called on VIDIOC_DQBUF
+ */
 static int vidioc_dqbuf(struct file *file, void *private_data,
 			struct v4l2_buffer *buf)
 {
@@ -619,6 +640,11 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 	}
 }
 
+/* ------------- STREAMING ------------------- */
+
+/* start streaming
+ * called on VIDIOC_STREAMON
+ */
 static int vidioc_streamon(struct file *file, void *private_data,
 			   enum v4l2_buf_type type)
 {
@@ -643,6 +669,9 @@ static int vidioc_streamon(struct file *file, void *private_data,
 	}
 }
 
+/* stop streaming
+ * called on VIDIOC_STREAMOFF
+ */
 static int vidioc_streamoff(struct file *file, void *private_data,
 			    enum v4l2_buf_type type)
 {
@@ -660,15 +689,17 @@ int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 	return 0;
 }
 #endif
+
+
 /* file operations */
 static void vm_open(struct vm_area_struct *vma)
 {
-	/* TODO(vasaka) do open counter here */
+  /* TODO(vasaka) do open counter here */
 }
 
 static void vm_close(struct vm_area_struct *vma)
 {
-	/* TODO(vasaka) do open counter here */
+  /* TODO(vasaka) do open counter here */
 }
 
 static struct vm_operations_struct vm_ops = {
@@ -980,21 +1011,26 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_querycap         = &vidioc_querycap,
-	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
-	.vidioc_enum_fmt_vid_out = &vidioc_enum_fmt_out,
 	.vidioc_enum_framesizes  = &vidioc_enum_framesizes,
-  .vidioc_enum_output       = &vidioc_enum_output,
+	.vidioc_enum_output       = &vidioc_enum_output,
 	.vidioc_enum_input       = &vidioc_enum_input,
 	.vidioc_g_input          = &vidioc_g_input,
 	.vidioc_s_input          = &vidioc_s_input,
+
+	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
 	.vidioc_g_fmt_vid_cap    = &vidioc_g_fmt_cap,
 	.vidioc_s_fmt_vid_cap    = &vidioc_s_fmt_cap,
+	.vidioc_try_fmt_vid_cap  = &vidioc_try_fmt_cap,
+
+	.vidioc_enum_fmt_vid_out = &vidioc_enum_fmt_out,
 	.vidioc_s_fmt_vid_out    = &vidioc_s_fmt_out,
 	.vidioc_g_fmt_vid_out    = &vidioc_g_fmt_out,
+	.vidioc_try_fmt_vid_out  = &vidioc_try_fmt_out,
+
+#ifdef V4L2L_OVERLAY
 	.vidioc_s_fmt_vid_overlay= &vidioc_s_fmt_overlay,
 	.vidioc_g_fmt_vid_overlay= &vidioc_g_fmt_overlay,
-	.vidioc_try_fmt_vid_cap  = &vidioc_try_fmt_cap,
-	.vidioc_try_fmt_vid_out  = &vidioc_try_fmt_output,
+#endif
 	.vidioc_s_std            = &vidioc_s_std,
 	.vidioc_g_parm           = &vidioc_g_parm,
 	.vidioc_s_parm           = &vidioc_s_parm,
