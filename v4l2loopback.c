@@ -116,7 +116,6 @@ static struct v4l2_loopback_device*v4l2loopback_getdevice(struct file*f) {
   #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)    
     priv_ptr ptr = (priv_ptr)video_get_drvdata(loopdev);
 #else
-#error old kernel not supported
     priv_ptr ptr = (priv_ptr)loopdev->vd_private_data;
 #endif
     int nr = ptr->devicenr;
