@@ -471,12 +471,6 @@ static int vidioc_try_fmt_out(struct file *file,
   if (dev->ready_for_capture) {
     fmt->fmt.pix = dev->pix_format;
   } else {
-    /* TODO(jmz) we should at least set
-     * - bytesperline (width*?)
-     * - field      (V4L2_FIELD_NONE if 0)
-     * - sizeimage  (bytesperline*height)
-     * - colorspace (V4L2_COLORSPACE_SRGB)
-     */
     __u32 w=fmt->fmt.pix.width;
     __u32 h=fmt->fmt.pix.height;
     __u32 bpl=fmt->fmt.pix.bytesperline;
