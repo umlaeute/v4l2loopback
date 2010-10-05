@@ -44,6 +44,7 @@ struct v4l2_loopback_device {
   struct v4l2_captureparm capture_param;
   /* buffers stuff */
   u8 *image;         /* pointer to actual buffers data */
+  unsigned long int imagesize;  /* size of buffers data */
   int buffers_number;  /* should not be big, 4 is a good choice */
   struct v4l2_buffer *buffers;	/* inner driver buffers */
   int write_position; /* number of last written frame + 1 */
@@ -1029,6 +1030,8 @@ static int free_buffers(struct v4l2_loopback_device *dev)
     vfree(dev->image);
     dev->image=NULL;
   }
+  dev->imagesize=0;
+
   return 0;
 }
 /* allocates buffers, if buffer_size is set */
@@ -1038,13 +1041,23 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
   if (dev->buffer_size == 0)
     return -EINVAL;
 
-  if(!dev->image)  /* FIXME: prevent double allocation more intelligently! */
-    dev->image = vmalloc(dev->buffer_size * dev->buffers_number);
+  if (dev->image) {
+    /* FIXME: prevent double allocation more intelligently! */
+    if(dev->buffer_size * dev->buffers_number == dev->imagesize)
+      return 0;
+
+    if (dev->open_count.counter==1) /* if there is only one reader, no problem should occur */
+      free_buffers(dev);
+    else
+      return -EINVAL;
+  }
+  dev->imagesize=dev->buffer_size * dev->buffers_number;
+  dev->image = vmalloc(dev->imagesize);
 
   if (dev->image == NULL)
     return -ENOMEM;
   dprintk("vmallocated %ld bytes\n",
-	  dev->buffer_size * dev->buffers_number);
+	  dev->imagesize);
   return 0;
 }
 /* init inner buffers, they are capture mode and flags are set as
@@ -1128,6 +1141,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
     dev->ready_for_capture = 0;
     dev->buffer_size = 0;
     dev->image = NULL;
+    dev->imagesize = 0;
     /* kfree on module release */
     dev->buffers =
       kzalloc(sizeof(*dev->buffers) * dev->buffers_number,
