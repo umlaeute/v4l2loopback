@@ -200,8 +200,10 @@ static unsigned int v4l2l_getbytesperline(const __u32 format,
     return 0;
   }
 
-  if(NULL != _bytesperline)
+  if(NULL != _bytesperline) {
+    /* TODO: check whether we could actually use the given value */
     *_bytesperline=bytesperline;
+  }
 
   *_width =width;
   *_height=height;
