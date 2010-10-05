@@ -106,17 +106,14 @@ MODULE_PARM_DESC(devices, "how many devices should be created");
 		printk(KERN_INFO "v4l2-loopback: " fmt, ##args);\
 	}
 
-static int s_v4l2loopback_validformats[] = {
-V4L2_PIX_FMT_YVU410,
-V4L2_PIX_FMT_YVU420,
+static __u32 s_v4l2loopback_validformats[] = {
 V4L2_PIX_FMT_YUYV,
 V4L2_PIX_FMT_YYUV,
 V4L2_PIX_FMT_YVYU,
 V4L2_PIX_FMT_UYVY,
 V4L2_PIX_FMT_VYUY,
-V4L2_PIX_FMT_YUV422P,
-V4L2_PIX_FMT_YUV411P,
-V4L2_PIX_FMT_Y41P,
+V4L2_PIX_FMT_YVU410,
+V4L2_PIX_FMT_YVU420,
 V4L2_PIX_FMT_YUV32,
 V4L2_PIX_FMT_YUV410,
 V4L2_PIX_FMT_YUV420,
@@ -128,7 +125,89 @@ V4L2_PIX_FMT_GREY,
 V4L2_PIX_FMT_Y16
 };
 
+static int v4l2l_checkformat(const __u32 format) {
+  const __u32 numformats=sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats);
+  __u32 i=0;
+  for(i=0; i < numformats; i++) {
+    if(format == s_v4l2loopback_validformats[i])
+      return 1;
+  }
+  return 0;
+}
 
+static unsigned int v4l2l_getbytesperline(const __u32 format, 
+					  __u32*_width, 
+					  __u32*_height, 
+					  __u32*_bytesperline ) {
+  __u32 bytesperline=0;
+  __u32 width=0;
+  __u32 height=0;
+  if(NULL == _width || NULL == _height)
+    return 0;
+
+  width=*_width;
+  height=*_height;
+
+  if(!v4l2l_checkformat(format))
+    return 0;
+
+  switch(format) {
+  case(V4L2_PIX_FMT_YVU410): 
+  case(V4L2_PIX_FMT_YUV410): 
+    /* planar YUV(4:1:0): width/height need to be multiples of 4 */
+    width =((width +3)>>2)<<2;
+    height=((height+3)>>2)<<2;
+    bytesperline=width*1;
+    break;
+  case(V4L2_PIX_FMT_YVU420): 
+  case(V4L2_PIX_FMT_YUV420): 
+    /* planar YUV(4:2:0): width/height need to be multiples of 2 */
+    width =((width +1)>>1)<<1;
+    height=((height+1)>>1)<<1;
+    bytesperline=width*1;
+    break;
+  case(V4L2_PIX_FMT_YUYV): 
+  case(V4L2_PIX_FMT_YYUV): 
+  case(V4L2_PIX_FMT_YVYU): 
+  case(V4L2_PIX_FMT_UYVY): 
+  case(V4L2_PIX_FMT_VYUY): 
+    /* packed YUV(4:2:22): width needs to be multiple of 2 */
+    width =((width +1)>>1)<<1;
+    bytesperline=width*2;
+    break;
+  case(V4L2_PIX_FMT_YUV32): 
+    bytesperline=width*4;
+    break;
+
+  case(V4L2_PIX_FMT_BGR24):
+  case(V4L2_PIX_FMT_RGB24):
+    bytesperline=width*3;
+    break;
+    break;
+  case(V4L2_PIX_FMT_BGR32): 
+  case(V4L2_PIX_FMT_RGB32):
+    bytesperline=width*4;
+    break;
+    break;
+
+  case(V4L2_PIX_FMT_GREY): 
+    bytesperline=width*1;
+    break;
+  case(V4L2_PIX_FMT_Y16):
+    bytesperline=width*2; 
+    break;
+  default:
+    return 0;
+  }
+
+  if(NULL != _bytesperline)
+    *_bytesperline=bytesperline;
+
+  *_width =width;
+  *_height=height;
+  
+  return bytesperline;
+}
 
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_DEVICES];
@@ -380,25 +459,60 @@ static int vidioc_g_fmt_out(struct file *file,
 static int vidioc_try_fmt_out(struct file *file,
 				       void *priv, struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_opener *opener = file->private_data;
-	struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-	opener->type = WRITER;
-	/* TODO(vasaka) loopback does not care about formats writer want to set,
-	 * maybe it is a good idea to restrict format somehow */
-	if (dev->ready_for_capture) {
-	  fmt->fmt.pix = dev->pix_format;
-	} else {
-	/* TODO(jmz) we should at least set
-	 * - bytesperline (width*?)
-	 * - field      (V4L2_FIELD_NONE if 0)
-	 * - sizeimage  (bytesperline*height)
-	 * - colorspace (V4L2_COLORSPACE_SRGB)
-	 */
-	  if (fmt->fmt.pix.sizeimage == 0)
-	    return -1;
-	  dev->pix_format = fmt->fmt.pix;
-	}
-	return 0;
+  struct v4l2_loopback_opener *opener = file->private_data;
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  opener->type = WRITER;
+  /* TODO(vasaka) loopback does not care about formats writer want to set,
+   * maybe it is a good idea to restrict format somehow */
+  if (dev->ready_for_capture) {
+    fmt->fmt.pix = dev->pix_format;
+  } else {
+    /* TODO(jmz) we should at least set
+     * - bytesperline (width*?)
+     * - field      (V4L2_FIELD_NONE if 0)
+     * - sizeimage  (bytesperline*height)
+     * - colorspace (V4L2_COLORSPACE_SRGB)
+     */
+    __u32 w=fmt->fmt.pix.width;
+    __u32 h=fmt->fmt.pix.height;
+    __u32 bpl=fmt->fmt.pix.bytesperline;
+    
+    if(w<1)
+      w=640;
+
+    if(h<1)
+      h=640;
+
+    if(0 == v4l2l_getbytesperline(fmt->fmt.pix.pixelformat,
+				  &w,
+				  &h,
+				  &bpl)) {
+      /* try again, with safe default */
+      if(0 == v4l2l_getbytesperline(s_v4l2loopback_validformats[0],
+				    &w,
+				    &h,
+				    &bpl)) {
+	return -EINVAL;
+      }
+    }
+
+    if (bpl*h == 0)
+      return -EINVAL;
+
+    fmt->fmt.pix.width =w;
+    fmt->fmt.pix.height=h;
+    
+    fmt->fmt.pix.bytesperline=bpl;
+
+    fmt->fmt.pix.sizeimage=bpl*h;
+    fmt->fmt.pix.colorspace=V4L2_COLORSPACE_SRGB;
+
+    if(V4L2_FIELD_ANY == fmt->fmt.pix.field)
+      fmt->fmt.pix.field=V4L2_FIELD_NONE;
+
+    dev->pix_format = fmt->fmt.pix;
+  }
+  return 0;
 }
 
 /* sets new output format, if possible;
@@ -414,6 +528,8 @@ static int vidioc_s_fmt_out(struct file *file,
   dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
   if (ret < 0)
     return ret;
+
+
   if (dev->ready_for_capture == 0) {
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
     fmt->fmt.pix.sizeimage = dev->buffer_size;
