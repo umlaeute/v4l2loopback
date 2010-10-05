@@ -28,13 +28,11 @@ MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>");
 MODULE_LICENSE("GPL");
 
 /* module structures */
-
 struct v4l2loopback_private {
     int devicenr;
 };
 
 typedef struct v4l2loopback_private *priv_ptr;
-
 
 /* TODO(vasaka) use typenames which are common to kernel, but first find out if
  * it is needed */
@@ -107,6 +105,30 @@ MODULE_PARM_DESC(devices, "how many devices should be created");
 	if (debug > 2) {\
 		printk(KERN_INFO "v4l2-loopback: " fmt, ##args);\
 	}
+
+static int s_v4l2loopback_validformats[] = {
+V4L2_PIX_FMT_YVU410,
+V4L2_PIX_FMT_YVU420,
+V4L2_PIX_FMT_YUYV,
+V4L2_PIX_FMT_YYUV,
+V4L2_PIX_FMT_YVYU,
+V4L2_PIX_FMT_UYVY,
+V4L2_PIX_FMT_VYUY,
+V4L2_PIX_FMT_YUV422P,
+V4L2_PIX_FMT_YUV411P,
+V4L2_PIX_FMT_Y41P,
+V4L2_PIX_FMT_YUV32,
+V4L2_PIX_FMT_YUV410,
+V4L2_PIX_FMT_YUV420,
+V4L2_PIX_FMT_BGR24,
+V4L2_PIX_FMT_RGB24,
+V4L2_PIX_FMT_BGR32,
+V4L2_PIX_FMT_RGB32,
+V4L2_PIX_FMT_GREY,
+V4L2_PIX_FMT_Y16
+};
+
+
 
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_DEVICES];
@@ -291,14 +313,21 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
- if (f->index)
-   return -EINVAL;
+
  if (dev->ready_for_capture) {
+   if (f->index)
+     return -EINVAL;
+
    strlcpy(f->description, "current OUT format", sizeof(f->description));
    f->pixelformat = dev->pix_format.pixelformat;
  } else {
    /* fill in a dummy format */
-   f->pixelformat=V4L2_PIX_FMT_UYVY;
+   if(f->index < 0 || 
+      f->index >= (sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats))) 
+     return -EINVAL;
+
+   f->pixelformat=s_v4l2loopback_validformats[f->index];
+
    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
  }
  f->flags=0;
