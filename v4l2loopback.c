@@ -386,11 +386,17 @@ static int vidioc_try_fmt_out(struct file *file,
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow */
 	if (dev->ready_for_capture) {
-		fmt->fmt.pix = dev->pix_format;
+	  fmt->fmt.pix = dev->pix_format;
 	} else {
-		if (fmt->fmt.pix.sizeimage == 0)
-			return -1;
-		dev->pix_format = fmt->fmt.pix;
+	/* TODO(jmz) we should at least set
+	 * - bytesperline (width*?)
+	 * - field      (V4L2_FIELD_NONE if 0)
+	 * - sizeimage  (bytesperline*height)
+	 * - colorspace (V4L2_COLORSPACE_SRGB)
+	 */
+	  if (fmt->fmt.pix.sizeimage == 0)
+	    return -1;
+	  dev->pix_format = fmt->fmt.pix;
 	}
 	return 0;
 }
