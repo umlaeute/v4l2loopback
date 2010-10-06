@@ -322,7 +322,16 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
   if (f->index)
     return -EINVAL;
   if (dev->ready_for_capture) {
-    strlcpy(f->description, "current format", sizeof(f->description));
+    const __u32 format = dev->pix_format.pixelformat;
+    //  strlcpy(f->description, "current format", sizeof(f->description));
+
+    snprintf(f->description, sizeof(f->description),
+	     "fixed format: '%c%c%c%c'",
+	     (format>> 0) & 0xFF,
+	     (format>> 8) & 0xFF,
+	     (format>>16) & 0xFF,
+	     (format>>24) & 0xFF);
+
     f->pixelformat = dev->pix_format.pixelformat;
   } else {
     return -EINVAL;
@@ -397,20 +406,40 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
   if (dev->ready_for_capture) {
+    const __u32 format = dev->pix_format.pixelformat;
+
     if (f->index)
       return -EINVAL;
 
-    strlcpy(f->description, "current OUT format", sizeof(f->description));
+    //strlcpy(f->description, "current OUT format", sizeof(f->description));
+
+    snprintf(f->description, sizeof(f->description),
+	     "fixed format: '%c%c%c%c'",
+	     (format>> 0) & 0xFF,
+	     (format>> 8) & 0xFF,
+	     (format>>16) & 0xFF,
+	     (format>>24) & 0xFF);
+
     f->pixelformat = dev->pix_format.pixelformat;
   } else {
+    __u32 format;
     /* fill in a dummy format */
     if(f->index < 0 || 
        f->index >= (sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats))) 
       return -EINVAL;
 
     f->pixelformat=s_v4l2loopback_validformats[f->index];
+    format = f->pixelformat;
 
-    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
+    //    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
+
+    snprintf(f->description, sizeof(f->description),
+	     "format: '%c%c%c%c'",
+	     (format>> 0) & 0xFF,
+	     (format>> 8) & 0xFF,
+	     (format>>16) & 0xFF,
+	     (format>>24) & 0xFF);
+
   }
   f->flags=0;
 
@@ -624,7 +653,7 @@ static int vidioc_enum_output(struct file *file, void *fh,
   if (dev->ready_for_capture)
     return -EINVAL;
  
-  strlcpy(outp->name, "loopback out", sizeof(outp->name));
+  strlcpy(outp->name, "loopback in", sizeof(outp->name));
   outp->type = V4L2_OUTPUT_TYPE_ANALOG;
   outp->audioset = 0;
   outp->modulator = 0;
