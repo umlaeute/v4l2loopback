@@ -379,14 +379,13 @@ static int vidioc_try_fmt_cap(struct file *file,
   opener->type = READER;
 
   if (0 == dev->ready_for_capture) {
-#if 1
-    return 0;
-#else
-    return -EINVAL;
-#endif
+    dprintk("setting fmt_cap not possible yet\n");
+    return -EBUSY;
   }
+
   if (fmt->fmt.pix.pixelformat != dev->pix_format.pixelformat)
     return -EINVAL;
+
   fmt->fmt.pix = dev->pix_format;
   return 0;
 }
