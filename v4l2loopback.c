@@ -1122,8 +1122,9 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 {
   int i;
   int buffer_size=dev->buffer_size;
+  int bytesused = dev->pix_format.sizeimage;
   for (i = 0; i < dev->buffers_number; ++i) {
-    dev->buffers[i].bytesused         = buffer_size;
+    dev->buffers[i].bytesused         = bytesused;
     dev->buffers[i].length            = buffer_size;
     dev->buffers[i].field             = V4L2_FIELD_NONE;
     dev->buffers[i].flags             = 0;
