@@ -126,6 +126,15 @@ static __u32 s_v4l2loopback_validformats[] = {
   V4L2_PIX_FMT_Y16
 };
 
+#define V4L2LOOPBACK_SIZE_MIN_WIDTH   48
+#define V4L2LOOPBACK_SIZE_MIN_HEIGHT  32
+#define V4L2LOOPBACK_SIZE_MAX_WIDTH   8192
+#define V4L2LOOPBACK_SIZE_MAX_HEIGHT  8192
+
+#define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH   640
+#define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
+
+
 static int v4l2l_checkformat(const __u32 format) {
   const __u32 numformats=sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats);
   __u32 i=0;
@@ -298,11 +307,11 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 #endif
     argp->type=V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
-    argp->stepwise.min_width=48;
-    argp->stepwise.min_height=32;
+    argp->stepwise.min_width=V4L2LOOPBACK_SIZE_MIN_WIDTH;
+    argp->stepwise.min_height=V4L2LOOPBACK_SIZE_MIN_HEIGHT;
 
-    argp->stepwise.max_width=8192;
-    argp->stepwise.max_height=8192;
+    argp->stepwise.max_width=V4L2LOOPBACK_SIZE_MAX_WIDTH;
+    argp->stepwise.max_height=V4L2LOOPBACK_SIZE_MAX_HEIGHT;
 
     argp->stepwise.step_width=1;
     argp->stepwise.step_height=1;
@@ -507,10 +516,10 @@ static int vidioc_try_fmt_out(struct file *file,
     __u32 pixfmt=fmt->fmt.pix.pixelformat;
     
     if(w<1)
-      w=640;
+      w=V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
 
     if(h<1)
-      h=640;
+      h=V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 
     if(0 == v4l2l_getbytesperline(pixfmt,
 				  &w,
