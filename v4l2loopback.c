@@ -326,7 +326,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
     //  strlcpy(f->description, "current format", sizeof(f->description));
 
     snprintf(f->description, sizeof(f->description),
-	     "fixed format: '%c%c%c%c'",
+	     "[%c%c%c%c]",
 	     (format>> 0) & 0xFF,
 	     (format>> 8) & 0xFF,
 	     (format>>16) & 0xFF,
@@ -414,7 +414,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
     //strlcpy(f->description, "current OUT format", sizeof(f->description));
 
     snprintf(f->description, sizeof(f->description),
-	     "fixed format: '%c%c%c%c'",
+	     "[%c%c%c%c]",
 	     (format>> 0) & 0xFF,
 	     (format>> 8) & 0xFF,
 	     (format>>16) & 0xFF,
@@ -434,7 +434,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
     //    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
 
     snprintf(f->description, sizeof(f->description),
-	     "format: '%c%c%c%c'",
+	     "(%c%c%c%c)",
 	     (format>> 0) & 0xFF,
 	     (format>> 8) & 0xFF,
 	     (format>>16) & 0xFF,
