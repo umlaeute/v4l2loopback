@@ -504,6 +504,7 @@ static int vidioc_try_fmt_out(struct file *file,
     __u32 w=fmt->fmt.pix.width;
     __u32 h=fmt->fmt.pix.height;
     __u32 bpl=fmt->fmt.pix.bytesperline;
+    __u32 pixfmt=fmt->fmt.pix.pixelformat;
     
     if(w<1)
       w=640;
@@ -511,12 +512,13 @@ static int vidioc_try_fmt_out(struct file *file,
     if(h<1)
       h=640;
 
-    if(0 == v4l2l_getbytesperline(fmt->fmt.pix.pixelformat,
+    if(0 == v4l2l_getbytesperline(pixfmt,
 				  &w,
 				  &h,
 				  &bpl)) {
       /* try again, with safe default */
-      if(0 == v4l2l_getbytesperline(s_v4l2loopback_validformats[0],
+      pixfmt=s_v4l2loopback_validformats[0];
+      if(0 == v4l2l_getbytesperline(pixfmt,
 				    &w,
 				    &h,
 				    &bpl)) {
@@ -524,9 +526,10 @@ static int vidioc_try_fmt_out(struct file *file,
       }
     }
 
-    if (bpl*h == 0)
+    if (bpl * h == 0)
       return -EINVAL;
 
+    fmt->fmt.pix.pixelformat = pixfmt;
     fmt->fmt.pix.width =w;
     fmt->fmt.pix.height=h;
     
