@@ -866,7 +866,7 @@ static int v4l2_loopback_mmap(struct file *file,
   unsigned long size = (unsigned long) (vma->vm_end - vma->vm_start);
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
-  dprintk("entering v4l_mmap(), offset: %lu\n", vma->vm_pgoff);
+  dprintk("entering v4l_mmap(), page: %p, offset: %lu\n", dev->image, vma->vm_pgoff);
   if (size > dev->buffer_size) {
     dprintk("userspace tries to mmap to much, fail\n");
     return -EINVAL;
@@ -876,9 +876,20 @@ static int v4l2_loopback_mmap(struct file *file,
     dprintk("userspace tries to mmap to far, fail\n");
     return -EINVAL;
   }
+
+  if(NULL==dev->image) {
+    dprintk("oops, allocating buffers for %ld\n", dev->buffer_size);
+    if(allocate_buffers(dev)<0) {
+      return -EINVAL;
+    }
+    init_buffers(dev);
+  }
+
   addr = (unsigned long) dev->image + (vma->vm_pgoff << PAGE_SHIFT);
 
   while (size > 0) {
+    dprintkrw("vmalloc(%ld=%p)\n", addr, (void*)addr);
+
     page = (void *) vmalloc_to_page((void *) addr);
 
     if (vm_insert_page(vma, start, page) < 0)
