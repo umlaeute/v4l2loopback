@@ -270,12 +270,17 @@ static int vidioc_querycap(struct file *file,
 {
   strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
   strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
+  cap->bus_info[0]=0;
+
   cap->version = 1;
   cap->capabilities =
     V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
     V4L2_CAP_STREAMING |
     V4L2_CAP_READWRITE
     ;
+
+  memset(cap->reserved, 0, sizeof(cap->reserved));
+
   return 0;
 }
 
