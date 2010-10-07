@@ -74,38 +74,27 @@ struct v4l2_loopback_opener {
 
 /* module parameters */
 static int debug = 1;
-module_param(debug, int, 0);
+module_param(debug, int, S_IRUGO|S_IWUSR );
 MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
 
 static int max_buffers_number = 4;
-module_param(max_buffers_number, int, 0);
+module_param(max_buffers_number, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers_number, "how many buffers should be allocated");
 
 static int max_openers = 10;
-module_param(max_openers, int, 0);
+module_param(max_openers, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
 
 #define MAX_DEVICES 8
 static int devices = -1;
-module_param(devices, int, 000);
+module_param(devices, int, 0);
 MODULE_PARM_DESC(devices, "how many devices should be created");
 
 
 /* module constants */
 #define MAX_MMAP_BUFFERS 100  /* max buffers that can be mapped, actually they
 			       * are all mapped to max_buffers_number buffers*/
-
-#define dprintk(fmt, args...)				\
-  if (debug > 0) {					\
-    printk(KERN_INFO "v4l2-loopback: " fmt, ##args);	\
-  }
-
-
-#define dprintkrw(fmt, args...)				\
-  if (debug > 2) {					\
-    printk(KERN_INFO "v4l2-loopback: " fmt, ##args);	\
-  }
 
 static __u32 s_v4l2loopback_validformats[] = {
   V4L2_PIX_FMT_YUYV,
@@ -135,6 +124,24 @@ static __u32 s_v4l2loopback_validformats[] = {
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
 
 
+
+/* helpers */
+
+#define STRINGIFY(s) #s
+#define STRINGIFY2(s) STRINGIFY(s)
+
+#define dprintk(fmt, args...)				\
+  if (debug > 0) {					\
+    printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__) "]: " fmt, ##args); \
+  }
+
+
+#define dprintkrw(fmt, args...)				\
+  if (debug > 2) {					\
+    printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
+  }
+
+
 static int v4l2l_checkformat(const __u32 format) {
   const __u32 numformats=sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats);
   __u32 i=0;
@@ -142,6 +149,12 @@ static int v4l2l_checkformat(const __u32 format) {
     if(format == s_v4l2loopback_validformats[i])
       return 1;
   }
+  dprintk("unsupported format '%c%c%c%c'",
+	  (format>> 0) & 0xFF,
+	  (format>> 8) & 0xFF,
+	  (format>>16) & 0xFF,
+	  (format>>24) & 0xFF);
+
   return 0;
 }
 
@@ -1013,7 +1026,7 @@ static int v4l_loopback_open(struct file *file)
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
   dprintk("entering v4l_open()\n");
-  if (dev->open_count.counter == max_openers)
+  if (dev->open_count.counter >= max_openers)
     return -EBUSY;
   /* kfree on close */
   opener = kzalloc(sizeof(*opener), GFP_KERNEL);
