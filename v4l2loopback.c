@@ -478,7 +478,8 @@ static int vidioc_g_fmt_out(struct file *file,
    * CHECK whether this assumption is wrong, 
    * or whether we have to always provide a valid format
    */ 
-  if (dev->ready_for_capture == 0) {
+  //  if (0 == dev->ready_for_capture) {
+  if (0 == dev->pix_format.sizeimage) {
     dev->pix_format.width=0;
     dev->pix_format.height=0;
     dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
