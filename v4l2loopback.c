@@ -596,7 +596,7 @@ static int vidioc_s_fmt_out(struct file *file,
   return ret;
 }
 
-#define V4L2L_OVERLAY
+//#define V4L2L_OVERLAY
 #ifdef V4L2L_OVERLAY
 /* ------------------ OVERLAY ----------------------- */
 /* currently unsupported */
@@ -972,7 +972,7 @@ static int v4l2_loopback_mmap(struct file *file,
   addr = (unsigned long) dev->image + (vma->vm_pgoff << PAGE_SHIFT);
 
   while (size > 0) {
-    dprintkrw("vmalloc(%ld=%p)\n", addr, (void*)addr);
+    dprintkrw("vmalloc(%ld=%p) of %ld\n", addr, (void*)addr, size);
 
     page = (void *) vmalloc_to_page((void *) addr);
 
