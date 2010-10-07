@@ -1170,8 +1170,8 @@ static void init_vdev(struct video_device *vdev)
 {
   strlcpy(vdev->name, "Loopback video device", sizeof(vdev->name));
   vdev->tvnorms      = V4L2_STD_ALL;
-  vdev->current_norm = V4L2_STD_ALL,
-    vdev->vfl_type     = VFL_TYPE_GRABBER;
+  vdev->current_norm = V4L2_STD_ALL;
+  vdev->vfl_type     = VFL_TYPE_GRABBER;
   vdev->fops         = &v4l2_loopback_fops;
   vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
   vdev->release      = &video_device_release;
