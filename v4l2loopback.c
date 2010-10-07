@@ -646,14 +646,39 @@ static int vidioc_s_parm(struct file *file, void *priv,
 }
 
 /* sets a tv standard, actually we do not need to handle this any special way
- * added to support effecttv, can not be inline as I need pointer to it 
- * called on
+ * added to support effecttv
+ * called on VIDIOC_S_STD
  */
 static int vidioc_s_std(struct file *file, void *private_data,
 			v4l2_std_id *norm)
 {
   return 0;
 }
+
+
+/* gets a fake video standard
+ * called on VIDIOC_G_STD
+ */
+static int vidioc_g_std(struct file *file, void *private_data,
+			v4l2_std_id *norm)
+{
+  if(norm)
+    *norm=V4L2_STD_ALL;
+  return 0;
+}
+/* gets a fake video standard
+ * called on VIDIOC_QUERYSTD
+ */
+static int vidioc_querystd(struct file *file, void *private_data,
+			v4l2_std_id *norm)
+{
+  if(norm)
+    *norm=V4L2_STD_UNKNOWN;
+  return 0;
+}
+
+
+
 
 /* returns set of device outputs, in our case there is only one
  * called on VIDIOC_ENUMOUTPUT
@@ -1231,7 +1256,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
   static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
     .vidioc_querycap         = &vidioc_querycap,
     .vidioc_enum_framesizes  = &vidioc_enum_framesizes,
+
     .vidioc_enum_output       = &vidioc_enum_output,
+
     .vidioc_enum_input       = &vidioc_enum_input,
     .vidioc_g_input          = &vidioc_g_input,
     .vidioc_s_input          = &vidioc_s_input,
@@ -1250,15 +1277,22 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
     .vidioc_s_fmt_vid_overlay= &vidioc_s_fmt_overlay,
     .vidioc_g_fmt_vid_overlay= &vidioc_g_fmt_overlay,
 #endif
+
     .vidioc_s_std            = &vidioc_s_std,
+    .vidioc_g_std            = &vidioc_g_std,
+    .vidioc_querystd         = &vidioc_querystd,
+
     .vidioc_g_parm           = &vidioc_g_parm,
     .vidioc_s_parm           = &vidioc_s_parm,
+
     .vidioc_reqbufs          = &vidioc_reqbufs,
     .vidioc_querybuf         = &vidioc_querybuf,
     .vidioc_qbuf             = &vidioc_qbuf,
     .vidioc_dqbuf            = &vidioc_dqbuf,
+
     .vidioc_streamon         = &vidioc_streamon,
     .vidioc_streamoff        = &vidioc_streamoff,
+
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
     .vidiocgmbuf             = &vidiocgmbuf,
 #endif
