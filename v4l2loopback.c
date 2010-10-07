@@ -482,12 +482,15 @@ static int vidioc_g_fmt_out(struct file *file,
     dev->pix_format.width=0;
     dev->pix_format.height=0;
     dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
-    dev->pix_format.field=V4L2_FIELD_NONE;
-    dev->pix_format.bytesperline=dev->pix_format.width*2;
-    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
     dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
     dev->pix_format.field=V4L2_FIELD_NONE;
-    
+
+    dev->pix_format.bytesperline=v4l2l_getbytesperline(dev->pix_format.pixelformat,
+						       &dev->pix_format.width,
+						       &dev->pix_format.height,
+						       NULL);
+    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
+
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
     allocate_buffers(dev);
     init_buffers(dev);
