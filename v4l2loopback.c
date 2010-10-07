@@ -486,14 +486,11 @@ static int vidioc_g_fmt_out(struct file *file,
     dev->pix_format.bytesperline=dev->pix_format.width*2;
     dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
     dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
-#if 1
-    /* this generates  memleak in kernel, as the buffers are never freed
-     */
-#warning MEMLEACK in kernel
+    dev->pix_format.field=V4L2_FIELD_NONE;
+    
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
     allocate_buffers(dev);
     init_buffers(dev);
-#endif
   }
   fmt->fmt.pix = dev->pix_format;
   return 0;
