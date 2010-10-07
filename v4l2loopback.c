@@ -97,7 +97,7 @@ MODULE_PARM_DESC(devices, "how many devices should be created");
 			       * are all mapped to max_buffers_number buffers*/
 
 #define dprintk(fmt, args...)				\
-  if (debug > 1) {					\
+  if (debug > 0) {					\
     printk(KERN_INFO "v4l2-loopback: " fmt, ##args);	\
   }
 
