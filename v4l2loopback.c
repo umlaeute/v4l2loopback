@@ -77,7 +77,7 @@ static int debug = 1;
 module_param(debug, int, S_IRUGO|S_IWUSR );
 MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
 
-static int max_buffers_number = 4;
+static int max_buffers_number = 8;
 module_param(max_buffers_number, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers_number, "how many buffers should be allocated");
 
