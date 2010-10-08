@@ -808,7 +808,7 @@ static int vidioc_querybuf(struct file *file, void *fh,
   *b = dev->buffers[b->index % dev->buffers_number];
   b->type = type;
   b->index = index;
-  dprintk("JMZ: buffer type: %d (of %d with size=%ld)", b->memory, dev->buffers_number, dev->buffer_size);
+  dprintkrw("buffer type: %d (of %d with size=%ld)", b->memory, dev->buffers_number, dev->buffer_size);
   return 0;
 }
 
