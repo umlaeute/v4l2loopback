@@ -23,7 +23,7 @@
 #include <linux/slab.h>
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
-MODULE_VERSION("0.2");
+MODULE_VERSION("0.3");
 MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>");
 MODULE_LICENSE("GPL");
 
