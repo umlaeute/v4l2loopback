@@ -491,11 +491,14 @@ static int vidioc_g_fmt_out(struct file *file,
    * CHECK whether this assumption is wrong, 
    * or whether we have to always provide a valid format
    */ 
-  //  if (0 == dev->ready_for_capture) {
+#if 1
+  if (0 == dev->ready_for_capture) {
+#else
   if (0 == dev->pix_format.sizeimage) {
-    dev->pix_format.width=0;
-    dev->pix_format.height=0;
-    dev->pix_format.pixelformat=V4L2_PIX_FMT_UYVY;
+#endif
+    dev->pix_format.width=0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
+    dev->pix_format.height=0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
+    dev->pix_format.pixelformat=s_v4l2loopback_validformats[0];
     dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
     dev->pix_format.field=V4L2_FIELD_NONE;
 
@@ -1141,7 +1144,8 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
     if(dev->buffer_size * dev->buffers_number == dev->imagesize)
       return 0;
 
-    if (dev->open_count.counter==1) /* if there is only one reader, no problem should occur */
+    /* if there is only one writer, no problem should occur */
+    if (dev->open_count.counter==1) 
       free_buffers(dev);
     else
       return -EINVAL;
