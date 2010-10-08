@@ -285,7 +285,7 @@ static int vidioc_querycap(struct file *file,
   strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
   cap->bus_info[0]=0;
 
-  cap->version = 1;
+  cap->version = KERNEL_VERSION(0,0,2);
   cap->capabilities =
     V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
     V4L2_CAP_STREAMING |
