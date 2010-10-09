@@ -42,8 +42,7 @@ this will create an additional video-device, e.g. /dev/video0 (the number
 depends on whether you already had video devices on your system), which can be
 fed by various programs.
 tested feeders:
-	gstreamer: using the  "v4l2loopback" element 
-		http://www.github.com/umlaeute/gst-v4l2loopback
+	gstreamer: using the  "v4l2sink" element 
 	Gem(>=0.93) using the "recordV4L2" plugin
 in theory most programs capable of _writing to_ a v4l2 device should work
 
