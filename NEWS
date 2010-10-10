@@ -1,0 +1,45 @@
+v4l2loopback-0.3
+
+  - tested writers:
+		GStreamer's normal "v4l2sink" element (from plugins-good)
+		GStreamer's "v4l2loopback" (deprecated by v4l2sink)
+		pd/Gem(0.93svn)
+  - tested readers:
+		GStreamer's "v4l2src"
+		pd/Gem(0.92)
+		vlc
+		xawtv (depending on image format)
+		mplayer (with correct image format, e.g. rgb32)
+  - code documentation
+  - added v4l2-documentation for easier offline programming
+  - added a lot of ioctls to meet the v4l2 standard
+
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Sun, 10 Oct 2010 21:18:22 +0200
+
+v4l2loopback-0.2
+
+  - Linux 2.6.32 & 2.6.35
+  - tested with pd/Gem(0.93svn) and GStreamer's "v4l2loopback"
+  - add support for multiple video devices
+  - README, COPYING, AUTHORS
+  - re-organized file layout
+
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Tue Sep 28 09:46:47 CEST 2010
+
+v4l2loopback-0.1
+
+  - Linux 2.6.28
+  - Skype support
+  - support for GStreamer's "v4l2loopback" element
+  - test application
+  - README
+  - dev: nonblocking I/O
+  - dev: VIDIOC_G_PARM
+
+ -- Gorinich Zmey <gorinich.zmey> Wed Jun 16 12:19:59 CEST 2010
+
+v4l2loopback-0.0
+
+  - initial
+
+ -- Vasily Levin <vasaka@gmail.com>  Tue Feb  3 10:56:28 CET 2009
