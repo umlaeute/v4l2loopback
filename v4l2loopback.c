@@ -22,8 +22,10 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,0,3)
+
+
 MODULE_DESCRIPTION("V4L2 loopback video device");
-MODULE_VERSION("0.3");
 MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>");
 MODULE_LICENSE("GPL");
 
@@ -285,7 +287,7 @@ static int vidioc_querycap(struct file *file,
   strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
   cap->bus_info[0]=0;
 
-  cap->version = KERNEL_VERSION(0,0,2);
+  cap->version = V4L2LOOPBACK_VERSION_CODE;
   cap->capabilities =
     V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
     V4L2_CAP_STREAMING |
@@ -1376,6 +1378,12 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
       }
     }
     dprintk("module installed\n");
+
+    printk(KERN_INFO "v4l2loopack driver version %d.%d.%d loaded\n",
+          (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
+          (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
+          (V4L2LOOPBACK_VERSION_CODE      ) & 0xff);
+
     return 0;
   }
 
