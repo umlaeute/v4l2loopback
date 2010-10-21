@@ -73,7 +73,7 @@ struct v4l2_loopback_opener {
 };
 
 /* module parameters */
-static int debug = 1;
+static int debug = 0;
 module_param(debug, int, S_IRUGO|S_IWUSR );
 MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
 
