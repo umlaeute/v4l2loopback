@@ -63,6 +63,15 @@ the original module has been developed for linux-2.6.28;
 further development has been done on linux-2.6.32 and linux-2.6.35, so these 2
 are the last kernels known to work with this module
 
+--- DISTRIBUTIONS ---
+v4l2loopack is now (2010-10-13) available as a Debian-package.
+This means, that it is also part of Debian-derived distributions, including
+Ubuntu (starting with natty).
+The package is called "v4l2loopback-source".
+You should be able to simply do (as root):
+# aptitude install v4l2loopback-source module-assistant
+# module-assistant auto-install v4l2loopback-source
+
 --- DOWNLOAD ---
 the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
