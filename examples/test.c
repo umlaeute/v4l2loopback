@@ -18,6 +18,10 @@
 #include <fcntl.h>
 #include <assert.h>
 
+#if 0
+# define CHECK_REREAD
+#endif
+
 #define VIDEO_DEVICE "/dev/video0"
 #define FRAME_WIDTH  640
 #define FRAME_HEIGHT 480
@@ -65,6 +69,8 @@ int main(int argc, char**argv)
 
 	write(fdwr, buffer, FRAME_SIZE);
 
+#ifdef CHECK_REREAD
+	do {
 	/* check if we get the same data on output */
 	int fdr = open(video_device, O_RDONLY);
 	read(fdr, check_buffer, FRAME_SIZE);
@@ -73,7 +79,8 @@ int main(int argc, char**argv)
 			assert(0);
 	}
 	close(fdr);
-	 */
+	} while(0);
+#endif
 
 	pause();
 
