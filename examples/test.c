@@ -26,7 +26,15 @@
 #define FRAME_WIDTH  640
 #define FRAME_HEIGHT 480
 
-#define FRAME_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 2)
+#if 1
+# define FRAME_FORMAT V4L2_PIX_FMT_YUYV
+# define FRAME_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 2)
+#else
+# define FRAME_FORMAT V4L2_PIX_FMT_YVU420
+# define FRAME_SIZE ((FRAME_WIDTH * FRAME_HEIGHT * 3)>>1)
+#endif
+
+
 
 int main(int argc, char**argv)
 {
@@ -59,13 +67,15 @@ int main(int argc, char**argv)
 	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	vid_format.fmt.pix.width = FRAME_WIDTH;
 	vid_format.fmt.pix.height = FRAME_HEIGHT;
-	vid_format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUYV;
-	vid_format.fmt.pix.sizeimage = FRAME_WIDTH * FRAME_HEIGHT * 2;
+	vid_format.fmt.pix.pixelformat = FRAME_FORMAT;
+	vid_format.fmt.pix.sizeimage = FRAME_SIZE;
 	vid_format.fmt.pix.field = V4L2_FIELD_NONE;
-	vid_format.fmt.pix.bytesperline = FRAME_WIDTH * 2;
+	vid_format.fmt.pix.bytesperline = (FRAME_WIDTH * 2);
 	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
 	ret_code = ioctl(fdwr, VIDIOC_S_FMT, &vid_format);
 	assert(ret_code != -1);
+
+	printf("frame: format=%d\tsize=%d\n", FRAME_FORMAT, FRAME_SIZE);
 
 	write(fdwr, buffer, FRAME_SIZE);
 
