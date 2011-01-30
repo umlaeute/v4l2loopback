@@ -24,7 +24,7 @@
 
 #define FRAME_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 2)
 
-int main()
+int main(int argc, char**argv)
 {
 	struct v4l2_capability vid_caps;
 	struct v4l2_format vid_format;
@@ -32,13 +32,19 @@ int main()
 	__u8 buffer[FRAME_SIZE];
 	__u8 check_buffer[FRAME_SIZE];
 
+        const char*video_device=VIDEO_DEVICE;
+	if(argc>1) {
+		video_device=argv[1];
+		printf("using output device: %s\n", video_device);
+	}
+
 	int i;
 	for (i = 0; i < FRAME_SIZE; ++i) {
 		buffer[i] = i % 2;
 		check_buffer[i] = 0;
 	}
 
-	int fdwr = open(VIDEO_DEVICE, O_RDWR);
+	int fdwr = open(video_device, O_RDWR);
 	assert(fdwr >= 0);
 
 	int ret_code = ioctl(fdwr, VIDIOC_QUERYCAP, &vid_caps);
@@ -60,8 +66,7 @@ int main()
 	write(fdwr, buffer, FRAME_SIZE);
 
 	/* check if we get the same data on output */
-	/*
-	int fdr = open(VIDEO_DEVICE, O_RDONLY);
+	int fdr = open(video_device, O_RDONLY);
 	read(fdr, check_buffer, FRAME_SIZE);
 	for (i = 0; i < FRAME_SIZE; ++i) {
 		if (buffer[i] != check_buffer[i])
