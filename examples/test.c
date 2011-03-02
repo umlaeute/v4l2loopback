@@ -14,25 +14,65 @@
 
 #include <linux/videodev2.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <fcntl.h>
 #include <assert.h>
+
+#define ROUND_UP_2(num)  (((num)+1)&~1)
+#define ROUND_UP_4(num)  (((num)+3)&~3)
+#define ROUND_UP_8(num)  (((num)+7)&~7)
+#define ROUND_UP_16(num) (((num)+15)&~15)
+#define ROUND_UP_32(num) (((num)+31)&~31)
+#define ROUND_UP_64(num) (((num)+63)&~63)
+
+
+
 
 #if 0
 # define CHECK_REREAD
 #endif
 
 #define VIDEO_DEVICE "/dev/video0"
-#define FRAME_WIDTH  640
-#define FRAME_HEIGHT 480
-
 #if 1
+# define FRAME_WIDTH  640
+# define FRAME_HEIGHT 480
+#else
+# define FRAME_WIDTH  512
+# define FRAME_HEIGHT 512
+#endif
+
+#if 0
 # define FRAME_FORMAT V4L2_PIX_FMT_YUYV
-# define FRAME_SIZE (FRAME_WIDTH * FRAME_HEIGHT * 2)
 #else
 # define FRAME_FORMAT V4L2_PIX_FMT_YVU420
-# define FRAME_SIZE ((FRAME_WIDTH * FRAME_HEIGHT * 3)>>1)
 #endif
+
+int format_properties(const unsigned int format,
+		const unsigned int width,
+		const unsigned int height,
+		size_t*linewidth,
+		size_t*framewidth) {
+size_t lw, fw;
+	switch(format) {
+	case V4L2_PIX_FMT_YUV420: case V4L2_PIX_FMT_YVU420:
+		lw = width; /* ??? */
+		fw = ROUND_UP_4 (width) * ROUND_UP_2 (height);
+		fw += 2 * ((ROUND_UP_8 (width) / 2) * (ROUND_UP_2 (height) / 2));
+	break;
+	case V4L2_PIX_FMT_UYVY: case V4L2_PIX_FMT_Y41P: case V4L2_PIX_FMT_YUYV: case V4L2_PIX_FMT_YVYU:
+		lw = (ROUND_UP_2 (width) * 2);
+		fw = lw * height;
+	break;
+	default:
+		return 0;
+	}
+
+	if(linewidth)*linewidth=lw;
+	if(framewidth)*framewidth=fw;
+	
+	return 1;
+}
 
 
 
@@ -41,18 +81,35 @@ int main(int argc, char**argv)
 	struct v4l2_capability vid_caps;
 	struct v4l2_format vid_format;
 
-	__u8 buffer[FRAME_SIZE];
-	__u8 check_buffer[FRAME_SIZE];
+	size_t framesize;
+	size_t linewidth;
+
+	__u8*buffer;
+	__u8*check_buffer;
 
         const char*video_device=VIDEO_DEVICE;
+
+	if(!format_properties(FRAME_FORMAT,
+		FRAME_WIDTH, FRAME_HEIGHT,
+		&linewidth,
+		&framesize)) {
+		printf("unable to guess correct settings for format '%d'\n", FRAME_FORMAT);
+	}
+
+
+	buffer=(__u8*)malloc(sizeof(__u8)*framesize);
+	check_buffer=(__u8*)malloc(sizeof(__u8)*framesize);
+
 	if(argc>1) {
 		video_device=argv[1];
 		printf("using output device: %s\n", video_device);
 	}
 
 	int i;
-	for (i = 0; i < FRAME_SIZE; ++i) {
-		buffer[i] = i % 2;
+	memset(buffer, 0, framesize);
+	memset(check_buffer, 0, framesize);
+	for (i = 0; i < framesize; ++i) {
+		//buffer[i] = i % 2;
 		check_buffer[i] = 0;
 	}
 
@@ -68,23 +125,23 @@ int main(int argc, char**argv)
 	vid_format.fmt.pix.width = FRAME_WIDTH;
 	vid_format.fmt.pix.height = FRAME_HEIGHT;
 	vid_format.fmt.pix.pixelformat = FRAME_FORMAT;
-	vid_format.fmt.pix.sizeimage = FRAME_SIZE;
+	vid_format.fmt.pix.sizeimage = framesize;
 	vid_format.fmt.pix.field = V4L2_FIELD_NONE;
-	vid_format.fmt.pix.bytesperline = (FRAME_WIDTH * 2);
-	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
+	vid_format.fmt.pix.bytesperline = linewidth;
+	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 	ret_code = ioctl(fdwr, VIDIOC_S_FMT, &vid_format);
 	assert(ret_code != -1);
 
-	printf("frame: format=%d\tsize=%d\n", FRAME_FORMAT, FRAME_SIZE);
+	printf("frame: format=%d\tsize=%d\n", FRAME_FORMAT, framesize);
 
-	write(fdwr, buffer, FRAME_SIZE);
+	write(fdwr, buffer, framesize);
 
 #ifdef CHECK_REREAD
 	do {
 	/* check if we get the same data on output */
 	int fdr = open(video_device, O_RDONLY);
-	read(fdr, check_buffer, FRAME_SIZE);
-	for (i = 0; i < FRAME_SIZE; ++i) {
+	read(fdr, check_buffer, framesize);
+	for (i = 0; i < framesize; ++i) {
 		if (buffer[i] != check_buffer[i])
 			assert(0);
 	}
@@ -95,6 +152,9 @@ int main(int argc, char**argv)
 	pause();
 
 	close(fdwr);
+
+	free(buffer);
+	free(check_buffer);
 
 	return 0;
 }
