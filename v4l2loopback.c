@@ -29,6 +29,23 @@ MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>");
 MODULE_LICENSE("GPL");
 
+
+/* helpers */
+#define STRINGIFY(s) #s
+#define STRINGIFY2(s) STRINGIFY(s)
+
+#define dprintk(fmt, args...)				\
+  if (debug > 0) {					\
+    printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__) "]: " fmt, ##args); \
+  }
+
+
+#define dprintkrw(fmt, args...)				\
+  if (debug > 2) {					\
+    printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
+  }
+
+
 /* module structures */
 struct v4l2loopback_private {
   int devicenr;
@@ -96,8 +113,171 @@ MODULE_PARM_DESC(devices, "how many devices should be created");
 
 /* module constants */
 #define MAX_MMAP_BUFFERS 100  /* max buffers that can be mapped, actually they
-			       * are all mapped to max_buffers_number buffers*/
+                               * are all mapped to max_buffers_number buffers */
 
+
+/* format specifications */
+#define V4L2LOOPBACK_SIZE_MIN_WIDTH   48
+#define V4L2LOOPBACK_SIZE_MIN_HEIGHT  32
+#define V4L2LOOPBACK_SIZE_MAX_WIDTH   8192
+#define V4L2LOOPBACK_SIZE_MAX_HEIGHT  8192
+
+#define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH   640
+#define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
+
+
+/* this is heavily inspired by the bttv driver found in the linux kernel */
+struct v4l2l_format {
+        char *name;
+        int  fourcc;          /* video4linux 2      */
+        int  depth;           /* bit/pixel          */
+        int  flags;
+};
+/* set the v4l2l_format.flags to PLANAR for non-packed formats */
+#define FORMAT_FLAGS_PLANAR       0x01
+
+static const struct v4l2l_format formats[] = {
+  /* here come the packed formats */
+  {
+    .name     = "8 bpp, gray",
+    .fourcc   = V4L2_PIX_FMT_GREY,
+    .depth    = 8,
+    .flags    = 0,
+  },{
+    .name     = "16 Greyscale",
+    .fourcc   = V4L2_PIX_FMT_Y16,
+    .depth    = 16,
+    .flags    = 0,
+  },{
+    .name     = "24 bpp RGB, be",
+    .fourcc   = V4L2_PIX_FMT_RGB24,
+    .depth    = 24,
+    .flags    = 0,
+  },{
+    .name     = "24 bpp RGB, le",
+    .fourcc   = V4L2_PIX_FMT_BGR24,
+    .depth    = 24,
+    .flags    = 0,
+  },{
+    .name     = "32 bpp RGB, le",
+    .fourcc   = V4L2_PIX_FMT_BGR32,
+    .depth    = 32,
+    .flags    = 0,
+  },{
+    .name     = "32 bpp RGB, be",
+    .fourcc   = V4L2_PIX_FMT_RGB32,
+    .depth    = 32,
+    .flags    = 0,
+  },{
+    .name     = "4:2:2, packed, YUYV",
+    .fourcc   = V4L2_PIX_FMT_YUYV,
+    .depth    = 16,
+    .flags    = 0,
+  },{
+    .name     = "4:2:2, packed, YUYV",
+    .fourcc   = V4L2_PIX_FMT_YUYV,
+    .depth    = 16,
+    .flags    = 0,
+  },{
+    .name     = "4:2:2, packed, UYVY",
+    .fourcc   = V4L2_PIX_FMT_UYVY,
+    .depth    = 16,
+    .flags    = 0,
+  },{
+    .name     = "4:2:2, packed YVYU",
+    .fourcc   = V4L2_PIX_FMT_YVYU,
+    .depth    = 16,
+    .flags=0,
+  },{
+    .name     = "4:2:2, packed VYUY",
+    .fourcc   = V4L2_PIX_FMT_VYUY,
+    .depth    = 16,
+    .flags=0,
+  },{
+    .name     = "4:2:2, packed YYUV",
+    .fourcc   = V4L2_PIX_FMT_YYUV,
+    .depth    = 16,
+    .flags=0,
+  },{
+    .name     = "YUV-8-8-8-8",
+    .fourcc   = V4L2_PIX_FMT_YUV32,
+    .depth    = 32,
+    .flags    = 0,
+  },
+
+  /* here come the planar formats */
+  {
+    .name     = "4:1:0, planar, Y-Cr-Cb",
+    .fourcc   = V4L2_PIX_FMT_YVU410,
+    .depth    = 9,
+    .flags    = FORMAT_FLAGS_PLANAR,
+  },{
+    .name     = "4:2:0, planar, Y-Cr-Cb",
+    .fourcc   = V4L2_PIX_FMT_YVU420,
+    .depth    = 12,
+    .flags    = FORMAT_FLAGS_PLANAR,
+  },{
+    .name     = "4:1:0, planar, Y-Cb-Cr",
+    .fourcc   = V4L2_PIX_FMT_YUV410,
+    .depth    = 9,
+    .flags    = FORMAT_FLAGS_PLANAR,
+  },{
+    .name     = "4:2:0, planar, Y-Cb-Cr",
+    .fourcc   = V4L2_PIX_FMT_YUV420,
+    .depth    = 12,
+    .flags    = FORMAT_FLAGS_PLANAR,
+  }
+};
+static const unsigned int FORMATS = ARRAY_SIZE(formats);
+
+
+char*fourcc2str(unsigned int fourcc, char buf[4]) {
+  snprintf(buf, 4, "%c%c%c%c",
+           (fourcc>> 0) & 0xFF,
+           (fourcc>> 8) & 0xFF,
+           (fourcc>>16) & 0xFF,
+           (fourcc>>24) & 0xFF);
+  return buf;
+}
+
+static const struct v4l2l_format*
+format_by_fourcc(int fourcc)
+{
+  unsigned int i;
+
+  for (i = 0; i < FORMATS; i++) {
+    if (formats[i].fourcc == fourcc)
+      return formats+i;
+  }
+
+  dprintk("unsupported format '%c%c%c%c'",
+	  (fourcc>> 0) & 0xFF,
+	  (fourcc>> 8) & 0xFF,
+	  (fourcc>>16) & 0xFF,
+	  (fourcc>>24) & 0xFF);
+  return NULL;
+}
+
+static void
+pix_format_set_size     (struct v4l2_pix_format *       f,
+                         const struct v4l2l_format *     fmt,
+                         unsigned int                   width,
+                         unsigned int                   height)
+{
+  f->width = width;
+  f->height = height;
+  
+  if (fmt->flags & FORMAT_FLAGS_PLANAR) {
+    f->bytesperline = width; /* Y plane */
+    f->sizeimage = (width * height * fmt->depth) >> 3;
+  } else {
+    f->bytesperline = (width * fmt->depth) >> 3;
+    f->sizeimage = height * f->bytesperline;
+  }
+}
+
+
+#if 1
 static __u32 s_v4l2loopback_validformats[] = {
   V4L2_PIX_FMT_YUYV,
   V4L2_PIX_FMT_YYUV,
@@ -117,45 +297,18 @@ static __u32 s_v4l2loopback_validformats[] = {
   V4L2_PIX_FMT_Y16
 };
 
-#define V4L2LOOPBACK_SIZE_MIN_WIDTH   48
-#define V4L2LOOPBACK_SIZE_MIN_HEIGHT  32
-#define V4L2LOOPBACK_SIZE_MAX_WIDTH   8192
-#define V4L2LOOPBACK_SIZE_MAX_HEIGHT  8192
-
-#define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH   640
-#define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
-
-
-
-/* helpers */
-
-#define STRINGIFY(s) #s
-#define STRINGIFY2(s) STRINGIFY(s)
-
-#define dprintk(fmt, args...)				\
-  if (debug > 0) {					\
-    printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__) "]: " fmt, ##args); \
-  }
-
-
-#define dprintkrw(fmt, args...)				\
-  if (debug > 2) {					\
-    printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
-  }
-
-
-static int v4l2l_checkformat(const __u32 format) {
+static int v4l2l_checkformat(const __u32 fourcc) {
   const __u32 numformats=sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats);
   __u32 i=0;
   for(i=0; i < numformats; i++) {
-    if(format == s_v4l2loopback_validformats[i])
+    if(fourcc == s_v4l2loopback_validformats[i])
       return 1;
   }
   dprintk("unsupported format '%c%c%c%c'",
-	  (format>> 0) & 0xFF,
-	  (format>> 8) & 0xFF,
-	  (format>>16) & 0xFF,
-	  (format>>24) & 0xFF);
+	  (fourcc>> 0) & 0xFF,
+	  (fourcc>> 8) & 0xFF,
+	  (fourcc>>16) & 0xFF,
+	  (fourcc>>24) & 0xFF);
 
   return 0;
 }
@@ -164,6 +317,10 @@ static unsigned int v4l2l_getbytesperline(const __u32 format,
 					  __u32*_width, 
 					  __u32*_height, 
 					  __u32*_bytesperline ) {
+
+  const struct v4l2_format *fmt;
+
+
   __u32 bytesperline=0;
   __u32 width=0;
   __u32 height=0;
@@ -235,6 +392,7 @@ static unsigned int v4l2l_getbytesperline(const __u32 format,
   
   return bytesperline;
 }
+#endif
 
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_DEVICES];
@@ -476,7 +634,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 
 /* returns current video format format fmt */
 /* NOTE: this is called from the producer
- * so if format has not been ngotiated yet, 
+ * so if format has not been negotiated yet, 
  * it should return ALL of available formats, 
  * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
  */
