@@ -22,7 +22,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,3,0)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,3,1)
 
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
@@ -232,7 +232,7 @@ static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
 
 char*fourcc2str(unsigned int fourcc, char buf[4]) {
-  snprintf(buf, 4, "%c%c%c%c",
+  snprintf(buf, 5, "%c%c%c%c",
            (fourcc>> 0) & 0xFF,
            (fourcc>> 8) & 0xFF,
            (fourcc>>16) & 0xFF,
@@ -240,7 +240,8 @@ char*fourcc2str(unsigned int fourcc, char buf[4]) {
   return buf;
 }
 
-static const struct v4l2l_format*
+static 
+const struct v4l2l_format*
 format_by_fourcc(int fourcc)
 {
   unsigned int i;
@@ -277,7 +278,7 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
 }
 
 
-#if 1
+#if 0
 static __u32 s_v4l2loopback_validformats[] = {
   V4L2_PIX_FMT_YUYV,
   V4L2_PIX_FMT_YYUV,
@@ -539,6 +540,7 @@ static int vidioc_g_fmt_cap(struct file *file,
   if (dev->ready_for_capture == 0) {
     return -EINVAL;
   }
+  
   fmt->fmt.pix = dev->pix_format;
   return 0;
 }
@@ -565,6 +567,8 @@ static int vidioc_try_fmt_cap(struct file *file,
     return -EINVAL;
 
   fmt->fmt.pix = dev->pix_format;
+
+  do { char buf[5]; buf[4]=0; printk(KERN_INFO "capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
   return 0;
 }
 
@@ -590,41 +594,40 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  const struct v4l2l_format *     fmt=NULL;
 
   if (dev->ready_for_capture) {
     const __u32 format = dev->pix_format.pixelformat;
 
+    /* format has been fixed by the writer, so only one single format is supported */
     if (f->index)
       return -EINVAL;
+    
+    fmt=format_by_fourcc(format);
+    if(NULL == fmt)
+      return -EINVAL;
 
-    //strlcpy(f->description, "current OUT format", sizeof(f->description));
-
+    f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    //    f->flags = ??;
     snprintf(f->description, sizeof(f->description),
-	     "[%c%c%c%c]",
-	     (format>> 0) & 0xFF,
-	     (format>> 8) & 0xFF,
-	     (format>>16) & 0xFF,
-	     (format>>24) & 0xFF);
+             fmt->name);
 
     f->pixelformat = dev->pix_format.pixelformat;
   } else {
     __u32 format;
     /* fill in a dummy format */
     if(f->index < 0 || 
-       f->index >= (sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats))) 
+       f->index >= FORMATS) 
       return -EINVAL;
 
-    f->pixelformat=s_v4l2loopback_validformats[f->index];
+    fmt=&formats[f->index];
+
+    f->pixelformat=fmt->fourcc;
     format = f->pixelformat;
 
     //    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
-
     snprintf(f->description, sizeof(f->description),
-	     "(%c%c%c%c)",
-	     (format>> 0) & 0xFF,
-	     (format>> 8) & 0xFF,
-	     (format>>16) & 0xFF,
-	     (format>>24) & 0xFF);
+             fmt->name);
 
   }
   f->flags=0;
@@ -656,17 +659,18 @@ static int vidioc_g_fmt_out(struct file *file,
 #else
   if (0 == dev->pix_format.sizeimage) {
 #endif
+    /* we are not fixated yet, so return a default format */
+    const struct v4l2l_format *     defaultfmt=&formats[0];
+
     dev->pix_format.width=0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
     dev->pix_format.height=0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
-    dev->pix_format.pixelformat=s_v4l2loopback_validformats[0];
-    dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB;
+    dev->pix_format.pixelformat=defaultfmt->fourcc;
+    dev->pix_format.colorspace=V4L2_COLORSPACE_SRGB; /* do we need to set this ? */
     dev->pix_format.field=V4L2_FIELD_NONE;
 
-    dev->pix_format.bytesperline=v4l2l_getbytesperline(dev->pix_format.pixelformat,
-						       &dev->pix_format.width,
-						       &dev->pix_format.height,
-						       NULL);
-    dev->pix_format.sizeimage=dev->pix_format.bytesperline*dev->pix_format.height;
+
+    pix_format_set_size(&fmt->fmt.pix, defaultfmt,
+                        dev->pix_format.width, dev->pix_format.height);
 
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
     allocate_buffers(dev);
@@ -693,8 +697,9 @@ static int vidioc_try_fmt_out(struct file *file,
   } else {
     __u32 w=fmt->fmt.pix.width;
     __u32 h=fmt->fmt.pix.height;
-    __u32 bpl=fmt->fmt.pix.bytesperline;
     __u32 pixfmt=fmt->fmt.pix.pixelformat;
+    const struct v4l2l_format*format=format_by_fourcc(pixfmt);
+
     
     if(w<1)
       w=V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
@@ -702,30 +707,13 @@ static int vidioc_try_fmt_out(struct file *file,
     if(h<1)
       h=V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 
-    if(0 == v4l2l_getbytesperline(pixfmt,
-				  &w,
-				  &h,
-				  &bpl)) {
-      /* try again, with safe default */
-      pixfmt=s_v4l2loopback_validformats[0];
-      if(0 == v4l2l_getbytesperline(pixfmt,
-				    &w,
-				    &h,
-				    &bpl)) {
-	return -EINVAL;
-      }
+    if(NULL==format) {
+      format=&formats[0];
     }
-
-    if (bpl * h == 0)
-      return -EINVAL;
-
-    fmt->fmt.pix.pixelformat = pixfmt;
-    fmt->fmt.pix.width =w;
-    fmt->fmt.pix.height=h;
     
-    fmt->fmt.pix.bytesperline=bpl;
+    pix_format_set_size(&fmt->fmt.pix, format, w, h);
 
-    fmt->fmt.pix.sizeimage=bpl*h;
+    fmt->fmt.pix.pixelformat = format->fourcc;
     fmt->fmt.pix.colorspace=V4L2_COLORSPACE_SRGB;
 
     if(V4L2_FIELD_ANY == fmt->fmt.pix.field)
@@ -747,9 +735,9 @@ static int vidioc_s_fmt_out(struct file *file,
   int ret = vidioc_try_fmt_out(file, priv, fmt);
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
   dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
+  do { char buf[5]; buf[4]=0; printk(KERN_INFO "capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
   if (ret < 0)
     return ret;
-
 
   if (dev->ready_for_capture == 0) {
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
