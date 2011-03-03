@@ -247,11 +247,11 @@ static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
 
 char*fourcc2str(unsigned int fourcc, char buf[4]) {
-  snprintf(buf, 5, "%c%c%c%c",
-           (fourcc>> 0) & 0xFF,
-           (fourcc>> 8) & 0xFF,
-           (fourcc>>16) & 0xFF,
-           (fourcc>>24) & 0xFF);
+  buf[0]=(fourcc>> 0) & 0xFF;
+  buf[1]=(fourcc>> 8) & 0xFF;
+  buf[2]=(fourcc>>16) & 0xFF;
+  buf[3]=(fourcc>>24) & 0xFF;
+
   return buf;
 }
 
@@ -291,124 +291,6 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
     f->sizeimage = height * f->bytesperline;
   }
 }
-
-
-#if 0
-static __u32 s_v4l2loopback_validformats[] = {
-  V4L2_PIX_FMT_YUYV,
-  V4L2_PIX_FMT_YYUV,
-  V4L2_PIX_FMT_YVYU,
-  V4L2_PIX_FMT_UYVY,
-  V4L2_PIX_FMT_VYUY,
-  V4L2_PIX_FMT_YVU410,
-  V4L2_PIX_FMT_YVU420,
-  V4L2_PIX_FMT_YUV32,
-  V4L2_PIX_FMT_YUV410,
-  V4L2_PIX_FMT_YUV420,
-  V4L2_PIX_FMT_BGR24,
-  V4L2_PIX_FMT_RGB24,
-  V4L2_PIX_FMT_BGR32,
-  V4L2_PIX_FMT_RGB32,
-  V4L2_PIX_FMT_GREY,
-  V4L2_PIX_FMT_Y16
-};
-
-static int v4l2l_checkformat(const __u32 fourcc) {
-  const __u32 numformats=sizeof(s_v4l2loopback_validformats)/sizeof(*s_v4l2loopback_validformats);
-  __u32 i=0;
-  for(i=0; i < numformats; i++) {
-    if(fourcc == s_v4l2loopback_validformats[i])
-      return 1;
-  }
-  dprintk("unsupported format '%c%c%c%c'",
-	  (fourcc>> 0) & 0xFF,
-	  (fourcc>> 8) & 0xFF,
-	  (fourcc>>16) & 0xFF,
-	  (fourcc>>24) & 0xFF);
-
-  return 0;
-}
-
-static unsigned int v4l2l_getbytesperline(const __u32 format, 
-					  __u32*_width, 
-					  __u32*_height, 
-					  __u32*_bytesperline ) {
-
-  const struct v4l2_format *fmt;
-
-
-  __u32 bytesperline=0;
-  __u32 width=0;
-  __u32 height=0;
-  if(NULL == _width || NULL == _height)
-    return 0;
-
-  width=*_width;
-  height=*_height;
-
-  if(!v4l2l_checkformat(format))
-    return 0;
-
-  switch(format) {
-  case(V4L2_PIX_FMT_YVU410): 
-  case(V4L2_PIX_FMT_YUV410): 
-    /* planar YUV(4:1:0): width/height need to be multiples of 4 */
-    width =((width +3)>>2)<<2;
-    height=((height+3)>>2)<<2;
-    bytesperline=width*1;
-    break;
-  case(V4L2_PIX_FMT_YVU420): 
-  case(V4L2_PIX_FMT_YUV420): 
-    /* planar YUV(4:2:0): width/height need to be multiples of 2 */
-    width =((width +1)>>1)<<1;
-    height=((height+1)>>1)<<1;
-    bytesperline=width*1;
-    break;
-  case(V4L2_PIX_FMT_YUYV): 
-  case(V4L2_PIX_FMT_YYUV): 
-  case(V4L2_PIX_FMT_YVYU): 
-  case(V4L2_PIX_FMT_UYVY): 
-  case(V4L2_PIX_FMT_VYUY): 
-    /* packed YUV(4:2:22): width needs to be multiple of 2 */
-    width =((width +1)>>1)<<1;
-    bytesperline=width*2;
-    break;
-  case(V4L2_PIX_FMT_YUV32): 
-    bytesperline=width*4;
-    break;
-
-  case(V4L2_PIX_FMT_BGR24):
-  case(V4L2_PIX_FMT_RGB24):
-    bytesperline=width*3;
-    break;
-    break;
-  case(V4L2_PIX_FMT_BGR32): 
-  case(V4L2_PIX_FMT_RGB32):
-    bytesperline=width*4;
-    break;
-    break;
-
-  case(V4L2_PIX_FMT_GREY): 
-    bytesperline=width*1;
-    break;
-  case(V4L2_PIX_FMT_Y16):
-    bytesperline=width*2; 
-    break;
-  default:
-    return 0;
-  }
-
-  if(NULL != _bytesperline) {
-    /* TODO: check whether we could actually use the given value */
-    *_bytesperline=bytesperline;
-  }
-
-  *_width =width;
-  *_height=height;
-  
-  return bytesperline;
-}
-#endif
 
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_DEVICES];
@@ -521,8 +403,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
-  MARK();
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  MARK();
+
   if (f->index)
     return -EINVAL;
   if (dev->ready_for_capture) {
@@ -551,8 +434,8 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 static int vidioc_g_fmt_cap(struct file *file,
 			    void *priv, struct v4l2_format *fmt)
 {
-  MARK();
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  MARK();
 
   if (dev->ready_for_capture == 0) {
     return -EINVAL;
@@ -586,7 +469,7 @@ static int vidioc_try_fmt_cap(struct file *file,
 
   fmt->fmt.pix = dev->pix_format;
 
-  do { char buf[5]; buf[4]=0; printk(KERN_INFO "capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
+  do { char buf[5]; buf[4]=0; dprintk("capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
   return 0;
 }
 
@@ -753,7 +636,7 @@ static int vidioc_s_fmt_out(struct file *file,
 
   dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
 
-  do { char buf[5]; buf[4]=0; printk(KERN_INFO "capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
+  do { char buf[5]; buf[4]=0; dprintk("outFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
 
   if (ret < 0)
     return ret;
@@ -987,11 +870,12 @@ static int vidioc_qbuf(struct file *file, void *private_data,
 {
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
   int index = buf->index % dev->buffers_number;
+  struct v4l2l_buffer *b=NULL;
 
   if (buf->index > max_buffers)
     return -EINVAL;
 
-  struct v4l2l_buffer *b=&dev->buffers[index];
+  b=&dev->buffers[index];
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -1054,9 +938,9 @@ static int vidioc_dqbuf(struct file *file, void *private_data,
 static int vidioc_streamon(struct file *file, void *private_data,
 			   enum v4l2_buf_type type)
 {
-  dprintk("%d", type);
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
   int ret;
+  MARK();
   switch (type) {
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     if (dev->ready_for_capture == 0) {
@@ -1101,15 +985,15 @@ int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 /* file operations */
 static void vm_open(struct vm_area_struct *vma)
 {
-  MARK();
   struct v4l2l_buffer *buf=vma->vm_private_data;
+  MARK();
   buf->use_count++;
 }
 
 static void vm_close(struct vm_area_struct *vma)
 {
-  MARK();
   struct v4l2l_buffer *buf=vma->vm_private_data;
+  MARK();
   buf->use_count--;
 }
 
@@ -1181,11 +1065,11 @@ static int v4l2_loopback_mmap(struct file *file,
 static unsigned int v4l2_loopback_poll(struct file *file,
 				       struct poll_table_struct *pts)
 {
-  MARK();
-
   struct v4l2_loopback_opener *opener = file->private_data;
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
   int ret_mask = 0;
+  MARK();
+
   switch (opener->type) {
   case WRITER:
     ret_mask = POLLOUT | POLLWRNORM;
@@ -1207,11 +1091,9 @@ static unsigned int v4l2_loopback_poll(struct file *file,
  * writers are limited by means of setting writer field */
 static int v4l_loopback_open(struct file *file)
 {
-  MARK();
   struct v4l2_loopback_opener *opener;
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-
-  dprintk("entering v4l_open()\n");
+  MARK();
   if (dev->open_count.counter >= max_openers)
     return -EBUSY;
   /* kfree on close */
@@ -1226,9 +1108,9 @@ static int v4l_loopback_open(struct file *file)
 
 static int v4l_loopback_close(struct file *file)
 {
-  MARK();
   struct v4l2_loopback_opener *opener = file->private_data;
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+  MARK();
   atomic_dec(&dev->open_count);
   /* TODO(vasaka) does the closed file means that mapped buffers are
    * no more valid and one can free data? */
@@ -1355,10 +1237,11 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
  * for capture mod buffers */
 static void init_buffers(struct v4l2_loopback_device *dev)
 {
-  MARK();
   int i;
   int buffer_size=dev->buffer_size;
   int bytesused = dev->pix_format.sizeimage;
+  MARK();
+
   for (i = 0; i < dev->buffers_number; ++i) {
     struct v4l2_buffer*b=&dev->buffers[i].buffer;
     b->index             = i;
