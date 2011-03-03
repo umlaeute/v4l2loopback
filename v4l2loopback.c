@@ -39,7 +39,6 @@ MODULE_LICENSE("GPL");
     printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__) "]: " fmt, ##args); \
   }
 
-
 #define dprintkrw(fmt, args...)				\
   if (debug > 2) {					\
     printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
@@ -1094,7 +1093,6 @@ static struct vm_operations_struct vm_ops = {
 static int v4l2_loopback_mmap(struct file *file,
 			      struct vm_area_struct *vma)
 {
-
   struct page *page = NULL;
   unsigned long addr;
   unsigned long start = (unsigned long) vma->vm_start;
@@ -1102,6 +1100,8 @@ static int v4l2_loopback_mmap(struct file *file,
   struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
 
   dprintk("entering v4l_mmap(), page: %p, offset: %lu\n", dev->image, vma->vm_pgoff);
+  dprintk("trying to alloc %ld o %ld\n", dev->buffer_size, size);
+
   if (size > dev->buffer_size) {
     dprintk("userspace tries to mmap to much, fail\n");
     return -EINVAL;
