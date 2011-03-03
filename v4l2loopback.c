@@ -154,26 +154,6 @@ struct v4l2l_format {
 static const struct v4l2l_format formats[] = {
   /* here come the packed formats */
   {
-    .name     = "8 bpp, gray",
-    .fourcc   = V4L2_PIX_FMT_GREY,
-    .depth    = 8,
-    .flags    = 0,
-  },{
-    .name     = "16 Greyscale",
-    .fourcc   = V4L2_PIX_FMT_Y16,
-    .depth    = 16,
-    .flags    = 0,
-  },{
-    .name     = "24 bpp RGB, be",
-    .fourcc   = V4L2_PIX_FMT_RGB24,
-    .depth    = 24,
-    .flags    = 0,
-  },{
-    .name     = "24 bpp RGB, le",
-    .fourcc   = V4L2_PIX_FMT_BGR24,
-    .depth    = 24,
-    .flags    = 0,
-  },{
     .name     = "32 bpp RGB, le",
     .fourcc   = V4L2_PIX_FMT_BGR32,
     .depth    = 32,
@@ -182,6 +162,16 @@ static const struct v4l2l_format formats[] = {
     .name     = "32 bpp RGB, be",
     .fourcc   = V4L2_PIX_FMT_RGB32,
     .depth    = 32,
+    .flags    = 0,
+  },{
+    .name     = "24 bpp RGB, le",
+    .fourcc   = V4L2_PIX_FMT_BGR24,
+    .depth    = 24,
+    .flags    = 0,
+  },{
+    .name     = "24 bpp RGB, be",
+    .fourcc   = V4L2_PIX_FMT_RGB24,
+    .depth    = 24,
     .flags    = 0,
   },{
     .name     = "4:2:2, packed, YUYV",
@@ -217,6 +207,16 @@ static const struct v4l2l_format formats[] = {
     .name     = "YUV-8-8-8-8",
     .fourcc   = V4L2_PIX_FMT_YUV32,
     .depth    = 32,
+    .flags    = 0,
+  },{
+    .name     = "8 bpp, gray",
+    .fourcc   = V4L2_PIX_FMT_GREY,
+    .depth    = 8,
+    .flags    = 0,
+  },{
+    .name     = "16 Greyscale",
+    .fourcc   = V4L2_PIX_FMT_Y16,
+    .depth    = 16,
     .flags    = 0,
   },
 
