@@ -10,7 +10,7 @@ MODULE_OPTIONS = devices=2
 
 all: v4l2loopback
 v4l2loopback:
-	@echo "Building vloopback driver..."
+	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
