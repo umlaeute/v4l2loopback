@@ -985,7 +985,6 @@ vidioc_qbuf         (struct file *file,
   struct v4l2_loopback_device *dev;
   struct v4l2l_buffer *b;
   int index;
-  MARK();
 
   dev=v4l2loopback_getdevice(file);
 
@@ -1020,7 +1019,6 @@ vidioc_dqbuf        (struct file *file,
   struct v4l2_loopback_device *dev;
   struct v4l2_loopback_opener *opener;
   int index;
-  MARK();
 
   dev=v4l2loopback_getdevice(file);
   opener = file->private_data;
@@ -1442,6 +1440,8 @@ init_buffers        (struct v4l2_loopback_device *dev)
     b->timestamp.tv_sec  = 0;
     b->timestamp.tv_usec = 0;
     b->type              = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    do_gettimeofday(&b->timestamp);
   }
   dev->write_position = 0;
   MARK();
