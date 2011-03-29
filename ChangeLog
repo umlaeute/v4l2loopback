@@ -1,3 +1,30 @@
+v4l2loopback (0.4.0) UNRELEASED; urgency=low
+
+  [ IOhannes m zmölnig ]
+  * default debug-level should be 0
+  * cleanup version confusion
+  * changed version to 0.3.0
+  * updated README to mention Debian packages
+  * better internal format representation (as found in bttv-drivers) - still unused
+  * trying to support I420 --- might be very unstable right now
+  * dummy Makefile to allow "make"
+  * allow to set device from cmdline
+  * en/disable the readback test using defines
+  * use FRAME_SIZE throughout
+  * more experiments
+  * more debugging messages
+  * added rule to autoload the new v4l2loopback device
+  * rewrote most of the mmap part in order to support I420
+  * cleanup to make it C90 compliant again
+  * reordered formats a bit to make better default choices...
+  * replace vloopback by v4l2loopback to avoid confusion
+  * cleaned up code
+  * properly initialize the timestampe in order to guarantee a monotic series
+  * updated copyright
+  * bumped to version 0.4.0
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Tue, 29 Mar 2011 12:54:23 +0200
+
 v4l2loopback (0.3) UNRELEASED; urgency=low
 
   [ IOhannes m zmölnig ]
