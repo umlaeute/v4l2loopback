@@ -1,3 +1,15 @@
+v4l2loopback-0.4
+
+ - fixed issues with non-trivial colorspaces (e.g. I420)
+		this should allow for more clients to work out-of-the-box
+		(e.g. no more caps-tweak with gstreamer)
+ - fixed timestamps 
+		this allows playback with players that need monotonous
+		timestamps (e.g. ffmpeg)
+ - cleaned up code
+
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Tue, 29 Mar 2011 14:26:10 +0200
+
 v4l2loopback-0.3
 
   - tested writers:
