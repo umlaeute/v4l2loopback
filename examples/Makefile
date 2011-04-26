@@ -1,7 +1,8 @@
-all: test yuv4mpeg_to_v4l2
+TARGETS=test yuv4mpeg_to_v4l2
 
-.PHONY: all
+.PHONY: all clean
 
-test: test.c
+all: $(TARGETS)
 
-yuv4mpeg_to_v4l2: yuv4mpeg_to_v4l2.c
+clean:
+	-rm $(TARGETS)
