@@ -1,5 +1,8 @@
-v4l2loopback test
-=================
+v4l2loopback tests
+==================
+
+test
+----
 
 this small sample application will write an image into a v4l2loopback device.
 the image will be 640x480 pixels in UYVY colorspace (and since all pixels are
@@ -13,3 +16,16 @@ $ xawtv -c /dev/video1
 
 if you want to use another device you need to modify the VIDEO_DEVICE define at
 the beginning of the code and recompile.
+
+
+yuv4mpeg_to_v4l2
+----------------
+Copyright (C) 2011  Eric C. Cooper <ecc@cmu.edu>
+
+Example using mplayer as a producer for the v4l2loopback driver:
+
+$ mkfifo /tmp/pipe
+$ ./yuv4mpeg_to_v4l2 < /tmp/pipe &
+$ mplayer movie.mp4 -vo yuv4mpeg:file=/tmp/pipe
+
+
