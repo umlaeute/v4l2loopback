@@ -53,8 +53,8 @@ MODULE_LICENSE("GPL");
 /* kernel compat layer */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
 #else
-# define video_set_drvdata ( drv, data) (drv)->vd_private_data = (data);
-# define video_get_drvdata ( drv )      ((drv)->vd_private_data)
+# define video_set_drvdata( drv, data) (drv)->vd_private_data = (data)
+# define video_get_drvdata( drv )      ((drv)->vd_private_data)
 #endif
 
 /* module constants */
