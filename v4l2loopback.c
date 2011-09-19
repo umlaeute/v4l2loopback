@@ -192,16 +192,20 @@ static const struct v4l2l_format formats[] = {
     .depth    = 16,
     .flags    = 0,
   },{
+#ifdef V4L2_PIX_FMT_YVYU
     .name     = "4:2:2, packed YVYU",
     .fourcc   = V4L2_PIX_FMT_YVYU,
     .depth    = 16,
     .flags=0,
   },{
+#endif
+#ifdef V4L2_PIX_FMT_VYUY
     .name     = "4:2:2, packed VYUY",
     .fourcc   = V4L2_PIX_FMT_VYUY,
     .depth    = 16,
     .flags=0,
   },{
+#endif
     .name     = "4:2:2, packed YYUV",
     .fourcc   = V4L2_PIX_FMT_YYUV,
     .depth    = 16,
