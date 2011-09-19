@@ -16,9 +16,7 @@
 #include <linux/time.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
-# include <media/v4l2-ioctl.h>
-#endif
+#include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
