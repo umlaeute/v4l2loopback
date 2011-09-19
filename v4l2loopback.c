@@ -21,6 +21,10 @@
 #endif
 #include <media/v4l2-common.h>
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
+# define v4l2_file_operations file_operations
+#endif
+
 #include <linux/sched.h>
 #include <linux/slab.h>
 
@@ -1522,7 +1526,9 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
   .vidioc_querycap         = &vidioc_querycap,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
   .vidioc_enum_framesizes  = &vidioc_enum_framesizes,
+#endif
   
   .vidioc_enum_output       = &vidioc_enum_output,
   
