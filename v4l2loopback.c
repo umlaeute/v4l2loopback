@@ -16,7 +16,9 @@
 #include <linux/time.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
-#include <media/v4l2-ioctl.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+# include <media/v4l2-ioctl.h>
+#endif
 #include <media/v4l2-common.h>
 
 #include <linux/sched.h>
@@ -49,13 +51,6 @@ MODULE_LICENSE("GPL");
       printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
     } } while (0)
 
-
-/* kernel compat layer */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
-#else
-# define video_set_drvdata( drv, data) (drv)->vd_private_data = (data)
-# define video_get_drvdata( drv )      ((drv)->vd_private_data)
-#endif
 
 /* module constants */
 
