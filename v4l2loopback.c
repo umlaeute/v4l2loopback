@@ -90,8 +90,6 @@ MODULE_PARM_DESC(devices, "how many devices should be created");
 #define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH   640
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
 
-
-
 /* module structures */
 struct v4l2loopback_private {
   int devicenr;
@@ -140,9 +138,8 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
   enum opener_type type;
-  int buffers_number;
-  int position; /* number of last processed frame + 1 or
-                 * write_position - 1 if reader went out of sync */
+  int read_position; /* number of last processed frame + 1 or
+                      * write_position - 1 if reader went out of sync */
   struct v4l2_buffer *buffers;
 };
 
@@ -1027,19 +1024,19 @@ vidioc_dqbuf        (struct file *file,
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    if ((dev->write_position <= opener->position) &&
+    if ((dev->write_position <= opener->read_position) &&
         (file->f_flags&O_NONBLOCK))
       return -EAGAIN;
     wait_event_interruptible(dev->read_event, (dev->write_position >
-                                               opener->position));
-    if (dev->write_position > opener->position+2)
-      opener->position = dev->write_position - 1;
-    index = opener->position % dev->buffers_number;
+                                               opener->read_position));
+    if (dev->write_position > opener->read_position+2)
+      opener->read_position = dev->write_position - 1;
+    index = opener->read_position % dev->buffers_number;
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
       dprintk("trying to return not mapped buf\n");
       return -EINVAL;
     }
-    ++opener->position;
+    ++opener->read_position;
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
     return 0;
@@ -1234,7 +1231,7 @@ v4l2_loopback_poll  (struct file *file,
     break;
   case READER:
     poll_wait(file, &dev->read_event, pts);
-    if (dev->write_position > opener->position)
+    if (dev->write_position > opener->read_position)
       ret_mask =  POLLIN | POLLRDNORM;
     break;
   default:
@@ -1305,24 +1302,24 @@ v4l2_loopback_read   (struct file *file,
   opener = file->private_data;
   dev    = v4l2loopback_getdevice(file);
 
-  if ((dev->write_position <= opener->position) &&
+  if ((dev->write_position <= opener->read_position) &&
       (file->f_flags&O_NONBLOCK)) {
     return -EAGAIN;
   }
   wait_event_interruptible(dev->read_event,
-                           (dev->write_position > opener->position));
+                           (dev->write_position > opener->read_position));
   if (count > dev->buffer_size)
     count = dev->buffer_size;
-  if (dev->write_position > opener->position+2)
-    opener->position = dev->write_position - 1;
-  read_index = opener->position % dev->buffers_number;
+  if (dev->write_position > opener->read_position+2)
+    opener->read_position = dev->write_position - 1;
+  read_index = opener->read_position % dev->buffers_number;
   if (copy_to_user((void *) buf, (void *) (dev->image +
                                            dev->buffers[read_index].buffer.m.offset), count)) {
     printk(KERN_ERR "v4l2-loopback: "
            "failed copy_from_user() in write buf\n");
     return -EFAULT;
   }
-  ++opener->position;
+  ++opener->read_position;
   dprintkrw("leave v4l2_loopback_read()\n");
   return count;
 }
