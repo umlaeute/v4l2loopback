@@ -774,16 +774,17 @@ vidioc_s_parm       (struct file *file,
 
   switch (parm->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    parm->parm.capture = dev->capture_param;
-    return 0;
+    dev->capture_param.timeperframe=parm->parm.capture.timeperframe;
+    break;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-    /* TODO(vasaka) do nothing now, but should set fps if
-     * needed */
-    parm->parm.capture = dev->capture_param;
-    return 0;
+    dev->capture_param.timeperframe=parm->parm.capture.timeperframe;
+    break;
   default:
     return -1;
   }
+
+  parm->parm.capture = dev->capture_param;
+  return 0;
 }
 
 /* sets a tv standard, actually we do not need to handle this any special way
