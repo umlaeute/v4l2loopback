@@ -1,3 +1,12 @@
+v4l2loopback-0.4.1
+
+ - yuv4mpeg producer example
+ - kernel compatibility
+		fixed issues with kernels<2.6.32
+		fixed issues with kernel-3.1
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Thu, 24 Nov 2011 18:11:01 +0100
+
 v4l2loopback-0.4
 
  - fixed issues with non-trivial colorspaces (e.g. I420)

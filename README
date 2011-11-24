@@ -16,6 +16,11 @@ to get the main features of each new release, see the NEWS file.
 you could also have a look at the ChangeLog (which gets automatically generated and might 
 only be of limited use...
 
+
+--- ISSUES ---
+for current issues, checkout https://github.com/umlaeute/v4l2loopback/issues
+please use the issue-tracker for reporting any problems
+
 --- BUILD ---
 to build the kernel module run "make".
 this should give you a file named "v4l2loopback.ko", which is the kernel module

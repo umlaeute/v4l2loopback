@@ -1,3 +1,19 @@
+v4l2loopback (0.4.1) UNRELEASED; urgency=low
+
+  [ IOhannes m zmölnig ]
+  * yuv4mpeg producer to be used in conjunction with mplayer
+  * added yuv4mpeg_to_v4l2 to the build targets
+  * simplified Makefile; added clean target
+  * protect newer pixel formats
+  * fixed preprocessor expansion on linux<2.6.32
+  * made it compile on 2.6.28 and 2.6.27
+  * <=2.6.27 definitely won't work
+  * allow S_PARM for fps
+  * renamed opener->position to opener->read_position
+  * added dummy VIDIOC_QUERYCTRL implementation (fix for linux-3.1)
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Thu, 24 Nov 2011 18:11:01 +0100
+
 v4l2loopback (0.4.0) UNRELEASED; urgency=low
 
   [ IOhannes m zmölnig ]

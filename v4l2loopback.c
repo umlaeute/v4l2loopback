@@ -26,7 +26,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,4,0)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,4,1)
 
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
