@@ -823,6 +823,16 @@ vidioc_querystd     (struct file *file,
 }
 
 
+/* dummy queyr control
+ * called on VIDIOC_QUERYCTRL
+ */
+static int
+vidioc_queryctrl(struct file *file, void *fh,
+                 struct v4l2_queryctrl *a)
+{
+  return -EINVAL;
+}
+
 
 
 /* returns set of device outputs, in our case there is only one
@@ -1525,6 +1535,8 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
   .vidioc_enum_framesizes  = &vidioc_enum_framesizes,
 #endif
+
+  .vidioc_queryctrl         = &vidioc_queryctrl,
 
   .vidioc_enum_output       = &vidioc_enum_output,
 
