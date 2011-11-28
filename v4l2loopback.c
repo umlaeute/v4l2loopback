@@ -373,6 +373,16 @@ vidioc_enum_framesizes        (struct file *file, void *fh,
 {
   struct v4l2_loopback_device *dev;
 
+  /* LATER: what does the index really  mean?
+   * if it's about enumerating formats, we can safely ignore it
+   * (CHECK)
+   */
+
+  /* there can be only one... */
+  if (argp->index)
+    return -EINVAL;
+
+
   dev=v4l2loopback_getdevice(file);
   if (dev->ready_for_capture) {
     /* format has already been negotiated
@@ -380,22 +390,13 @@ vidioc_enum_framesizes        (struct file *file, void *fh,
      */
     struct  v4l2_frmsize_discrete discr=argp->discrete;
 
-    if (argp->index)
-      return -EINVAL;
-
     argp->type=V4L2_FRMSIZE_TYPE_DISCRETE;
 
     discr.width=dev->pix_format.width;
     discr.height=dev->pix_format.height;
   } else {
-#if 1
-    /* LATER: what does the index mean?
-     * if it's about enumerating formats, we can safely ignore it
-     * (CHECK)
+    /* if the format has not been negotiated yet, we accept anything
      */
-    if (argp->index)
-      return -EINVAL;
-#endif
     argp->type=V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
     argp->stepwise.min_width=V4L2LOOPBACK_SIZE_MIN_WIDTH;
