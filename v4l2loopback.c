@@ -117,6 +117,7 @@ struct v4l2_loopback_device {
   unsigned long int imagesize;  /* size of buffers data */
   int buffers_number;  /* should not be big, 4 is a good choice */
   struct v4l2l_buffer buffers[MAX_BUFFERS];	/* inner driver buffers */
+  int used_buffers; /* number of the actually used buffers */
 
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
@@ -142,6 +143,7 @@ struct v4l2_loopback_opener {
   int read_position; /* number of last processed frame + 1 or
                       * write_position - 1 if reader went out of sync */
   struct v4l2_buffer *buffers;
+  int buffers_number;  /* should not be big, 4 is a good choice */
 };
 
 /* this is heavily inspired by the bttv driver found in the linux kernel */
@@ -960,9 +962,11 @@ vidioc_reqbufs      (struct file *file,
                      struct v4l2_requestbuffers *b)
 {
   struct v4l2_loopback_device *dev;
+  struct v4l2_loopback_opener *opener;
   MARK();
 
   dev=v4l2loopback_getdevice(file);
+  opener = file->private_data;
 
   dprintk("reqbufs: %d\t%d=%d", b->memory, b->count, dev->buffers_number);
   init_buffers(dev);
@@ -971,7 +975,11 @@ vidioc_reqbufs      (struct file *file,
     /* do nothing here, buffers are always allocated*/
     if (b->count == 0)
       return 0;
-    b->count = dev->buffers_number;
+    if (b->count > dev->buffers_number)
+      b->count = dev->buffers_number;
+    opener->buffers_number = b->count;
+    if (opener->buffers_number < dev->used_buffers)
+      dev->used_buffers = opener->buffers_number;
     return 0;
   default:
     return -EINVAL;
@@ -1004,7 +1012,7 @@ vidioc_querybuf     (struct file *file,
   if (b->index > max_buffers)
     return -EINVAL;
 
-  *b = dev->buffers[b->index % dev->buffers_number].buffer;
+  *b = dev->buffers[b->index % dev->used_buffers].buffer;
 
   b->type = type;
   b->index = index;
@@ -1029,7 +1037,7 @@ vidioc_qbuf         (struct file *file,
   if (buf->index > max_buffers)
     return -EINVAL;
 
-  index = buf->index % dev->buffers_number;
+  index = buf->index % dev->used_buffers;
   b=&dev->buffers[index];
 
   switch (buf->type) {
@@ -1069,10 +1077,10 @@ vidioc_dqbuf        (struct file *file,
         (file->f_flags&O_NONBLOCK))
       return -EAGAIN;
     wait_event_interruptible(dev->read_event, (dev->write_position >
-                                               opener->read_position));
+					       opener->read_position));
     if (dev->write_position > opener->read_position+2)
       opener->read_position = dev->write_position - 1;
-    index = opener->read_position % dev->buffers_number;
+    index = opener->read_position % dev->used_buffers;
     dprintkrw("capture DQBUF index: %d\n", index);
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
       dprintk("trying to return not mapped buf\n");
@@ -1083,7 +1091,7 @@ vidioc_dqbuf        (struct file *file,
     *buf = dev->buffers[index].buffer;
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-    index = dev->write_position % dev->buffers_number;
+    index = dev->write_position % dev->used_buffers;
     dprintkrw("output DQBUF index: %d\n", index);
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
@@ -1355,7 +1363,7 @@ v4l2_loopback_read   (struct file *file,
     count = dev->buffer_size;
   if (dev->write_position > opener->read_position+2)
     opener->read_position = dev->write_position - 1;
-  read_index = opener->read_position % dev->buffers_number;
+  read_index = opener->read_position % dev->used_buffers;
   if (copy_to_user((void *) buf, (void *) (dev->image +
                                            dev->buffers[read_index].buffer.m.offset), count)) {
     printk(KERN_ERR "v4l2-loopback: "
@@ -1391,7 +1399,7 @@ v4l2_loopback_write  (struct file *file,
   if (count > dev->buffer_size)
     count = dev->buffer_size;
 
-  write_index = dev->write_position % dev->buffers_number;
+  write_index = dev->write_position % dev->used_buffers;
   b=&dev->buffers[write_index].buffer;
 
   if (copy_from_user(
@@ -1539,6 +1547,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   init_vdev(dev->vdev);
   init_capture_param(&dev->capture_param);
   dev->buffers_number = max_buffers;
+  dev->used_buffers = max_buffers;
   atomic_set(&dev->open_count, 0);
   dev->ready_for_capture = 0;
   dev->buffer_size = 0;
