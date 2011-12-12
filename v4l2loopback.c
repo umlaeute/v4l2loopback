@@ -138,6 +138,7 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
   enum opener_type type;
+  int vidioc_enum_frameintervals_calls;
   int read_position; /* number of last processed frame + 1 or
                       * write_position - 1 if reader went out of sync */
   struct v4l2_buffer *buffers;
@@ -407,6 +408,33 @@ vidioc_enum_framesizes        (struct file *file, void *fh,
 
     argp->stepwise.step_width=1;
     argp->stepwise.step_height=1;
+  }
+  return 0;
+}
+
+/* returns frameinterval (fps) for the set resolution
+ * called on VIDIOC_ENUM_FRAMEINTERVALS
+ */
+static int
+vidioc_enum_frameintervals(struct file *file,
+			   void *fh,
+			   struct v4l2_frmivalenum *argp)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+  struct v4l2_loopback_opener *opener = file->private_data;
+
+  if (dev->ready_for_capture) {
+    if (opener->vidioc_enum_frameintervals_calls > 0)
+      return -EINVAL;
+    if (argp->width == dev->pix_format.width && argp->height
+	== dev->pix_format.height) {
+      argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+      argp->discrete = dev->capture_param.timeperframe;
+      opener->vidioc_enum_frameintervals_calls++;
+      return 0;
+    } else {
+      return -EINVAL;
+    }
   }
   return 0;
 }
@@ -1539,6 +1567,7 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
   .vidioc_querycap         = &vidioc_querycap,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,29)
   .vidioc_enum_framesizes  = &vidioc_enum_framesizes,
+  .vidioc_enum_frameintervals = &vidioc_enum_frameintervals,
 #endif
 
   .vidioc_queryctrl         = &vidioc_queryctrl,
