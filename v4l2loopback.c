@@ -3,6 +3,7 @@
  *
  * Copyright (C) 2005-2009 Vasily Levin (vasaka@gmail.com)
  * Copyright (C) 2010-2011 IOhannes m zmoelnig (zmoelnig@iem.at)
+ * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +31,7 @@
 
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
-MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>");
+MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>, Stefan Diewald <stefan.diewald@mytum.de>");
 MODULE_LICENSE("GPL");
 
 
