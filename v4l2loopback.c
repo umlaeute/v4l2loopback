@@ -1006,9 +1006,11 @@ vidioc_qbuf         (struct file *file,
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+    dprintkrw("capture QBUF index: %d\n", index);
     set_queued(b);
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+    dprintkrw("output QBUF index: %d\n", index);
     do_gettimeofday(&b->buffer.timestamp);
     set_done(b);
     wake_up_all(&dev->read_event);
@@ -1043,6 +1045,7 @@ vidioc_dqbuf        (struct file *file,
     if (dev->write_position > opener->read_position+2)
       opener->read_position = dev->write_position - 1;
     index = opener->read_position % dev->buffers_number;
+    dprintkrw("capture DQBUF index: %d\n", index);
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
       dprintk("trying to return not mapped buf\n");
       return -EINVAL;
@@ -1053,6 +1056,7 @@ vidioc_dqbuf        (struct file *file,
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     index = dev->write_position % dev->buffers_number;
+    dprintkrw("output DQBUF index: %d\n", index);
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
     ++dev->write_position;
@@ -1355,7 +1359,7 @@ v4l2_loopback_write  (struct file *file,
       return ret;
     dev->ready_for_capture = 1;
   }
-  dprintkrw("v4l2_loopback_write() trying to write %d bytes\n", count);
+  dprintkrw("v4l2_loopback_write() trying to write %zu bytes\n", count);
   if (count > dev->buffer_size)
     count = dev->buffer_size;
 
@@ -1366,7 +1370,7 @@ v4l2_loopback_write  (struct file *file,
                      (void *) (dev->image + b->m.offset),
                      (void *) buf, count)) {
     printk(KERN_ERR "v4l2-loopback: "
-           "failed copy_from_user() in write buf, could not write %d\n",
+           "failed copy_from_user() in write buf, could not write %zu\n",
            count);
     return -EFAULT;
   }
