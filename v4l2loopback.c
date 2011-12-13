@@ -324,6 +324,8 @@ static DEVICE_ATTR(format, S_IRUGO, attr_show_format, NULL);
 
 static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 {
+#define V4L2_SYSFS_DESTROY(x) device_remove_file(&vdev->dev, &dev_attr_##x)
+
   if (vdev) {
     device_remove_file(&vdev->dev, &dev_attr_format);
     /* ... */
@@ -332,7 +334,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 static void v4l2loopback_create_sysfs(struct video_device *vdev)
 {
   int res=0;
-
+#define V4L2_SYSFS_CREATE(x)     res = device_create_file(&vdev->dev, &dev_attr_##x); if (res < 0) break
   if (!vdev) return;
   do {
     res = device_create_file(&vdev->dev, &dev_attr_format); if (res < 0) break;
