@@ -304,8 +304,62 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
   }
 }
 
+static struct v4l2_loopback_device*v4l2loopback_cd2dev  (struct device*cd);
+
+/* device attributes */
+static ssize_t attr_show_format(struct device *cd,
+                         struct device_attribute *attr, 
+                         char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+
+  char buf4cc[5];
+  if(!dev)return 0;
+
+  fourcc2str(dev->pix_format.pixelformat, buf4cc);
+
+  return sprintf(buf, "%.*s\n", 4, buf4cc);
+}
+static DEVICE_ATTR(format, S_IRUGO, attr_show_format, NULL);
+
+static void v4l2loopback_remove_sysfs(struct video_device *vdev)
+{
+  if (vdev) {
+    device_remove_file(&vdev->dev, &dev_attr_format);
+    /* ... */
+  }
+}
+static void v4l2loopback_create_sysfs(struct video_device *vdev)
+{
+  int res=0;
+
+  if (!vdev) return;
+  do {
+    res = device_create_file(&vdev->dev, &dev_attr_format); if (res < 0) break;
+    /* ... */
+  } while(0);
+
+  if (res >= 0)return;
+  dev_err(&vdev->dev, "%s error: %d\n", __func__, res);
+}
+
+
+
+
+
+
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_DEVICES];
+
+static struct v4l2_loopback_device*
+v4l2loopback_cd2dev  (struct device*cd)
+{
+  struct video_device *loopdev = to_video_device(cd);
+  priv_ptr ptr = (priv_ptr)video_get_drvdata(loopdev);
+  int nr = ptr->devicenr;
+  if(nr<0 || nr>=devices){printk(KERN_ERR "v4l2-loopback: illegal device %d\n",nr);return NULL;}
+  return devs[nr];
+}
 
 static struct v4l2_loopback_device*
 v4l2loopback_getdevice        (struct file*f)
@@ -1643,6 +1697,7 @@ free_devices        (void)
   int i;
   for(i=0; i<devices; i++) {
     if(NULL!=devs[i]) {
+      v4l2loopback_remove_sysfs(devs[i]->vdev);
       kfree(video_get_drvdata(devs[i]->vdev));
       video_unregister_device(devs[i]->vdev);
       kfree(devs[i]);
@@ -1692,7 +1747,10 @@ init_module         (void)
       free_devices();
       return -EFAULT;
     }
+    v4l2loopback_create_sysfs(devs[i]->vdev);
   }
+
+
   dprintk("module installed\n");
 
   printk(KERN_INFO "v4l2loopack driver version %d.%d.%d loaded\n",
