@@ -256,9 +256,9 @@ static const struct v4l2l_format formats[] = {
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
 
-static
-char*
-fourcc2str          (unsigned int fourcc, char buf[4])
+static char*
+fourcc2str          (unsigned int fourcc,
+                     char buf[4])
 {
   buf[0]=(fourcc>> 0) & 0xFF;
   buf[1]=(fourcc>> 8) & 0xFF;
@@ -268,8 +268,7 @@ fourcc2str          (unsigned int fourcc, char buf[4])
   return buf;
 }
 
-static
-const struct v4l2l_format*
+static const struct v4l2l_format*
 format_by_fourcc    (int fourcc)
 {
   unsigned int i;
@@ -308,9 +307,9 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
 /* global module data */
 struct v4l2_loopback_device *devs[MAX_DEVICES];
 
-static
-struct v4l2_loopback_device*
-v4l2loopback_getdevice        (struct file*f) {
+static struct v4l2_loopback_device*
+v4l2loopback_getdevice        (struct file*f)
+{
   struct video_device *loopdev = video_devdata(f);
   priv_ptr ptr = (priv_ptr)video_get_drvdata(loopdev);
   int nr = ptr->devicenr;
@@ -324,6 +323,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev);
 static int free_buffers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
+
 /* Queue helpers */
 /* next functions sets buffer flags and adjusts counters accordingly */
 static inline void
@@ -429,13 +429,14 @@ vidioc_enum_frameintervals(struct file *file,
   if (dev->ready_for_capture) {
     if (opener->vidioc_enum_frameintervals_calls > 0)
       return -EINVAL;
-    if (argp->width == dev->pix_format.width && argp->height
-	== dev->pix_format.height) {
-      argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-      argp->discrete = dev->capture_param.timeperframe;
-      opener->vidioc_enum_frameintervals_calls++;
-      return 0;
-    } else {
+    if (argp->width == dev->pix_format.width &&
+        argp->height== dev->pix_format.height)
+      {
+        argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+        argp->discrete = dev->capture_param.timeperframe;
+        opener->vidioc_enum_frameintervals_calls++;
+        return 0;
+      } else {
       return -EINVAL;
     }
   }
@@ -724,7 +725,11 @@ vidioc_s_fmt_out    (struct file *file,
 
   dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
 
-  do { char buf[5]; buf[4]=0; dprintk("outFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf)); } while(0);
+  do {
+    char buf[5];
+    buf[4]=0;
+    dprintk("outFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf));
+  } while(0);
 
   if (ret < 0)
     return ret;
@@ -1624,7 +1629,8 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 };
 
 static void
-zero_devices        (void) {
+zero_devices        (void)
+{
   int i;
   for(i=0; i<MAX_DEVICES; i++) {
     devs[i]=NULL;
@@ -1632,7 +1638,8 @@ zero_devices        (void) {
 }
 
 static void
-free_devices        (void) {
+free_devices        (void)
+{
   int i;
   for(i=0; i<devices; i++) {
     if(NULL!=devs[i]) {
