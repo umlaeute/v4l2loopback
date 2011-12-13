@@ -1570,7 +1570,7 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
   .write   = v4l2_loopback_write,
   .poll    = v4l2_loopback_poll,
   .mmap    = v4l2_loopback_mmap,
-  .ioctl   = video_ioctl2,
+  .unlocked_ioctl   = video_ioctl2,
 };
 
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
