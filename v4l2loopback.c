@@ -461,12 +461,10 @@ vidioc_enum_framesizes        (struct file *file, void *fh,
     /* format has already been negotiated
      * cannot change during runtime
      */
-    struct  v4l2_frmsize_discrete discr=argp->discrete;
-
     argp->type=V4L2_FRMSIZE_TYPE_DISCRETE;
 
-    discr.width=dev->pix_format.width;
-    discr.height=dev->pix_format.height;
+    argp->discrete.width=dev->pix_format.width;
+    argp->discrete.height=dev->pix_format.height;
   } else {
     /* if the format has not been negotiated yet, we accept anything
      */
