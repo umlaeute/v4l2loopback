@@ -40,3 +40,5 @@ TODO for v4l2loopback in no specific order
 
 - it would be nice to have a way to communicate format requests from the
   consumer to the producer (though i see no way how to do that)
+
+- provide more producers for more colorspaces in the examples
