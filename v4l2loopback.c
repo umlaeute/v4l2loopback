@@ -79,9 +79,9 @@ module_param(devices, int, 0);
 MODULE_PARM_DESC(devices, "how many devices should be created");
 
 
-static int device_nr[MAX_DEVICES] = { [0 ... (MAX_DEVICES-1)] = -1 };
-module_param_array(device_nr, int, NULL, 0444);
-MODULE_PARM_DESC(device_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)");
+static int video_nr[MAX_DEVICES] = { [0 ... (MAX_DEVICES-1)] = -1 };
+module_param_array(video_nr, int, NULL, 0444);
+MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)");
 
 
 
@@ -562,7 +562,7 @@ vidioc_g_fmt_cap    (struct file *file,
 
   dev=v4l2loopback_getdevice(file);
 
-  if (dev->ready_for_capture == 0) {
+  if (!dev->ready_for_capture) {
     return -EINVAL;
   }
 
@@ -803,7 +803,7 @@ vidioc_s_fmt_out    (struct file *file,
   if (ret < 0)
     return ret;
 
-  if (dev->ready_for_capture == 0) {
+  if (!dev->ready_for_capture) {
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
     fmt->fmt.pix.sizeimage = dev->buffer_size;
     allocate_buffers(dev);
@@ -949,17 +949,16 @@ vidioc_enum_output  (struct file *file,
                      void *fh,
                      struct v4l2_output *outp)
 {
-  struct v4l2_loopback_device *dev;
   MARK();
 
   if (outp->index) {
     return -EINVAL;
   }
 
-  dev=v4l2loopback_getdevice(file);
-
-  if (dev->ready_for_capture)
-    return -EINVAL;
+  //struct v4l2_loopback_device *dev;
+  // dev=v4l2loopback_getdevice(file);
+  //  if (dev->ready_for_capture)
+  //  return -EINVAL;
 
   strlcpy(outp->name, "loopback in", sizeof(outp->name));
   outp->type = V4L2_OUTPUT_TYPE_ANALOG;
@@ -968,6 +967,40 @@ vidioc_enum_output  (struct file *file,
   outp->std = V4L2_STD_ALL;
   return 0;
 }
+
+/* which output is currently active,
+ * called on VIDIOC_G_OUTPUT
+ */
+static int
+vidioc_g_output     (struct file *file,
+                    void *fh,
+                    unsigned int *i)
+{
+  if(i)
+    *i = 0;
+  return 0;
+}
+
+/* set output, can make sense if we have more than one video src,
+ * called on VIDIOC_S_OUTPUT
+ */
+static int
+vidioc_s_output      (struct file *file,
+                     void *fh,
+                     unsigned int i)
+{
+  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
+
+  if (0 != i)
+    return -EINVAL;
+  
+  if (dev->ready_for_capture) {
+    return -EBUSY;
+  }
+
+  return 0;
+}
+
 
 /* returns set of device inputs, in our case there is only one,
  * but later I may add more
@@ -978,13 +1011,12 @@ vidioc_enum_input   (struct file *file,
                      void *fh,
                      struct v4l2_input *inp)
 {
-  struct v4l2_loopback_device *dev;
   MARK();
 
-  dev=v4l2loopback_getdevice(file);
-  if (dev->ready_for_capture == 0)
+  if (!v4l2loopback_getdevice(file)->ready_for_capture)
     return -EINVAL;
-  if (inp->index == 0) {
+
+  if (!inp->index) {
     strlcpy(inp->name, "loopback", sizeof(inp->name));
     inp->type = V4L2_INPUT_TYPE_CAMERA;
     inp->audioset = 0;
@@ -996,9 +1028,6 @@ vidioc_enum_input   (struct file *file,
   return -EINVAL;
 }
 
-
-
-
 /* which input is currently active,
  * called on VIDIOC_G_INPUT
  */
@@ -1007,6 +1036,9 @@ vidioc_g_input     (struct file *file,
                     void *fh,
                     unsigned int *i)
 {
+ if (!v4l2loopback_getdevice(file)->ready_for_capture)
+   return -EINVAL;
+
   if(i)
     *i = 0;
   return 0;
@@ -1020,7 +1052,7 @@ vidioc_s_input      (struct file *file,
                      void *fh,
                      unsigned int i)
 {
-  if (i == 0)
+  if ((i==0) && (v4l2loopback_getdevice(file)->ready_for_capture))
     return 0;
   return -EINVAL;
 }
@@ -1048,7 +1080,7 @@ vidioc_reqbufs      (struct file *file,
   switch (b->memory) {
   case V4L2_MEMORY_MMAP:
     /* do nothing here, buffers are always allocated*/
-    if (b->count == 0)
+    if (0 == b->count)
       return 0;
     if (b->count > dev->buffers_number)
       b->count = dev->buffers_number;
@@ -1195,7 +1227,7 @@ vidioc_streamon     (struct file *file,
 
   switch (type) {
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-    if (dev->ready_for_capture == 0) {
+    if (!dev->ready_for_capture) {
       ret = allocate_buffers(dev);
       if (ret < 0)
         return ret;
@@ -1203,7 +1235,7 @@ vidioc_streamon     (struct file *file,
     }
     return 0;
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    if (dev->ready_for_capture == 0)
+    if (!dev->ready_for_capture)
       return -EIO;
     return 0;
   default:
@@ -1404,7 +1436,7 @@ v4l2_loopback_close  (struct file *file)
   atomic_dec(&dev->open_count);
   /* TODO(vasaka) does the closed file means that mapped buffers are
    * no more valid and one can free data? */
-  if (dev->open_count.counter == 0) {
+  if (0 == dev->open_count.counter) {
     free_buffers(dev);
     dev->ready_for_capture = 0;
     dev->buffer_size = 0;
@@ -1464,7 +1496,7 @@ v4l2_loopback_write  (struct file *file,
 
   dev=v4l2loopback_getdevice(file);
 
-  if (dev->ready_for_capture == 0) {
+  if (!dev->ready_for_capture) {
     ret = allocate_buffers(dev);
     if (ret < 0)
       return ret;
@@ -1511,7 +1543,7 @@ allocate_buffers    (struct v4l2_loopback_device *dev)
 {
   MARK();
   /* vfree on close file operation in case no open handles left */
-  if (dev->buffer_size == 0)
+  if (0 == dev->buffer_size)
     return -EINVAL;
 
   if (dev->image) {
@@ -1657,6 +1689,8 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
   .vidioc_queryctrl         = &vidioc_queryctrl,
 
   .vidioc_enum_output       = &vidioc_enum_output,
+  .vidioc_g_output          = &vidioc_g_output,
+  .vidioc_s_output          = &vidioc_s_output,
 
   .vidioc_enum_input       = &vidioc_enum_input,
   .vidioc_g_input          = &vidioc_g_input,
@@ -1732,9 +1766,9 @@ init_module         (void)
   if (devices == -1) {
     devices = 1;
 
-    // try guessingthe devices from the "device_nr" parameter
+    // try guessingthe devices from the "video_nr" parameter
     for(i=MAX_DEVICES-1; i>=0; i--) {
-      if(device_nr[i]>=0) {
+      if(video_nr[i]>=0) {
         devices=i+1;
         break;
       }
@@ -1765,7 +1799,7 @@ init_module         (void)
       return ret;
     }
     /* register the device -> it creates /dev/video* */
-    if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, device_nr[i]) < 0) {
+    if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, video_nr[i]) < 0) {
       video_device_release(devs[i]->vdev);
       printk(KERN_ERR "failed video_register_device()\n");
       free_devices();
