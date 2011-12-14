@@ -79,6 +79,9 @@ module_param(devices, int, 0);
 MODULE_PARM_DESC(devices, "how many devices should be created");
 
 
+static int device_nr[MAX_DEVICES] = { [0 ... (MAX_DEVICES-1)] = -1 };
+module_param_array(device_nr, int, NULL, 0444);
+MODULE_PARM_DESC(device_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)");
 
 
 
@@ -275,8 +278,7 @@ format_by_fourcc    (int fourcc)
 
   for (i = 0; i < FORMATS; i++) {
     if (formats[i].fourcc == fourcc)
-      return formats+i;
-  }
+      return formats+i;  }
 
   dprintk("unsupported format '%c%c%c%c'",
           (fourcc>> 0) & 0xFF,
@@ -1727,8 +1729,17 @@ init_module         (void)
   MARK();
 
   zero_devices();
-  if (devices == -1)
+  if (devices == -1) {
     devices = 1;
+
+    // try guessingthe devices from the "device_nr" parameter
+    for(i=MAX_DEVICES-1; i>=0; i--) {
+      if(device_nr[i]>=0) {
+        devices=i+1;
+        break;
+      }
+    }
+  }
 
   if (devices > MAX_DEVICES) {
     devices = MAX_DEVICES;
@@ -1754,7 +1765,7 @@ init_module         (void)
       return ret;
     }
     /* register the device -> it creates /dev/video* */
-    if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, -1) < 0) {
+    if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, device_nr[i]) < 0) {
       video_device_release(devs[i]->vdev);
       printk(KERN_ERR "failed video_register_device()\n");
       free_devices();

@@ -4,8 +4,6 @@ TODO for v4l2loopback in no specific order
 
 - improve buffering (salsaman)
 
-- add device offset parameter
-
 - allow multiple consumers to pull from a single feed
 
 - provide device specific information via /sys/devices/virtual/video4linux
