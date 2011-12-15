@@ -894,8 +894,22 @@ vidioc_s_parm       (struct file *file,
 static int
 vidioc_s_std        (struct file *file,
                      void *private_data,
-                     v4l2_std_id *norm)
+                     v4l2_std_id *_std)
 {
+  v4l2_std_id req_std=0, supported_std=0;
+  const v4l2_std_id all_std=V4L2_STD_ALL, no_std=0;
+
+  if(_std) {
+    req_std=*_std;
+    *_std=all_std;
+  }
+
+  /* we support everything in V4L2_STD_ALL, but not more... */
+  supported_std=(all_std & req_std);
+  if(no_std == supported_std) {
+    return -EINVAL;
+  }
+
   return 0;
 }
 
@@ -921,7 +935,7 @@ vidioc_querystd     (struct file *file,
                      v4l2_std_id *norm)
 {
   if(norm)
-    *norm=V4L2_STD_UNKNOWN;
+    *norm=V4L2_STD_ALL;
   return 0;
 }
 
