@@ -699,11 +699,8 @@ vidioc_g_fmt_out    (struct file *file,
    * CHECK whether this assumption is wrong,
    * or whether we have to always provide a valid format
    */
-#if 1
+
   if (0 == dev->ready_for_capture) {
-#else
-    //  if (0 == dev->pix_format.sizeimage) {
-#endif
     /* we are not fixated yet, so return a default format */
     const struct v4l2l_format *     defaultfmt=&formats[0];
 
@@ -949,22 +946,27 @@ vidioc_enum_output  (struct file *file,
                      void *fh,
                      struct v4l2_output *outp)
 {
+  __u32 index=outp->index;
   MARK();
 
-  if (outp->index) {
+  if (0!=index) {
     return -EINVAL;
   }
 
-  //struct v4l2_loopback_device *dev;
-  // dev=v4l2loopback_getdevice(file);
-  //  if (dev->ready_for_capture)
-  //  return -EINVAL;
+  /* clear all data (including the reserved fields) */
+  memset(outp, 0, sizeof(*outp));
 
+  outp->index = index;
   strlcpy(outp->name, "loopback in", sizeof(outp->name));
   outp->type = V4L2_OUTPUT_TYPE_ANALOG;
   outp->audioset = 0;
   outp->modulator = 0;
   outp->std = V4L2_STD_ALL;
+
+#ifdef V4L2_OUT_CAP_STD
+  outp->capabilities |= V4L2_OUT_CAP_STD;
+#endif
+
   return 0;
 }
 
@@ -1011,21 +1013,32 @@ vidioc_enum_input   (struct file *file,
                      void *fh,
                      struct v4l2_input *inp)
 {
+  __u32 index=inp->index;
   MARK();
+
+  if (0!=index) {
+    return -EINVAL;
+  }
 
   if (!v4l2loopback_getdevice(file)->ready_for_capture)
     return -EINVAL;
 
-  if (!inp->index) {
-    strlcpy(inp->name, "loopback", sizeof(inp->name));
-    inp->type = V4L2_INPUT_TYPE_CAMERA;
-    inp->audioset = 0;
-    inp->tuner = 0;
-    inp->std = V4L2_STD_ALL;
-    inp->status = 0;
-    return 0;
-  }
-  return -EINVAL;
+  /* clear all data (including the reserved fields) */
+  memset(inp, 0, sizeof(*inp));
+
+  inp->index = index;
+  strlcpy(inp->name, "loopback", sizeof(inp->name));
+  inp->type = V4L2_INPUT_TYPE_CAMERA;
+  inp->audioset = 0;
+  inp->tuner = 0;
+  inp->std = V4L2_STD_ALL;
+  inp->status = 0;
+
+
+#ifdef V4L2_IN_CAP_STD
+  inp->capabilities |= V4L2_IN_CAP_STD;
+#endif
+  return 0;
 }
 
 /* which input is currently active,
@@ -1038,7 +1051,6 @@ vidioc_g_input     (struct file *file,
 {
  if (!v4l2loopback_getdevice(file)->ready_for_capture)
    return -EINVAL;
-
   if(i)
     *i = 0;
   return 0;
@@ -1054,6 +1066,7 @@ vidioc_s_input      (struct file *file,
 {
   if ((i==0) && (v4l2loopback_getdevice(file)->ready_for_capture))
     return 0;
+
   return -EINVAL;
 }
 
