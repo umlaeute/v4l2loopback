@@ -93,16 +93,17 @@ do_tag(char tag, char *value)
 int
 read_header(char *magic)
 {
-	char *p, *q;
+	char *p, *q, *p0;
 	size_t n;
 	int first, done;
 
-	p = NULL;
-	if (getline(&p, &n, stdin) == -1) {
-    free(p);
+	p0 = NULL;
+	if (getline(&p0, &n, stdin) == -1) {
+    free(p0);
     return 0;
   }
-	q = p;
+  
+	q = p = p0;
 	first = 1;
 	done = 0;
 	while (!done) {
@@ -118,7 +119,7 @@ read_header(char *magic)
 		p = ++q;
 	}
 
-  free(p);
+  free(p0);
 	return 1;
 }
 
@@ -138,11 +139,17 @@ copy_frames(void)
 	frame = malloc(frame_bytes);
 	if (frame == NULL) fail("cannot malloc frame");
 	while (read_header("FRAME")) {
-		if (fread(frame, 1, frame_bytes, stdin) != frame_bytes)
+		if (fread(frame, 1, frame_bytes, stdin) != frame_bytes) {
+      free(frame);
 			fail("malformed frame");
-		else if (write(dev_fd, frame, frame_bytes) != frame_bytes)
+    }
+		else if (write(dev_fd, frame, frame_bytes) != frame_bytes) {
+      free(frame);
 			sysfail("write");
+    }
 	}
+
+  free(frame);
 }
 
 #define vidioc(op, arg) \
