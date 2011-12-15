@@ -98,7 +98,10 @@ read_header(char *magic)
 	int first, done;
 
 	p = NULL;
-	if (getline(&p, &n, stdin) == -1) return 0;
+	if (getline(&p, &n, stdin) == -1) {
+    free(p);
+    return 0;
+  }
 	q = p;
 	first = 1;
 	done = 0;
@@ -114,6 +117,8 @@ read_header(char *magic)
 			do_tag(*p, p + 1);
 		p = ++q;
 	}
+
+  free(p);
 	return 1;
 }
 
