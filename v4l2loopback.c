@@ -1274,6 +1274,31 @@ vidiocgmbuf         (struct file *file,
 }
 #endif
 
+static int
+vidioc_g_audout     (struct file *file,
+                     void *fh,
+                     struct v4l2_audioout *argp) {
+  return -EINVAL;
+}
+static int
+vidioc_s_audout     (struct file *file,
+                     void *fh,
+                     struct v4l2_audioout *argp) {
+  return -EINVAL;
+}
+static int
+vidioc_g_audio     (struct file *file,
+                     void *fh,
+                     struct v4l2_audio *argp) {
+  return -EINVAL;
+}
+static int
+vidioc_s_audio     (struct file *file,
+                     void *fh,
+                     struct v4l2_audio *argp) {
+  return -EINVAL;
+}
+
 
 /* file operations */
 static void
@@ -1729,6 +1754,11 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
   .vidiocgmbuf             = &vidiocgmbuf,
 #endif
+
+  .vidioc_g_audio          = &vidioc_g_audio,
+  .vidioc_s_audio          = &vidioc_s_audio,
+  .vidioc_g_audout         = &vidioc_g_audout,
+  .vidioc_s_audout         = &vidioc_s_audout,
 };
 
 static void
