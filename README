@@ -62,6 +62,10 @@ if you need several independent loopback devices, you can pass the "devices"
 option, when loading the module; e.g.
 # modprobe v4l2loopback devices=4
 will give you 4 loopback devices (e.g. /dev/video1 ... /dev/video5)
+you can also specify the device IDs manually; e.g.
+# modprobe v4l2loopback video_nr=3,4,7
+will create 3 devices (/dev/video3 /dev/video4 & /dev/video7)
+
 
 --- KERNELs ---
 the original module has been developed for linux-2.6.28;
