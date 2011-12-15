@@ -1005,12 +1005,11 @@ vidioc_s_output      (struct file *file,
                      void *fh,
                      unsigned int i)
 {
-  struct v4l2_loopback_device *dev=v4l2loopback_getdevice(file);
-
-  if (0 != i)
+  if(i)
     return -EINVAL;
-  
-  if (dev->ready_for_capture) {
+  i=0;
+
+  if (v4l2loopback_getdevice(file)->ready_for_capture) {
     return -EBUSY;
   }
 
