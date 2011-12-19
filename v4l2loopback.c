@@ -1892,6 +1892,11 @@ init_module         (void)
     printk(KERN_INFO "number of buffers is limited to: %d\n", MAX_BUFFERS);
   }
 
+  if (max_openers < 0) {
+    printk(KERN_INFO "v4l2loopback: allowing %d openers rather than %d\n", 2, max_openers);
+    max_openers=2;
+  }
+
   /* kfree on module release */
   for(i=0; i<devices; i++) {
     dprintk("creating loopback-device #%d\n", i);
