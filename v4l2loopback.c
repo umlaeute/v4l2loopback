@@ -324,6 +324,8 @@ static ssize_t attr_show_fourcc(struct device *cd,
 
   return sprintf(buf, "%.*s\n", 4, buf4cc);
 }
+static DEVICE_ATTR(fourcc, S_IRUGO, attr_show_fourcc, NULL);
+
 static ssize_t attr_show_buffers(struct device *cd,
                                  struct device_attribute *attr,
                                  char *buf)
@@ -331,8 +333,6 @@ static ssize_t attr_show_buffers(struct device *cd,
   struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
   return sprintf(buf, "%d\n", dev->used_buffers);
 }
-
-static DEVICE_ATTR(fourcc, S_IRUGO, attr_show_fourcc, NULL);
 static DEVICE_ATTR(buffers, S_IRUGO, attr_show_buffers, NULL);
 
 static void v4l2loopback_remove_sysfs(struct video_device *vdev)
