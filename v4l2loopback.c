@@ -1884,12 +1884,12 @@ init_module         (void)
 
   if (devices > MAX_DEVICES) {
     devices = MAX_DEVICES;
-    printk(KERN_INFO "number of devices is limited to: %d\n", MAX_DEVICES);
+    printk(KERN_INFO "v4l2loopback: number of devices is limited to: %d\n", MAX_DEVICES);
   }
 
   if (max_buffers > MAX_BUFFERS) {
     max_buffers=MAX_BUFFERS;
-    printk(KERN_INFO "number of buffers is limited to: %d\n", MAX_BUFFERS);
+    printk(KERN_INFO "v4l2loopback: number of buffers is limited to: %d\n", MAX_BUFFERS);
   }
 
   if (max_openers < 0) {
@@ -1899,7 +1899,7 @@ init_module         (void)
 
   /* kfree on module release */
   for(i=0; i<devices; i++) {
-    dprintk("creating loopback-device #%d\n", i);
+    dprintk("creating v4l2loopback-device #%d\n", i);
     devs[i] = kzalloc(sizeof(*devs[i]), GFP_KERNEL);
     if (devs[i] == NULL) {
       free_devices();
@@ -1913,7 +1913,7 @@ init_module         (void)
     /* register the device -> it creates /dev/video* */
     if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, video_nr[i]) < 0) {
       video_device_release(devs[i]->vdev);
-      printk(KERN_ERR "failed video_register_device()\n");
+      printk(KERN_ERR "v4l2loopback: failed video_register_device()\n");
       free_devices();
       return -EFAULT;
     }
