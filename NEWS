@@ -1,3 +1,22 @@
+v4l2loopback-0.5.0
+
+  - module parameters
+               'video_nr' manually sets device id(s)
+  - device attributes
+               via sysfs: /sys/devices/virtual/video4linux/video*/
+               'max_openers' per device
+               'fourcc' queries currently selected format
+  - ioctl fixes
+               avoid the BIG KERNEL LOCK
+               ENUM_FRAMEINTERVAL implementation
+               fixed ENUM_FRAMESIZES (fixes skype compatibilitiy)
+               fixes to buffer queue with multiple consumers
+               minor fixes to handling of standards, output enumeration and output formats
+  - more (and better) debugging output
+  - fixed memleaks in the examples
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Tue, 27 Dec 2011 19:01:25 +0100
+
 v4l2loopback-0.4.1
 
  - yuv4mpeg producer example
