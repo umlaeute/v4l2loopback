@@ -19,6 +19,12 @@ else
  NEWVERSION=$2
 fi
 
+if dpkg --compare-versions ${OLDVERSION} ge ${NEWVERSION}
+then
+ echo "version mismatch: $OLDVERSION is newer than $NEWVERSION" 1>&2
+ exit 1
+fi
+
 echo "updating from $OLDVERSION to $NEWVERSION"
 
 mkdir debian
