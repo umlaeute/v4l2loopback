@@ -5,11 +5,6 @@ getcurrentversion () {
   dpkg-parsechangelog --count 1 -lChangeLog |  egrep "^Version:" | head -1 | cut -f2 -d' '
 }
 
-if [ "x$1" = "x" ]; then
- echo "usage: $0 [<LASTVERSION>] <CURVERSION>" 1>&2
- exit 1
-fi
-
 if [ "x$2" = "x" ]; then
 ## guess current version
  NEWVERSION=$1
@@ -19,12 +14,23 @@ else
  NEWVERSION=$2
 fi
 
-
 if git tag -l v${OLDVERSION} | grep . >/dev/null
 then
  :
 else
  echo "it seems like there is no tag 'v${OLDVERSION}'" 1>&2
+ exit 1
+fi
+
+if [ "x$OLDVERSION" = "x" ]; then
+ echo "usage: $0 [<LASTVERSION>] <CURVERSION>" 1>&2
+ exit 1
+fi
+
+echo "updating from $OLDVERSION"
+
+if [ "x$NEWVERSION" = "x" ]; then
+ echo "usage: $0 [<LASTVERSION>] <CURVERSION>" 1>&2
  exit 1
 fi
 
