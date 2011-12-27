@@ -1,3 +1,32 @@
+v4l2loopback (0.5.0) UNRELEASED; urgency=low
+
+  [ IOhannes m zmölnig ]
+  * more (and better) debugging output
+  * stefan diewald's ENUM_FRAMESIZES fix
+  * simplifified framesize enumeration
+  * stefan diewald's ENUM_FRAMEINTERVAL implementations
+  * stefan diewald's buffer request logic
+  * added Stefan Diewald to the authors
+  * use sudo to rmmod/insmod kernel modules in Makefile
+  * use unlocked_ioctl as suggested by salsaman
+  * provide macros to simplify sysfs attrfile creation
+  * added deviceattributes
+  * implemented "video_nr" parameter to manually force device IDs
+  * dummy audio ioctl's that return EINVAL
+  * better output enumeration/format handling
+  * trying to improve handling of std's
+  * improve readability of vidioc_g_output
+  * added note about video_nr param
+  * fixed memleaks
+  * allow per-device "max_openers" settings
+  * warn if illegal number of max_openers is requested
+  * prefix posts with "v4l2loopback"
+
+  [ IOhannes m zmoelnig ]
+  * simplistic ChangeLog generator
+
+ -- zmoelnig <zmoelnig@umlautO.umlaeute>  Tue, 27 Dec 2011 19:01:25 +0100
+
 v4l2loopback (0.4.1) UNRELEASED; urgency=low
 
   [ IOhannes m zmölnig ]
