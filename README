@@ -58,7 +58,7 @@ the data sent to the v4l2loopback device can then be read by any v4l2-capable
 application.
 
 you can find a number of scenarios on the wiki at
-	http://github.com/umlaeute/v4l2loopback
+	http://github.com/umlaeute/v4l2loopback/wiki
 
 --- OPTIONS ---
 if you need several independent loopback devices, you can pass the "devices"
