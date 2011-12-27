@@ -1,4 +1,6 @@
 #!/bin/sh
+####################################
+# changelog generator using git-dch
 
 CHANGELOG=ChangeLog
 
