@@ -19,6 +19,15 @@ else
  NEWVERSION=$2
 fi
 
+
+if git tag -l v${OLDVERSION} | grep . >/dev/null
+then
+ :
+else
+ echo "it seems like there is no tag 'v${OLDVERSION}'" 1>&2
+ exit 1
+fi
+
 if dpkg --compare-versions ${OLDVERSION} ge ${NEWVERSION}
 then
  echo "version mismatch: $OLDVERSION is newer than $NEWVERSION" 1>&2
