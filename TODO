@@ -1,0 +1,34 @@
+TODO for v4l2loopback in no specific order
+
+- fix all bugs :-)
+
+- improve buffering (salsaman)
+
+- provide device specific information via /sys/devices/virtual/video4linux
+- allow device specific settings via /sys/devices/virtual/video4linux
+
+- allow USERPTR buffers
+
+- allow to use the device without streaming i/o
+
+- pass 'v4l2-compliance' tests
+  currently failing are:
+	VIDIOC_G/S_PRIORITY
+	VIDIOC_LOG_STATUS
+	VIDIOC_ENUMAUDIO
+	VIDIOC_G/S_AUDIO
+	VIDIOC_ENUMAUDOUT
+	VIDIOC_G/S/ENUMOUTPUT
+	VIDIOC_G/S_CTRL
+	VIDIOC_G/S/TRY_EXT_CTRLS
+	VIDIOC_ENUM/G/S/QUERY_STD
+	VIDIOC_ENUM/G/S/QUERY_DV_PRESETS
+	VIDIOC_ENUM_FMT/FRAMESIZES/FRAMEINTERVALS
+	VIDIOC_G_FBUF
+	VIDIOC_G_FMT
+	VIDIOC_G_SLICED_VBI_CAP
+
+- it would be nice to have a way to communicate format requests from the
+  consumer to the producer (though i see no way how to do that)
+
+- provide more producers for more colorspaces in the examples

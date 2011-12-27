@@ -21,6 +21,7 @@ clean:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
 
 modprobe: v4l2loopback
-	modprobe videodev
-	-rmmod v4l2loopback
-	insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
+	chmod a+r v4l2loopback.ko
+	sudo modprobe videodev
+	-sudo rmmod $<
+	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
