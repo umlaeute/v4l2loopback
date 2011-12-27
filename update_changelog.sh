@@ -1,8 +1,10 @@
 #!/bin/sh
 
+CHANGELOG=ChangeLog
+
 
 getcurrentversion () {
-  dpkg-parsechangelog --count 1 -lChangeLog |  egrep "^Version:" | head -1 | cut -f2 -d' '
+  dpkg-parsechangelog --count 1 -l${CHANGELOG} |  egrep "^Version:" | head -1 | cut -f2 -d' '
 }
 
 if [ "x$2" = "x" ]; then
@@ -40,12 +42,15 @@ then
  exit 1
 fi
 
-echo "updating from $OLDVERSION to $NEWVERSION"
+echo "updating to $NEWVERSION"
 
-mkdir debian
-cp ChangeLog debian/changelog
-git-dch --since ${OLDVERSION} -N v${NEWVERSION}
-cat debian/changelog > ChangeLog
+OK=false
+mkdir debian 
+cp ${CHANGELOG} debian/changelog
+git-dch --since "v${OLDVERSION}" -N ${NEWVERSION} && cat debian/changelog > ${CHANGELOG} && OK=true
 rm -rf debian
 
-echo "don't forget to git-tag the new version as v${NEWVERSION}"
+if [ "x$OK" = "xtrue" ]; then
+ echo "all went well"
+ echo "check your $CHANGELOG and don't forget to git-tag the new version as v${NEWVERSION}"
+fi
