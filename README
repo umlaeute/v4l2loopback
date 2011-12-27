@@ -52,10 +52,13 @@ fed by various programs.
 tested feeders:
 	GStreamer: using the  "v4l2sink" element 
 	Gem(>=0.93) using the "recordV4L2" plugin
-in theory most programs capable of _writing to_ a v4l2 device should work
+in theory most programs capable of _writing to_ a v4l2 device should work.
 
 the data sent to the v4l2loopback device can then be read by any v4l2-capable
-application
+application.
+
+you can find a number of scenarios on the wiki at
+	http://github.com/umlaeute/v4l2loopback
 
 --- OPTIONS ---
 if you need several independent loopback devices, you can pass the "devices"
@@ -66,6 +69,10 @@ you can also specify the device IDs manually; e.g.
 # modprobe v4l2loopback video_nr=3,4,7
 will create 3 devices (/dev/video3 /dev/video4 & /dev/video7)
 
+--- ATTRIBUTES ---
+you can set and/or query some per-device attributes via sysfs, in a human
+readable format. see
+ /sys/devices/virtual/video4linux/video*/
 
 --- KERNELs ---
 the original module has been developed for linux-2.6.28;
@@ -94,8 +101,6 @@ In this case you should be able to simply do (as root):
 --- DOWNLOAD ---
 the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
-the original code for the v4l2loopback module can be found at
-http://code.google.com/p/v4l2loopback/.
 
 --- LICENSE/COPYING ---
 Copyright (c) 2010-2011 IOhannes m zmoelnig <zmoelnig@iem.at>

@@ -4,9 +4,6 @@ TODO for v4l2loopback in no specific order
 
 - improve buffering (salsaman)
 
-- provide device specific information via /sys/devices/virtual/video4linux
-- allow device specific settings via /sys/devices/virtual/video4linux
-
 - allow USERPTR buffers
 
 - allow to use the device without streaming i/o
