@@ -1940,3 +1940,4 @@ cleanup_module      (void)
   dprintk("module removed\n");
 }
 
+/* vim: set ts=2 sw=2: */
