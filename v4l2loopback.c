@@ -315,6 +315,22 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
   }
 }
 
+static int
+wait_for_capture_buffer(struct v4l2_loopback_device *dev,
+                        struct v4l2_loopback_opener *opener,
+                        struct file *file)
+{
+  if ((dev->write_position <= opener->read_position) &&
+      (file->f_flags&O_NONBLOCK))
+    return -EAGAIN;
+  if (wait_event_interruptible(dev->read_event,
+                               (dev->write_position > opener->read_position)) < 0)
+    return -EAGAIN;
+  if (dev->write_position > opener->read_position+2)
+    opener->read_position = dev->write_position - 1;
+  return opener->read_position % dev->used_buffers;
+}
+
 static struct v4l2_loopback_device*v4l2loopback_cd2dev  (struct device*cd);
 
 /* device attributes */
@@ -1256,14 +1272,9 @@ vidioc_dqbuf        (struct file *file,
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    if ((dev->write_position <= opener->read_position) &&
-        (file->f_flags&O_NONBLOCK))
+    index = wait_for_capture_buffer(dev, opener, file);
+    if (index < 0)
       return -EAGAIN;
-    wait_event_interruptible(dev->read_event, (dev->write_position >
-					       opener->read_position));
-    if (dev->write_position > opener->read_position+2)
-      opener->read_position = dev->write_position - 1;
-    index = opener->read_position % dev->used_buffers;
     dprintkrw("capture DQBUF index: %d\n", index);
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
       dprintk("trying to return not mapped buf\n");
@@ -1561,17 +1572,11 @@ v4l2_loopback_read   (struct file *file,
   opener = file->private_data;
   dev    = v4l2loopback_getdevice(file);
 
-  if ((dev->write_position <= opener->read_position) &&
-      (file->f_flags&O_NONBLOCK)) {
+  read_index = wait_for_capture_buffer(dev, opener, file);
+  if (read_index < 0)
     return -EAGAIN;
-  }
-  wait_event_interruptible(dev->read_event,
-                           (dev->write_position > opener->read_position));
   if (count > dev->buffer_size)
     count = dev->buffer_size;
-  if (dev->write_position > opener->read_position+2)
-    opener->read_position = dev->write_position - 1;
-  read_index = opener->read_position % dev->used_buffers;
   if (copy_to_user((void *) buf, (void *) (dev->image +
                                            dev->buffers[read_index].buffer.m.offset), count)) {
     printk(KERN_ERR "v4l2-loopback: "
