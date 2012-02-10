@@ -14,6 +14,7 @@
 #include <linux/version.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
+#include <linux/mutex.h>
 #include <linux/time.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
@@ -132,8 +133,11 @@ struct v4l2_loopback_device {
   int used_buffers; /* number of the actually used buffers */
   int max_openers;  /* how many times can this device be opened */
 
+  struct mutex write_mutex;
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
+  int idle_frame_needed;
+  struct timer_list idle_frame_timer;
 
   /* sync stuff */
   atomic_t open_count;
@@ -458,6 +462,7 @@ v4l2loopback_getdevice        (struct file*f)
 static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
 static int free_buffers(struct v4l2_loopback_device *dev);
+static void schedule_idle_frame(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 
@@ -1249,6 +1254,7 @@ vidioc_qbuf         (struct file *file,
     do_gettimeofday(&b->buffer.timestamp);
     set_done(b);
     wake_up_all(&dev->read_event);
+    schedule_idle_frame(dev);
     return 0;
   default:
     return -EINVAL;
@@ -1285,11 +1291,14 @@ vidioc_dqbuf        (struct file *file,
     *buf = dev->buffers[index].buffer;
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+    if (mutex_lock_interruptible(&dev->write_mutex) < 0)
+      return -EAGAIN;
     index = dev->write_position % dev->used_buffers;
     dprintkrw("output DQBUF index: %d\n", index);
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
     ++dev->write_position;
+    mutex_unlock(&dev->write_mutex);
     return 0;
   default:
     return -EINVAL;
@@ -1630,6 +1639,22 @@ v4l2_loopback_write  (struct file *file,
   return count;
 }
 
+static void schedule_idle_frame(struct v4l2_loopback_device *dev)
+{
+  mod_timer(&dev->idle_frame_timer, jiffies + msecs_to_jiffies(500));
+}
+
+static void idle_frame_callback(unsigned long nr)
+{
+  struct v4l2_loopback_device *dev;
+
+  dev = devs[nr];
+  dprintk("idle frame: %d", dev->write_position);
+  dev->idle_frame_needed = 1;
+  wake_up_all(&dev->read_event);
+  schedule_idle_frame(devs[nr]);
+}
+
 /* init functions */
 /* frees buffers, if already allocated */
 static int free_buffers(struct v4l2_loopback_device *dev)
@@ -1767,6 +1792,8 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->buffer_size = 0;
   dev->image = NULL;
   dev->imagesize = 0;
+  mutex_init(&dev->write_mutex);
+  setup_timer(&dev->idle_frame_timer, idle_frame_callback, nr);
 
   /* FIXME set buffers to 0 */
 
