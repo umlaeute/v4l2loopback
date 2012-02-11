@@ -57,6 +57,7 @@ MODULE_LICENSE("GPL");
 
 
 /* module constants */
+#define IDLE_FRAME_INTERVAL (1000 / 25)
 
 /* module parameters */
 static int debug = 0;
@@ -324,6 +325,7 @@ generate_idle_frame(struct v4l2_loopback_device *dev)
 {
   struct v4l2l_buffer *src, *dst;
   MARK();
+  dprintk("generate_idle_frame");
   if (!dev->idle_frame_needed)
     dprintk("!dev->idle_frame_needed; shoudn't happen");
   src = &dev->buffers[dev->write_position % dev->used_buffers];
@@ -335,6 +337,8 @@ generate_idle_frame(struct v4l2_loopback_device *dev)
          dev->buffer_size);
   dst->buffer.timestamp = src->buffer.timestamp;
   dst->buffer.timestamp.tv_usec++;
+  /*dst->buffer.timestamp = ns_to_timeval(timeval_to_ns(&src->buffer.timestamp)
+                                          + IDLE_FRAME_INTERVAL * 1000000LL);*/
   dev->idle_frame_needed = 0;
   dev->write_position++;
 }
@@ -1332,6 +1336,7 @@ vidioc_dqbuf        (struct file *file,
     mutex_unlock(&dev->write_mutex);
     return 0;
   default:
+    dprintk("trying to dequeue buffer of unknown type: %x\n", buf->type);
     return -EINVAL;
   }
 }
@@ -1677,7 +1682,7 @@ v4l2_loopback_write  (struct file *file,
 
 static void schedule_idle_frame(struct v4l2_loopback_device *dev)
 {
-  mod_timer(&dev->idle_frame_timer, jiffies + msecs_to_jiffies(500));
+  mod_timer(&dev->idle_frame_timer, jiffies + msecs_to_jiffies(IDLE_FRAME_INTERVAL));
 }
 
 static void idle_frame_callback(unsigned long nr)
