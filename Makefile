@@ -9,7 +9,7 @@ obj-m		:= v4l2loopback.o
 MODULE_OPTIONS = devices=2
 
 all: v4l2loopback
-v4l2loopback:
+v4l2loopback: Makefile
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
 install:
