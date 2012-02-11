@@ -1688,10 +1688,7 @@ generate_idle_frame(struct v4l2_loopback_device *dev)
   memcpy((void *)(dev->image + dst->buffer.m.offset),
          (void *)(dev->image + src->buffer.m.offset),
          dev->buffer_size);
-  dst->buffer.timestamp = src->buffer.timestamp;
-  dst->buffer.timestamp.tv_usec++;
-  /*dst->buffer.timestamp = ns_to_timeval(timeval_to_ns(&src->buffer.timestamp)
-                                          + IDLE_FRAME_INTERVAL * 1000000LL);*/
+  do_gettimeofday(&dst->buffer.timestamp);
   set_done(dst);
   dev->idle_frame_needed = 0;
   dev->write_position++;
