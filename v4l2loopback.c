@@ -1327,7 +1327,8 @@ vidioc_dqbuf        (struct file *file,
     dprintkrw("output DQBUF index: %d\n", index);
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
-    ++dev->write_position;
+    buf->sequence = dev->write_position++;
+    dev->idle_frame_needed = 0;
     mutex_unlock(&dev->write_mutex);
     return 0;
   default:
@@ -1651,6 +1652,8 @@ v4l2_loopback_write  (struct file *file,
   if (count > dev->buffer_size)
     count = dev->buffer_size;
 
+  if (mutex_lock_interruptible(&dev->write_mutex) < 0)
+    return -EAGAIN;
   write_index = dev->write_position % dev->used_buffers;
   b=&dev->buffers[write_index].buffer;
 
@@ -1660,10 +1663,13 @@ v4l2_loopback_write  (struct file *file,
     printk(KERN_ERR "v4l2-loopback: "
            "failed copy_from_user() in write buf, could not write %zu\n",
            count);
+    mutex_unlock(&dev->write_mutex);
     return -EFAULT;
   }
   do_gettimeofday(&b->timestamp);
   b->sequence = dev->write_position++;
+  dev->idle_frame_needed = 0;
+  mutex_unlock(&dev->write_mutex);
   wake_up_all(&dev->read_event);
   dprintkrw("leave v4l2_loopback_write()\n");
   return count;
