@@ -1801,6 +1801,16 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   return 0;
 };
 
+static void
+v4l2_loopback_free(struct v4l2_loopback_device *dev)
+{
+  del_timer_sync(&dev->idle_frame_timer);
+  v4l2loopback_remove_sysfs(dev->vdev);
+  kfree(video_get_drvdata(dev->vdev));
+  video_unregister_device(dev->vdev);
+  kfree(dev);
+}
+
 /* LINUX KERNEL */
 static const struct v4l2_file_operations v4l2_loopback_fops = {
   .owner   = THIS_MODULE,
@@ -1885,10 +1895,7 @@ free_devices        (void)
   int i;
   for(i=0; i<devices; i++) {
     if(NULL!=devs[i]) {
-      v4l2loopback_remove_sysfs(devs[i]->vdev);
-      kfree(video_get_drvdata(devs[i]->vdev));
-      video_unregister_device(devs[i]->vdev);
-      kfree(devs[i]);
+      v4l2_loopback_free(devs[i]);
       devs[i]=NULL;
     }
   }
