@@ -319,17 +319,47 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
   }
 }
 
+static void
+generate_idle_frame(struct v4l2_loopback_device *dev)
+{
+  struct v4l2l_buffer *src, *dst;
+  MARK();
+  if (!dev->idle_frame_needed)
+    dprintk("!dev->idle_frame_needed; shoudn't happen");
+  src = &dev->buffers[dev->write_position % dev->used_buffers];
+  dst = &dev->buffers[(dev->write_position + 1) % dev->used_buffers];
+  if (!(dst->buffer.flags & V4L2_BUF_FLAG_QUEUED))
+    dprintk("destination buffer not queued; will cross fingers and use it anyway");
+  memcpy((void *)(dev->image + dst->buffer.m.offset),
+         (void *)(dev->image + src->buffer.m.offset),
+         dev->buffer_size);
+  dst->buffer.timestamp = src->buffer.timestamp;
+  dst->buffer.timestamp.tv_usec++;
+  dev->idle_frame_needed = 0;
+  dev->write_position++;
+}
+
 static int
-wait_for_capture_buffer(struct v4l2_loopback_device *dev,
-                        struct v4l2_loopback_opener *opener,
-                        struct file *file)
+get_capture_buffer(struct v4l2_loopback_device *dev,
+                   struct v4l2_loopback_opener *opener,
+                   struct file *file)
 {
   if ((dev->write_position <= opener->read_position) &&
       (file->f_flags&O_NONBLOCK))
     return -EAGAIN;
-  if (wait_event_interruptible(dev->read_event,
-                               (dev->write_position > opener->read_position)) < 0)
+  if (wait_event_interruptible(
+          dev->read_event,
+          (dev->write_position > opener->read_position) || dev->idle_frame_needed) < 0)
     return -EAGAIN;
+  if (dev->write_position == opener->read_position) {
+    if (mutex_lock_interruptible(&dev->write_mutex) < 0)
+      return -EAGAIN;
+    /* check again */
+    if (dev->write_position == opener->read_position) {
+      generate_idle_frame(dev);
+    }
+    mutex_unlock(&dev->write_mutex);
+  }
   if (dev->write_position > opener->read_position+2)
     opener->read_position = dev->write_position - 1;
   return opener->read_position % dev->used_buffers;
@@ -1278,7 +1308,7 @@ vidioc_dqbuf        (struct file *file,
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    index = wait_for_capture_buffer(dev, opener, file);
+    index = get_capture_buffer(dev, opener, file);
     if (index < 0)
       return -EAGAIN;
     dprintkrw("capture DQBUF index: %d\n", index);
@@ -1510,7 +1540,7 @@ v4l2_loopback_poll  (struct file *file,
     break;
   case READER:
     poll_wait(file, &dev->read_event, pts);
-    if (dev->write_position > opener->read_position)
+    if (dev->write_position > opener->read_position || dev->idle_frame_needed)
       ret_mask =  POLLIN | POLLRDNORM;
     break;
   default:
@@ -1581,7 +1611,7 @@ v4l2_loopback_read   (struct file *file,
   opener = file->private_data;
   dev    = v4l2loopback_getdevice(file);
 
-  read_index = wait_for_capture_buffer(dev, opener, file);
+  read_index = get_capture_buffer(dev, opener, file);
   if (read_index < 0)
     return -EAGAIN;
   if (count > dev->buffer_size)
@@ -1649,7 +1679,7 @@ static void idle_frame_callback(unsigned long nr)
   struct v4l2_loopback_device *dev;
 
   dev = devs[nr];
-  dprintk("idle frame: %d", dev->write_position);
+  dprintkrw("idle frame: %d", dev->write_position);
   dev->idle_frame_needed = 1;
   wake_up_all(&dev->read_event);
   schedule_idle_frame(devs[nr]);
