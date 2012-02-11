@@ -325,55 +325,6 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
   }
 }
 
-static void
-generate_idle_frame(struct v4l2_loopback_device *dev)
-{
-  struct v4l2l_buffer *src, *dst;
-  MARK();
-  dprintk("generate_idle_frame");
-  if (!dev->idle_frame_needed)
-    dprintk("!dev->idle_frame_needed; shoudn't happen");
-  src = &dev->buffers[dev->write_position % dev->used_buffers];
-  dst = &dev->buffers[(dev->write_position + 1) % dev->used_buffers];
-  if (!(dst->buffer.flags & V4L2_BUF_FLAG_QUEUED))
-    dprintk("destination buffer not queued; will cross fingers and use it anyway");
-  memcpy((void *)(dev->image + dst->buffer.m.offset),
-         (void *)(dev->image + src->buffer.m.offset),
-         dev->buffer_size);
-  dst->buffer.timestamp = src->buffer.timestamp;
-  dst->buffer.timestamp.tv_usec++;
-  /*dst->buffer.timestamp = ns_to_timeval(timeval_to_ns(&src->buffer.timestamp)
-                                          + IDLE_FRAME_INTERVAL * 1000000LL);*/
-  dev->idle_frame_needed = 0;
-  dev->write_position++;
-}
-
-static int
-get_capture_buffer(struct v4l2_loopback_device *dev,
-                   struct v4l2_loopback_opener *opener,
-                   struct file *file)
-{
-  if ((dev->write_position <= opener->read_position) &&
-      (file->f_flags&O_NONBLOCK))
-    return -EAGAIN;
-  if (wait_event_interruptible(
-          dev->read_event,
-          (dev->write_position > opener->read_position) || dev->idle_frame_needed) < 0)
-    return -EAGAIN;
-  if (dev->write_position == opener->read_position) {
-    if (mutex_lock_interruptible(&dev->write_mutex) < 0)
-      return -EAGAIN;
-    /* check again */
-    if (dev->write_position == opener->read_position) {
-      generate_idle_frame(dev);
-    }
-    mutex_unlock(&dev->write_mutex);
-  }
-  if (dev->write_position > opener->read_position+2)
-    opener->read_position = dev->write_position - 1;
-  return opener->read_position % dev->used_buffers;
-}
-
 static struct v4l2_loopback_device*v4l2loopback_cd2dev  (struct device*cd);
 
 /* device attributes */
@@ -529,6 +480,9 @@ v4l2loopback_getdevice        (struct file*f)
 }
 
 /* forward declarations */
+static int get_capture_buffer(struct v4l2_loopback_device *dev,
+                              struct v4l2_loopback_opener *opener,
+                              struct file *file);
 static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
 static int free_buffers(struct v4l2_loopback_device *dev);
@@ -1717,6 +1671,56 @@ v4l2_loopback_write  (struct file *file,
   wake_up_all(&dev->read_event);
   dprintkrw("leave v4l2_loopback_write()\n");
   return count;
+}
+
+static void
+generate_idle_frame(struct v4l2_loopback_device *dev)
+{
+  struct v4l2l_buffer *src, *dst;
+  MARK();
+  dprintk("generate_idle_frame");
+  if (!dev->idle_frame_needed)
+    dprintk("!dev->idle_frame_needed; shoudn't happen");
+  src = &dev->buffers[dev->write_position % dev->used_buffers];
+  dst = &dev->buffers[(dev->write_position + 1) % dev->used_buffers];
+  if (!(dst->buffer.flags & V4L2_BUF_FLAG_QUEUED))
+    dprintk("destination buffer not queued; will cross fingers and use it anyway");
+  memcpy((void *)(dev->image + dst->buffer.m.offset),
+         (void *)(dev->image + src->buffer.m.offset),
+         dev->buffer_size);
+  dst->buffer.timestamp = src->buffer.timestamp;
+  dst->buffer.timestamp.tv_usec++;
+  /*dst->buffer.timestamp = ns_to_timeval(timeval_to_ns(&src->buffer.timestamp)
+                                          + IDLE_FRAME_INTERVAL * 1000000LL);*/
+  set_done(dst);
+  dev->idle_frame_needed = 0;
+  dev->write_position++;
+}
+
+static int
+get_capture_buffer(struct v4l2_loopback_device *dev,
+                   struct v4l2_loopback_opener *opener,
+                   struct file *file)
+{
+  if ((dev->write_position <= opener->read_position) &&
+      (file->f_flags&O_NONBLOCK))
+    return -EAGAIN;
+  if (wait_event_interruptible(
+          dev->read_event,
+          (dev->write_position > opener->read_position) || dev->idle_frame_needed) < 0)
+    return -EAGAIN;
+  if (dev->write_position == opener->read_position) {
+    if (mutex_lock_interruptible(&dev->write_mutex) < 0)
+      return -EAGAIN;
+    /* check again */
+    if (dev->write_position == opener->read_position) {
+      generate_idle_frame(dev);
+    }
+    mutex_unlock(&dev->write_mutex);
+  }
+  if (dev->write_position > opener->read_position+2)
+    opener->read_position = dev->write_position - 1;
+  return opener->read_position % dev->used_buffers;
 }
 
 static void schedule_idle_frame(struct v4l2_loopback_device *dev)
