@@ -853,8 +853,10 @@ vidioc_g_fmt_out    (struct file *file,
 
     pix_format_set_size(&fmt->fmt.pix, defaultfmt,
                         dev->pix_format.width, dev->pix_format.height);
+    dev->pix_format.sizeimage = fmt->fmt.pix.sizeimage;
 
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+    dprintkrw("buffer_size: %u -> %ld", dev->pix_format.sizeimage, dev->buffer_size);
     allocate_buffers(dev);
   }
   fmt->fmt.pix = dev->pix_format;
@@ -943,6 +945,7 @@ vidioc_s_fmt_out    (struct file *file,
 
   if (!dev->ready_for_capture) {
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+    dprintkrw("buffer_size: %u -> %ld", dev->pix_format.sizeimage, dev->buffer_size);
     fmt->fmt.pix.sizeimage = dev->buffer_size;
     allocate_buffers(dev);
   }
