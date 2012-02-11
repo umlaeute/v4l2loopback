@@ -57,7 +57,7 @@ MODULE_LICENSE("GPL");
 
 
 /* module constants */
-#define IDLE_FRAME_INTERVAL (1000 / 25)
+#define DEFAULT_IDLE_FPS 25
 
 /* module parameters */
 static int debug = 0;
@@ -81,6 +81,10 @@ MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
 static int max_openers = 10;
 module_param(max_openers, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
+
+static int idle_fps = 25;
+module_param(idle_fps, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(idle_fps, "idle frames per second");
 
 
 #define MAX_DEVICES 8
@@ -137,6 +141,7 @@ struct v4l2_loopback_device {
   struct mutex write_mutex;
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
+  int idle_fps;
   int idle_frame_needed;
   struct timer_list idle_frame_timer;
 
@@ -429,11 +434,40 @@ static ssize_t attr_store_maxopeners(struct device* cd,
 
   return len;
 }
-
-
 static DEVICE_ATTR(max_openers, S_IRUGO | S_IWUSR, attr_show_maxopeners, attr_store_maxopeners);
 
+static ssize_t attr_show_idlefps(struct device *cd,
+                                 struct device_attribute *attr,
+                                 char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  return sprintf(buf, "%d\n", dev->idle_fps);
+}
+static ssize_t attr_store_idlefps(struct device* cd,
+                                  struct device_attribute *attr,
+                                  const char* buf, size_t len)
+{
+  struct v4l2_loopback_device *dev = NULL;
+  unsigned long curr=0;
 
+  if (strict_strtoul(buf, 0, &curr))
+    return -EINVAL;
+
+  dev = v4l2loopback_cd2dev(cd);
+
+  if (dev->idle_fps == curr)
+    return len;
+
+  if (curr < 0 || curr > 1000) {
+    /* something insane */
+    return -EINVAL;
+  }
+
+  dev->idle_fps = (int)curr;
+
+  return len;
+}
+static DEVICE_ATTR(idle_fps, S_IRUGO | S_IWUSR, attr_show_idlefps, attr_store_idlefps);
 
 
 
@@ -445,6 +479,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
     V4L2_SYSFS_DESTROY(fourcc);
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
+    V4L2_SYSFS_DESTROY(idle_fps);
     /* ... */
   }
 }
@@ -457,6 +492,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
     V4L2_SYSFS_CREATE(fourcc);
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
+    V4L2_SYSFS_CREATE(idle_fps);
     /* ... */
   } while(0);
 
@@ -1682,7 +1718,7 @@ v4l2_loopback_write  (struct file *file,
 
 static void schedule_idle_frame(struct v4l2_loopback_device *dev)
 {
-  mod_timer(&dev->idle_frame_timer, jiffies + msecs_to_jiffies(IDLE_FRAME_INTERVAL));
+  mod_timer(&dev->idle_frame_timer, jiffies + msecs_to_jiffies(1000) / dev->idle_fps);
 }
 
 static void idle_frame_callback(unsigned long nr)
@@ -1833,6 +1869,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->buffer_size = 0;
   dev->image = NULL;
   dev->imagesize = 0;
+  dev->idle_fps = DEFAULT_IDLE_FPS;
   mutex_init(&dev->write_mutex);
   setup_timer(&dev->idle_frame_timer, idle_frame_callback, nr);
 
