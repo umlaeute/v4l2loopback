@@ -58,6 +58,7 @@ MODULE_LICENSE("GPL");
 
 /* module constants */
 #define DEFAULT_IDLE_FPS 25
+#define PLACEHOLDER_FRAME 1
 
 /* module parameters */
 static int debug = 0;
@@ -139,9 +140,11 @@ struct v4l2_loopback_device {
   int max_openers;  /* how many times can this device be opened */
 
   struct mutex write_mutex;
+  struct timeval last_write_timestamp;
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
   int idle_fps;
+  u8 *placeholder_frame;
   int idle_frame_needed;
   struct timer_list idle_frame_timer;
 
@@ -1200,7 +1203,7 @@ vidioc_reqbufs      (struct file *file,
   opener = file->private_data;
 
   dprintk("reqbufs: %d\t%d=%d", b->memory, b->count, dev->buffers_number);
-  init_buffers(dev);
+  allocate_buffers(dev);
   switch (b->memory) {
   case V4L2_MEMORY_MMAP:
     /* do nothing here, buffers are always allocated*/
@@ -1279,6 +1282,7 @@ vidioc_qbuf         (struct file *file,
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     dprintkrw("output QBUF index: %d\n", index);
     do_gettimeofday(&b->buffer.timestamp);
+    dev->last_write_timestamp = b->buffer.timestamp;
     set_done(b);
     wake_up_all(&dev->read_event);
     schedule_idle_frame(dev);
@@ -1316,6 +1320,12 @@ vidioc_dqbuf        (struct file *file,
     ++opener->read_position;
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
+    dprintkrw("buffer out: %d %d %d %ld %ld",
+              index,
+              opener->read_position - 1,
+              dev->write_position,
+              (long)buf->timestamp.tv_sec,
+              (long)buf->timestamp.tv_usec);
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
     if (mutex_lock_interruptible(&dev->write_mutex) < 0)
@@ -1665,6 +1675,7 @@ v4l2_loopback_write  (struct file *file,
     return -EFAULT;
   }
   do_gettimeofday(&b->timestamp);
+  dev->last_write_timestamp = b->timestamp;
   b->sequence = dev->write_position++;
   dev->idle_frame_needed = 0;
   mutex_unlock(&dev->write_mutex);
@@ -1677,18 +1688,28 @@ static void
 generate_idle_frame(struct v4l2_loopback_device *dev)
 {
   struct v4l2l_buffer *src, *dst;
+  s64 idle_ns;
+  struct timeval idle_time;
+  u8 *frame;
+
   MARK();
-  dprintk("generate_idle_frame");
   if (!dev->idle_frame_needed)
     dprintk("!dev->idle_frame_needed; shoudn't happen");
   src = &dev->buffers[dev->write_position % dev->used_buffers];
   dst = &dev->buffers[(dev->write_position + 1) % dev->used_buffers];
   if (!(dst->buffer.flags & V4L2_BUF_FLAG_QUEUED))
     dprintk("destination buffer not queued; will cross fingers and use it anyway");
-  memcpy((void *)(dev->image + dst->buffer.m.offset),
-         (void *)(dev->image + src->buffer.m.offset),
-         dev->buffer_size);
   do_gettimeofday(&dst->buffer.timestamp);
+  idle_ns = timeval_to_ns(&dst->buffer.timestamp) - timeval_to_ns(&dev->last_write_timestamp);
+  idle_time = ns_to_timeval(idle_ns);
+  dprintkrw("generate_idle_frame %ld %ld",
+            (long)idle_time.tv_sec,
+            (long)idle_time.tv_usec);
+
+  frame = (idle_ns > 3 * 1000000000LL) ?
+              dev->placeholder_frame :
+              (dev->image + src->buffer.m.offset);
+  memcpy(dev->image + dst->buffer.m.offset, frame, dev->buffer_size);
   set_done(dst);
   dev->idle_frame_needed = 0;
   dev->write_position++;
@@ -1744,6 +1765,7 @@ static int free_buffers(struct v4l2_loopback_device *dev)
   if(dev->image) {
     vfree(dev->image);
     dev->image=NULL;
+    dev->placeholder_frame = NULL;
   }
   dev->imagesize=0;
 
@@ -1761,7 +1783,7 @@ allocate_buffers    (struct v4l2_loopback_device *dev)
   if (dev->image) {
     dprintk("allocating buffers again: %ld %ld", dev->buffer_size * dev->buffers_number, dev->imagesize);
     /* FIXME: prevent double allocation more intelligently! */
-    if(dev->buffer_size * dev->buffers_number == dev->imagesize)
+    if(dev->buffer_size * (dev->buffers_number + PLACEHOLDER_FRAME) == dev->imagesize)
       return 0;
 
     /* if there is only one writer, no problem should occur */
@@ -1771,13 +1793,15 @@ allocate_buffers    (struct v4l2_loopback_device *dev)
       return -EINVAL;
   }
 
-  dev->imagesize=dev->buffer_size * dev->buffers_number;
+  dev->imagesize=dev->buffer_size * (dev->buffers_number + PLACEHOLDER_FRAME);
+  dprintkrw("vmallocating %ld*%d bytes\n", dev->buffer_size, (dev->buffers_number + PLACEHOLDER_FRAME));
   dev->image = vmalloc(dev->imagesize);
 
   if (dev->image == NULL)
     return -ENOMEM;
   dprintk("vmallocated %ld bytes\n",
           dev->imagesize);
+  memset(dev->image, 0, dev->imagesize);
   MARK();
   init_buffers(dev);
   return 0;
@@ -1812,6 +1836,7 @@ init_buffers        (struct v4l2_loopback_device *dev)
 
     do_gettimeofday(&b->timestamp);
   }
+  dev->placeholder_frame = dev->image + dev->buffers_number * buffer_size;
   dev->write_position = 0;
   MARK();
 }
