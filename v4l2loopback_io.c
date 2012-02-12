@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 #define DEV "/dev/"
 
@@ -29,12 +30,41 @@ die(const char *fmt, ...)
     exit(EXIT_FAILURE);
 }
 
+static void
+die_perror(const char *desc)
+{
+    perror(desc);
+    exit(EXIT_FAILURE);
+}
+
+static long
+read_long_attr(const char *filename_fmt, ...)
+{
+    va_list va;
+    char filename[FILENAME_MAX];
+    FILE *file;
+    long value;
+
+    va_start(va, filename_fmt);
+    vsprintf(filename, filename_fmt, va);
+    va_end(va);
+
+    if ((file = fopen(filename, "r")) == NULL)
+        die("can't open file: %s\n", filename);
+    if (fscanf(file, "%ld", &value) != 1)
+        die("can't read value from %s\n", filename);
+    fclose(file);
+    return value;
+}
+
 static int
 open_buffer()
 {
     const char *device_name;
+    int max_buffers;
     int open_mode;
-    int mmap_mode;
+    int mmap_prot;
+    int mmap_flags;
 
     if (memcmp(device, DEV, sizeof(DEV) - 1) != 0)
         goto cant_parse_device;
@@ -42,9 +72,27 @@ open_buffer()
     if (strchr(device_name, '/') != NULL)
         goto cant_parse_device;
 
-    open_mode = mode == 'r' ? O_RDONLY : O_WRONLY;
+    /* using O_WRONLY doesn't allow PROT_WRITE mmapping for me */
+    open_mode = mode == 'r' ? O_RDONLY : O_RDWR;
+
     if ((device_fd = open(device, open_mode)) < 0)
-        die("can't open device\n");
+        die_perror("open() failed");
+    max_buffers = (int)read_long_attr("/sys/devices/virtual/video4linux/%s/max_buffers", device_name);
+    buffer_size = (unsigned long)read_long_attr("/sys/devices/virtual/video4linux/%s/buffer_size", device_name);
+
+    if (buf == max_buffers)
+        fprintf(stderr, "mmapping placeholder frame...\n");
+    else if (buf < 0 || buf > max_buffers)
+        die("buffer index out of range\n");
+    else
+        fprintf(stderr, "mmapping frame %d...\n", buf);
+
+    mmap_prot = mode == 'r' ? PROT_READ : PROT_WRITE;
+    mmap_flags = MAP_SHARED;
+    buffer = mmap(NULL, buffer_size, mmap_prot, mmap_flags, device_fd, buf * buffer_size);
+    if (buffer == MAP_FAILED)
+        die_perror("mmap() failed");
+    fprintf(stderr, "mmapped %ld bytes\n", buffer_size);
     return 0;
 
 cant_parse_device:
@@ -63,12 +111,18 @@ cleanup()
 static int
 do_read()
 {
+    die("reading unimplemented\n");
     return 0;
 }
 
 static int
 do_write()
 {
+    ssize_t written = read(STDIN_FILENO, buffer, buffer_size);
+    if (written < 0)
+        die_perror("read() failed");
+
+    fprintf(stderr, "written %ld bytes\n", written);
     return 0;
 }
 
