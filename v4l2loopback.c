@@ -57,7 +57,7 @@ MODULE_LICENSE("GPL");
 
 
 /* module constants */
-#define DEFAULT_IDLE_FPS 25
+#define DEFAULT_IDLE_FPS 10
 #define PLACEHOLDER_FRAME 1
 
 /* module parameters */
