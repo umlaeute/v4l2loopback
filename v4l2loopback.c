@@ -1442,8 +1442,9 @@ vm_open             (struct vm_area_struct *vma)
   struct v4l2l_buffer *buf;
   MARK();
 
-  buf=vma->vm_private_data;
-  buf->use_count++;
+  buf = vma->vm_private_data;
+  if (buf != NULL)
+    buf->use_count++;
 }
 
 static void
@@ -1452,8 +1453,9 @@ vm_close            (struct vm_area_struct *vma)
   struct v4l2l_buffer *buf;
   MARK();
 
-  buf=vma->vm_private_data;
-  buf->use_count--;
+  buf = vma->vm_private_data;
+  if (buf != NULL)
+    buf->use_count--;
 }
 
 static struct vm_operations_struct vm_ops = {
@@ -1465,26 +1467,29 @@ static int
 v4l2_loopback_mmap  (struct file *file,
                      struct vm_area_struct *vma)
 {
-  int i;
-  unsigned long addr;
+  u8 *addr;
   unsigned long start;
   unsigned long size;
+  unsigned long offset;
+  unsigned long buf;
   struct v4l2_loopback_device *dev;
-  struct v4l2l_buffer *buffer = NULL;
+  struct v4l2l_buffer *buffer;
   MARK();
+
+  dev = v4l2loopback_getdevice(file);
 
   start = (unsigned long) vma->vm_start;
   size = (unsigned long) (vma->vm_end - vma->vm_start);
+  offset = vma->vm_pgoff << PAGE_SHIFT;
+  addr = dev->image + offset;
+  buf = offset / dev->buffer_size;
 
-  dev=v4l2loopback_getdevice(file);
-
-  if (size > dev->buffer_size) {
-    dprintk("userspace tries to mmap too much, fail\n");
+  if (offset != buf * dev->buffer_size) {
+    dprintk("userspace tries to mmap the middle of frame, fail\n");
     return -EINVAL;
   }
-  if ((vma->vm_pgoff << PAGE_SHIFT) >
-      dev->buffer_size * (dev->buffers_number - 1)) {
-    dprintk("userspace tries to mmap too far, fail\n");
+  if (size > dev->buffer_size) {
+    dprintk("userspace tries to mmap too much, fail\n");
     return -EINVAL;
   }
 
@@ -1495,23 +1500,28 @@ v4l2_loopback_mmap  (struct file *file,
     }
   }
 
-  for (i = 0; i < dev->buffers_number; ++i) {
-    buffer = &dev->buffers[i];
-    if ((buffer->buffer.m.offset >> PAGE_SHIFT) == vma->vm_pgoff)
-      break;
-  }
-
-  if(NULL == buffer) {
+  if (buf < dev->buffers_number) {
+    buffer = &dev->buffers[buf];
+    if (offset != buffer->buffer.m.offset) {
+      dprintk("assertion failed; something's wrong\n");
+      return -EFAULT;
+    }
+  } else if (buf == dev->buffers_number) {
+    /* placeholder frame */
+    buffer = NULL;
+    if (offset != dev->placeholder_frame - dev->image) {
+      dprintk("assertion failed; something's wrong\n");
+      return -EFAULT;
+    }
+  } else {
+    dprintk("userspace tries to mmap too far, fail\n");
     return -EINVAL;
-  }
-
-  addr = (unsigned long) dev->image + (vma->vm_pgoff << PAGE_SHIFT);
+  } 
 
   while (size > 0) {
     struct page *page;
 
-    page = (void *) vmalloc_to_page((void *) addr);
-
+    page = vmalloc_to_page(addr);
     if (vm_insert_page(vma, start, page) < 0)
       return -EAGAIN;
 
@@ -1522,8 +1532,8 @@ v4l2_loopback_mmap  (struct file *file,
 
   vma->vm_ops = &vm_ops;
   vma->vm_private_data = buffer;
-  dev->buffers[(vma->vm_pgoff<<PAGE_SHIFT)/dev->buffer_size].buffer.flags |=
-    V4L2_BUF_FLAG_MAPPED;
+  if (buffer != NULL)
+    buffer->buffer.flags |= V4L2_BUF_FLAG_MAPPED;
 
   vm_open(vma);
 
