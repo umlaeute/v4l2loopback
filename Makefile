@@ -8,13 +8,19 @@ obj-m		:= v4l2loopback.o
 
 MODULE_OPTIONS = devices=2
 
-all: v4l2loopback
+all: v4l2loopback v4l2loopback_io
+
 v4l2loopback: Makefile
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
+
+v4l2loopback_io: v4l2loopback_io.c Makefile
+	$(CC) -o $@ $<
+
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
 	depmod -ae
+
 clean:
 	rm -f *~
 	rm -f Module.symvers Module.markers modules.order
