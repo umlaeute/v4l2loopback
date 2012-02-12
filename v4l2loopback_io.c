@@ -118,9 +118,12 @@ do_read()
 static int
 do_write()
 {
-    ssize_t written = read(STDIN_FILENO, buffer, buffer_size);
+    if (freopen(NULL, "rb", stdin) == NULL)
+        die("can't reopen stdin for binary input\n");
+
+    ssize_t written = fread(buffer, 1, buffer_size, stdin);
     if (written < 0)
-        die_perror("read() failed");
+        die("fread() failed\n");
 
     fprintf(stderr, "written %ld bytes\n", written);
     return 0;
