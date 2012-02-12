@@ -423,6 +423,23 @@ static ssize_t attr_store_idlefps(struct device* cd,
 }
 static DEVICE_ATTR(idle_fps, S_IRUGO | S_IWUSR, attr_show_idlefps, attr_store_idlefps);
 
+static ssize_t attr_show_maxbuffers(struct device *cd,
+                                    struct device_attribute *attr,
+                                    char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  return sprintf(buf, "%d\n", dev->buffers_number);
+}
+static DEVICE_ATTR(max_buffers, S_IRUGO, attr_show_maxbuffers, NULL);
+
+static ssize_t attr_show_buffersize(struct device *cd,
+                                    struct device_attribute *attr,
+                                    char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  return sprintf(buf, "%ld\n", dev->buffer_size);
+}
+static DEVICE_ATTR(buffer_size, S_IRUGO, attr_show_buffersize, NULL);
 
 
 static void v4l2loopback_remove_sysfs(struct video_device *vdev)
@@ -434,6 +451,8 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
     V4L2_SYSFS_DESTROY(idle_fps);
+    V4L2_SYSFS_DESTROY(max_buffers);
+    V4L2_SYSFS_DESTROY(buffer_size);
     /* ... */
   }
 }
@@ -447,6 +466,8 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
     V4L2_SYSFS_CREATE(idle_fps);
+    V4L2_SYSFS_CREATE(max_buffers);
+    V4L2_SYSFS_CREATE(buffer_size);
     /* ... */
   } while(0);
 
