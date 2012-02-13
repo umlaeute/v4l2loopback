@@ -55,6 +55,7 @@ MODULE_LICENSE("GPL");
       printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
     } } while (0)
 
+#define MS_TO_NS(ms) (ms * 1000000LL)
 
 /* module constants */
 #define PLACEHOLDER_FRAME 1
@@ -416,7 +417,7 @@ static ssize_t attr_store_idlefps(struct device* cd,
   if (dev->idle_fps == curr)
     return len;
 
-  if (curr < 0 || curr > 1000) {
+  if (curr > 1000) {
     /* something insane */
     return -EINVAL;
   }
@@ -441,16 +442,13 @@ static ssize_t attr_store_placeholderdelay(struct device* cd,
   struct v4l2_loopback_device *dev = NULL;
   unsigned long curr=0;
 
-  if (strict_strtoul(buf, 0, &curr))
+  if (strict_strtol(buf, 0, &curr))
     return -EINVAL;
 
   dev = v4l2loopback_cd2dev(cd);
 
   if (dev->placeholder_delay == curr)
     return len;
-
-  if (curr < 0)
-    return -EINVAL;
 
   dev->placeholder_delay = (int)curr;
   return len;
@@ -1774,7 +1772,7 @@ generate_idle_frame(struct v4l2_loopback_device *dev)
             (long)idle_time.tv_sec,
             (long)idle_time.tv_usec);
 
-  frame = (idle_ns > dev->placeholder_delay * 1000000LL) ?
+  frame = (dev->placeholder_delay >= 0 && idle_ns > MS_TO_NS(dev->placeholder_delay)) ?
           dev->placeholder_frame :
           (dev->image + src->buffer.m.offset);
   memcpy(dev->image + dst->buffer.m.offset, frame, dev->buffer_size);
