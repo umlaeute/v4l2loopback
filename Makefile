@@ -8,9 +8,9 @@ obj-m		:= v4l2loopback.o
 
 MODULE_OPTIONS = devices=2
 
-all: v4l2loopback v4l2loopback_io
+all: v4l2loopback.ko v4l2loopback_io
 
-v4l2loopback: Makefile
+v4l2loopback.ko: Makefile
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
 
@@ -26,7 +26,7 @@ clean:
 	rm -f Module.symvers Module.markers modules.order
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
 
-modprobe: v4l2loopback
+modprobe: v4l2loopback.ko
 	chmod a+r v4l2loopback.ko
 	sudo modprobe videodev
 	-sudo rmmod $<
