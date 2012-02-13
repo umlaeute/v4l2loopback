@@ -10,7 +10,7 @@ MODULE_OPTIONS = devices=2
 
 all: v4l2loopback.ko v4l2loopback_io
 
-v4l2loopback.ko: Makefile
+v4l2loopback.ko: v4l2loopback.c Makefile
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
 
