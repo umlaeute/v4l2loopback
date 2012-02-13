@@ -80,6 +80,9 @@ open_buffer()
     max_buffers = (int)read_long_attr("/sys/devices/virtual/video4linux/%s/max_buffers", device_name);
     buffer_size = (unsigned long)read_long_attr("/sys/devices/virtual/video4linux/%s/buffer_size", device_name);
 
+    if (buf == -1)
+        buf = max_buffers;
+
     if (buf == max_buffers)
         fprintf(stderr, "mmapping placeholder frame...\n");
     else if (buf < 0 || buf > max_buffers)
@@ -137,8 +140,12 @@ main(int argc, char **argv)
 
     if (sscanf(argv[1], "-%c", &mode) != 1)
         goto usage;
-    if (sscanf(argv[2], "%i", &buf) != 1)
-        goto usage;
+    if (sscanf(argv[2], "%i", &buf) != 1) {
+        if (!strcmp(argv[2], "placeholder"))
+            buf = -1;
+        else
+            goto usage;
+    }
     if (argc >= 4)
         device = argv[3];
 
@@ -158,5 +165,5 @@ main(int argc, char **argv)
     return 0;
 
 usage:
-    die("usage: %s (-r|-w) buffer_number [device]\n");
+    die("usage: %s (-r|-w) (buffer_number|'placeholder') [device]\n");
 }
