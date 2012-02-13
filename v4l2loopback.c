@@ -57,7 +57,6 @@ MODULE_LICENSE("GPL");
 
 
 /* module constants */
-#define DEFAULT_IDLE_FPS 10
 #define PLACEHOLDER_FRAME 1
 
 /* module parameters */
@@ -83,9 +82,13 @@ static int max_openers = 10;
 module_param(max_openers, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
-static int idle_fps = 25;
+static int idle_fps = 10;
 module_param(idle_fps, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(idle_fps, "idle frames per second");
+
+static int placeholder_delay = 3000;
+module_param(placeholder_delay, int, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(placeholder_delay, "the delay before starting producing placeholder frames, in ms");
 
 
 #define MAX_DEVICES 8
@@ -144,6 +147,7 @@ struct v4l2_loopback_device {
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
   int idle_fps;
+  int placeholder_delay;
   u8 *placeholder_frame;
   int idle_frame_needed;
   struct timer_list idle_frame_timer;
@@ -423,6 +427,37 @@ static ssize_t attr_store_idlefps(struct device* cd,
 }
 static DEVICE_ATTR(idle_fps, S_IRUGO | S_IWUSR, attr_show_idlefps, attr_store_idlefps);
 
+static ssize_t attr_show_placeholderdelay(struct device *cd,
+                                          struct device_attribute *attr,
+                                          char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  return sprintf(buf, "%d\n", dev->placeholder_delay);
+}
+static ssize_t attr_store_placeholderdelay(struct device* cd,
+                                           struct device_attribute *attr,
+                                           const char* buf, size_t len)
+{
+  struct v4l2_loopback_device *dev = NULL;
+  unsigned long curr=0;
+
+  if (strict_strtoul(buf, 0, &curr))
+    return -EINVAL;
+
+  dev = v4l2loopback_cd2dev(cd);
+
+  if (dev->placeholder_delay == curr)
+    return len;
+
+  if (curr < 0)
+    return -EINVAL;
+
+  dev->placeholder_delay = (int)curr;
+  return len;
+}
+static DEVICE_ATTR(placeholder_delay, S_IRUGO | S_IWUSR,
+                   attr_show_placeholderdelay, attr_store_placeholderdelay);
+
 static ssize_t attr_show_maxbuffers(struct device *cd,
                                     struct device_attribute *attr,
                                     char *buf)
@@ -451,6 +486,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
     V4L2_SYSFS_DESTROY(idle_fps);
+    V4L2_SYSFS_DESTROY(placeholder_delay);
     V4L2_SYSFS_DESTROY(max_buffers);
     V4L2_SYSFS_DESTROY(buffer_size);
     /* ... */
@@ -466,6 +502,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
     V4L2_SYSFS_CREATE(idle_fps);
+    V4L2_SYSFS_CREATE(placeholder_delay);
     V4L2_SYSFS_CREATE(max_buffers);
     V4L2_SYSFS_CREATE(buffer_size);
     /* ... */
@@ -1737,9 +1774,9 @@ generate_idle_frame(struct v4l2_loopback_device *dev)
             (long)idle_time.tv_sec,
             (long)idle_time.tv_usec);
 
-  frame = (idle_ns > 3 * 1000000000LL) ?
-              dev->placeholder_frame :
-              (dev->image + src->buffer.m.offset);
+  frame = (idle_ns > dev->placeholder_delay * 1000000LL) ?
+          dev->placeholder_frame :
+          (dev->image + src->buffer.m.offset);
   memcpy(dev->image + dst->buffer.m.offset, frame, dev->buffer_size);
   set_done(dst);
   dev->idle_frame_needed = 0;
@@ -1934,7 +1971,8 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->buffer_size = 0;
   dev->image = NULL;
   dev->imagesize = 0;
-  dev->idle_fps = DEFAULT_IDLE_FPS;
+  dev->idle_fps = idle_fps;
+  dev->placeholder_delay = placeholder_delay;
   mutex_init(&dev->write_mutex);
   setup_timer(&dev->idle_frame_timer, idle_frame_callback, nr);
 
