@@ -2093,7 +2093,7 @@ init_module         (void)
   MARK();
 
   zero_devices();
-  if (devices == -1) {
+  if (devices < 0) {
     devices = 1;
 
     // try guessing the devices from the "video_nr" parameter
