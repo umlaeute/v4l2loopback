@@ -68,7 +68,8 @@ MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
 
 #define MAX_BUFFERS 32  /* max buffers that can be mapped, actually they
                          * are all mapped to max_buffers buffers */
-static int max_buffers = 8;
+#define DEFAULT_MAX_BUFFERS 8
+static int max_buffers = DEFAULT_MAX_BUFFERS;
 module_param(max_buffers, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
 
@@ -80,15 +81,18 @@ MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
  *   one opener for the producer and one opener for the consumer
  *   however, we leave that to the user
  */
-static int max_openers = 10;
+#define DEFAULT_MAX_OPENERS 10
+static int max_openers = DEFAULT_MAX_OPENERS;
 module_param(max_openers, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
-static int idle_fps = 10;
+#define DEFAULT_IDLE_FPS 10
+static int idle_fps = DEFAULT_IDLE_FPS;
 module_param(idle_fps, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(idle_fps, "idle frames per second");
 
-static int placeholder_delay = 3000;
+#define DEFAULT_PLACEHOLDER_DELAY 3000
+static int placeholder_delay = DEFAULT_PLACEHOLDER_DELAY;
 module_param(placeholder_delay, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(placeholder_delay, "the delay before starting producing placeholder frames, in ms");
 
@@ -2112,8 +2116,17 @@ init_module         (void)
   }
 
   if (max_openers < 0) {
-    printk(KERN_INFO "v4l2loopback: allowing %d openers rather than %d\n", 2, max_openers);
-    max_openers=2;
+    printk(KERN_INFO "v4l2loopback: allowing %d openers rather than %d\n", DEFAULT_MAX_OPENERS, max_openers);
+    max_openers=DEFAULT_MAX_OPENERS;
+  }
+
+  if (idle_fps < 0) {
+    printk(KERN_INFO "v4l2loopback: setting idle_fps to %d rather than %d\n", DEFAULT_IDLE_FPS, idle_fps);
+    idle_fps=DEFAULT_IDLE_FPS;
+  }
+  if (placeholder_delay < 0) {
+    printk(KERN_INFO "v4l2loopback: setting placeholder delay to %dms rather than %dms\n", DEFAULT_PLACEHOLDER_DELAY, placeholder_delay);
+    placeholder_delay=DEFAULT_PLACEHOLDER_DELAY;
   }
 
   /* kfree on module release */
