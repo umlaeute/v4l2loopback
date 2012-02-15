@@ -4,6 +4,7 @@
  * Copyright (C) 2005-2009 Vasily Levin (vasaka@gmail.com)
  * Copyright (C) 2010-2011 IOhannes m zmoelnig (zmoelnig@iem.at)
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
+ * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
