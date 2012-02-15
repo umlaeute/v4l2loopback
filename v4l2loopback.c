@@ -2096,7 +2096,7 @@ init_module         (void)
   if (devices == -1) {
     devices = 1;
 
-    // try guessingthe devices from the "video_nr" parameter
+    // try guessing the devices from the "video_nr" parameter
     for(i=MAX_DEVICES-1; i>=0; i--) {
       if(video_nr[i]>=0) {
         devices=i+1;
