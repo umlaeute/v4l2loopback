@@ -1873,7 +1873,7 @@ init_module         (void)
   if (devices == -1) {
     devices = 1;
 
-    // try guessingthe devices from the "video_nr" parameter
+    // try guessing the devices from the "video_nr" parameter
     for(i=MAX_DEVICES-1; i>=0; i--) {
       if(video_nr[i]>=0) {
         devices=i+1;
@@ -1923,7 +1923,7 @@ init_module         (void)
 
   dprintk("module installed\n");
 
-  printk(KERN_INFO "v4l2loopack driver version %d.%d.%d loaded\n",
+  printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
          (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
          (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
          (V4L2LOOPBACK_VERSION_CODE      ) & 0xff);
