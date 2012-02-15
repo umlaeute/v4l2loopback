@@ -400,6 +400,58 @@ static ssize_t attr_store_maxopeners(struct device* cd,
 }
 static DEVICE_ATTR(max_openers, S_IRUGO | S_IWUSR, attr_show_maxopeners, attr_store_maxopeners);
 
+static ssize_t attr_show_fps(struct device *cd,
+                                 struct device_attribute *attr,
+                                 char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  return sprintf(buf, "%d/%d\n", 
+                 dev->capture_param.timeperframe.denominator,
+                 dev->capture_param.timeperframe.numerator);
+}
+static ssize_t attr_store_fps(struct device* cd,
+                                  struct device_attribute *attr,
+                                  const char* buf, size_t len)
+{
+  struct v4l2_loopback_device *dev = NULL;
+  int num=1, denom=1;
+  int count=0;
+
+  /* nom&denom are swapped regarding fps, because they refer to timeperframe */
+  count=sscanf(buf, "%d/%d", &denom, &num);
+
+  if(num<1 || denom<0)
+      return -EINVAL;
+
+  if(1==count || 2==count) {
+    /* 100/4 -> 25fps
+     * 55    -> 55fps
+     */
+    double fps=((double)denom)/((double)num);
+    if(fps>1000.) {
+      /* something insane */
+      return -EINVAL;
+    }
+
+  } else {
+    return -EINVAL;
+  }
+  dev = v4l2loopback_cd2dev(cd);
+
+  printk(KERN_ERR "dev: %p\n",dev);
+
+  if(dev->capture_param.timeperframe.denominator==denom &&
+     dev->capture_param.timeperframe.numerator  ==num)
+    return len;
+
+  dev->capture_param.timeperframe.denominator=denom;
+  dev->capture_param.timeperframe.numerator=num;
+
+  return len;
+}
+static DEVICE_ATTR(fps, S_IRUGO | S_IWUSR, attr_show_fps, attr_store_fps);
+
+
 static ssize_t attr_show_idlefps(struct device *cd,
                                  struct device_attribute *attr,
                                  char *buf)
@@ -489,6 +541,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
     V4L2_SYSFS_DESTROY(idle_fps);
+    V4L2_SYSFS_DESTROY(fps);
     V4L2_SYSFS_DESTROY(placeholder_delay);
     V4L2_SYSFS_DESTROY(max_buffers);
     V4L2_SYSFS_DESTROY(buffer_size);
@@ -505,6 +558,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
     V4L2_SYSFS_CREATE(idle_fps);
+    V4L2_SYSFS_CREATE(fps);
     V4L2_SYSFS_CREATE(placeholder_delay);
     V4L2_SYSFS_CREATE(max_buffers);
     V4L2_SYSFS_CREATE(buffer_size);
