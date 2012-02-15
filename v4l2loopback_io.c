@@ -176,5 +176,5 @@ main(int argc, char **argv)
     return 0;
 
 usage:
-    die("usage: %s (-r|-w) (buffer_number|'placeholder') [device]\n");
+    die("usage: %s (-r|-w) (buffer_number|'placeholder') [device]\n", argv[0]);
 }
