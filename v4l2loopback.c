@@ -86,10 +86,10 @@ static int max_openers = DEFAULT_MAX_OPENERS;
 module_param(max_openers, int, S_IRUGO|S_IWUSR);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
-#define DEFAULT_IDLE_FPS 10
-static int idle_fps = DEFAULT_IDLE_FPS;
-module_param(idle_fps, int, S_IRUGO|S_IWUSR);
-MODULE_PARM_DESC(idle_fps, "idle frames per second");
+#define DEFAULT_FPS 30
+static uint fps = DEFAULT_FPS;
+module_param(fps, uint, S_IRUGO|S_IWUSR);
+MODULE_PARM_DESC(fps, "frames per second");
 
 #define DEFAULT_PLACEHOLDER_DELAY 3000
 static int placeholder_delay = DEFAULT_PLACEHOLDER_DELAY;
@@ -152,7 +152,6 @@ struct v4l2_loopback_device {
   struct timeval last_write_timestamp;
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
-  int idle_fps;
   int placeholder_delay;
   u8 *placeholder_frame;
   int idle_frame_needed;
@@ -467,40 +466,6 @@ static ssize_t attr_store_fps(struct device* cd,
 }
 static DEVICE_ATTR(fps, S_IRUGO | S_IWUSR, attr_show_fps, attr_store_fps);
 
-
-static ssize_t attr_show_idlefps(struct device *cd,
-                                 struct device_attribute *attr,
-                                 char *buf)
-{
-  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
-  return sprintf(buf, "%d\n", dev->idle_fps);
-}
-static ssize_t attr_store_idlefps(struct device* cd,
-                                  struct device_attribute *attr,
-                                  const char* buf, size_t len)
-{
-  struct v4l2_loopback_device *dev = NULL;
-  unsigned long curr=0;
-
-  if (strict_strtoul(buf, 0, &curr))
-    return -EINVAL;
-
-  dev = v4l2loopback_cd2dev(cd);
-
-  if (dev->idle_fps == curr)
-    return len;
-
-  if (curr > 1000) {
-    /* something insane */
-    return -EINVAL;
-  }
-
-  dev->idle_fps = (int)curr;
-
-  return len;
-}
-static DEVICE_ATTR(idle_fps, S_IRUGO | S_IWUSR, attr_show_idlefps, attr_store_idlefps);
-
 static ssize_t attr_show_placeholderdelay(struct device *cd,
                                           struct device_attribute *attr,
                                           char *buf)
@@ -556,7 +521,6 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
     V4L2_SYSFS_DESTROY(fourcc);
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
-    V4L2_SYSFS_DESTROY(idle_fps);
     V4L2_SYSFS_DESTROY(fps);
     V4L2_SYSFS_DESTROY(placeholder_delay);
     V4L2_SYSFS_DESTROY(max_buffers);
@@ -573,7 +537,6 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
     V4L2_SYSFS_CREATE(fourcc);
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
-    V4L2_SYSFS_CREATE(idle_fps);
     V4L2_SYSFS_CREATE(fps);
     V4L2_SYSFS_CREATE(placeholder_delay);
     V4L2_SYSFS_CREATE(max_buffers);
@@ -2014,8 +1977,13 @@ init_capture_param  (struct v4l2_captureparm *capture_param)
   capture_param->capturemode              = 0;
   capture_param->extendedmode             = 0;
   capture_param->readbuffers              = max_buffers;
-  capture_param->timeperframe.numerator   = 1;
-  capture_param->timeperframe.denominator = 30;
+  if(fps>0) {
+    capture_param->timeperframe.numerator   = 1;
+    capture_param->timeperframe.denominator = fps;
+  } else {
+    capture_param->timeperframe.numerator   = 1;
+    capture_param->timeperframe.denominator = 30;
+  }
 }
 
 /* init loopback main structure */
@@ -2045,7 +2013,6 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->buffer_size = 0;
   dev->image = NULL;
   dev->imagesize = 0;
-  dev->idle_fps = idle_fps;
   dev->placeholder_delay = placeholder_delay;
   mutex_init(&dev->write_mutex);
   setup_timer(&dev->idle_frame_timer, idle_frame_callback, nr);
@@ -2191,10 +2158,9 @@ init_module         (void)
     max_openers=DEFAULT_MAX_OPENERS;
   }
 
-  if (idle_fps < 0) {
-    printk(KERN_INFO "v4l2loopback: setting idle_fps to %d rather than %d\n", DEFAULT_IDLE_FPS, idle_fps);
-    idle_fps=DEFAULT_IDLE_FPS;
-  }
+  if (fps < 0) {
+    printk(KERN_INFO "v4l2loopback: setting fps to %d/1 rather than %d/1\n", DEFAULT_FPS, fps);
+    fps=DEFAULT_FPS;
   if (placeholder_delay < 0) {
     printk(KERN_INFO "v4l2loopback: setting placeholder delay to %dms rather than %dms\n", DEFAULT_PLACEHOLDER_DELAY, placeholder_delay);
     placeholder_delay=DEFAULT_PLACEHOLDER_DELAY;
