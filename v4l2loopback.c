@@ -320,6 +320,31 @@ format_by_fourcc    (int fourcc)
   return NULL;
 }
 
+static int str2fps(const char*buffer, size_t len, int*numerator, int*denominator) {
+  int res=0;
+  int num=1;
+  int denom=1;
+  res=sscanf(buffer, "%d/%d", &num, &denom);
+
+    /* 100/4 -> 25fps
+     * 55    -> 55fps
+     */
+  if(1!=res && 2!=res)
+    return 0;
+
+  /* invalid fps */
+  if(num<1 || denom<0)
+    return 0;
+
+  /* all is good, return values */
+  if(numerator)
+    *numerator=num;
+  if(denominator)
+    *denominator=denom;
+
+  return len;
+}
+
 static void
 pix_format_set_size     (struct v4l2_pix_format *       f,
                          const struct v4l2l_format *    fmt,
@@ -414,38 +439,29 @@ static ssize_t attr_store_fps(struct device* cd,
                                   const char* buf, size_t len)
 {
   struct v4l2_loopback_device *dev = NULL;
-  int num=1, denom=1;
+  int fps_denominator=1, fps_numerator=1;
   int count=0;
+  double fps=0.;
 
-  /* nom&denom are swapped regarding fps, because they refer to timeperframe */
-  count=sscanf(buf, "%d/%d", &denom, &num);
+  count=str2fps(buf, len, &fps_numerator, &fps_denominator);
 
-  if(num<1 || denom<0)
-      return -EINVAL;
+  if(!count)
+    return -EINVAL;
 
-  if(1==count || 2==count) {
-    /* 100/4 -> 25fps
-     * 55    -> 55fps
-     */
-    double fps=((double)denom)/((double)num);
-    if(fps>1000.) {
-      /* something insane */
-      return -EINVAL;
-    }
-
-  } else {
+  /* check the resulting fps */
+  fps=((double)fps_numerator)/((double)fps_denominator);
+  if(fps>1000. || fps<0.) {
+    /* something insane */
     return -EINVAL;
   }
   dev = v4l2loopback_cd2dev(cd);
 
-  printk(KERN_ERR "dev: %p\n",dev);
-
-  if(dev->capture_param.timeperframe.denominator==denom &&
-     dev->capture_param.timeperframe.numerator  ==num)
+  if(dev->capture_param.timeperframe.denominator==fps_numerator &&
+     dev->capture_param.timeperframe.numerator==fps_denominator)
     return len;
 
-  dev->capture_param.timeperframe.denominator=denom;
-  dev->capture_param.timeperframe.numerator=num;
+  dev->capture_param.timeperframe.denominator=fps_numerator;
+  dev->capture_param.timeperframe.numerator=fps_denominator;
 
   return len;
 }
