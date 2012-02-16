@@ -1868,9 +1868,10 @@ get_capture_buffer(struct v4l2_loopback_device *dev,
 
 static void schedule_idle_frame(struct v4l2_loopback_device *dev)
 {
-  if (dev->idle_fps > 0) {
-    long frame_jiffies = msecs_to_jiffies(1000) / dev->idle_fps;
-    mod_timer(&dev->idle_frame_timer, jiffies + frame_jiffies);
+  long frame_jiffies = msecs_to_jiffies(1000) * dev->capture_param.timeperframe.numerator / dev->capture_param.timeperframe.denominator;
+ 
+ if (frame_jiffies > 0) {
+     mod_timer(&dev->idle_frame_timer, jiffies + frame_jiffies);
   } else {
     del_timer(&dev->idle_frame_timer);
   }
