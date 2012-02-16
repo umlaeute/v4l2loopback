@@ -55,6 +55,7 @@ set_placeholder() {
 }
 
 command="$1"
+[ -z "${command}" ] && usage
 shift
 case "$command" in
     "set-placeholder")
