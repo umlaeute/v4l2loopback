@@ -69,8 +69,8 @@ MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
 #define MAX_BUFFERS 32  /* max buffers that can be mapped, actually they
                          * are all mapped to max_buffers buffers */
 #define DEFAULT_MAX_BUFFERS 8
-static int max_buffers = DEFAULT_MAX_BUFFERS;
-module_param(max_buffers, int, S_IRUGO);
+static uint max_buffers = DEFAULT_MAX_BUFFERS;
+module_param(max_buffers, uint, S_IRUGO);
 MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
 
 /* how many times a device can be opened
@@ -147,7 +147,7 @@ struct v4l2_loopback_device {
   int buffers_number;  /* should not be big, 4 is a good choice */
   struct v4l2l_buffer buffers[MAX_BUFFERS];	/* inner driver buffers */
   int used_buffers; /* number of the actually used buffers */
-  int max_openers;  /* how many times can this device be opened */
+  uint max_openers;  /* how many times can this device be opened */
 
   struct mutex write_mutex;
   struct timeval last_write_timestamp;
