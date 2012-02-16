@@ -1868,7 +1868,7 @@ static void idle_frame_callback(unsigned long nr)
   dprintkrw("idle frame: %d", dev->write_position);
   dev->idle_frame_needed = 1;
   wake_up_all(&dev->read_event);
-  schedule_idle_frame(devs[nr]);
+  schedule_idle_frame(dev);
 }
 
 /* init functions */
