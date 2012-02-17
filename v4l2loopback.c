@@ -1763,6 +1763,7 @@ v4l2_loopback_close  (struct file *file)
     free_buffers(dev);
     dev->ready_for_capture = 0;
     dev->buffer_size = 0;
+    del_timer(&dev->idle_frame_timer);
   }
   kfree(opener);
   MARK();
