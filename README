@@ -78,15 +78,14 @@ readable format. see
 when the writer process dies or doesn't feed enough frames, the module will
 continue producing video output on its own, in order to sustain FPS specified
 in 'idle_fps' sysfs attribute. It will be sending duplicates of last received
-frame; if 'placeholder_delay' msecs pass without any new input seen,
+frame; if 'timeout' msecs pass without any new input seen,
 contents of the placeholder buffer will be sent. By default it is zero-filled;
 you can override it with a custom picture using command like:
 # v4l2loopback set-placeholder service_unavailable.png [/dev/videoX]
 it relies on GStreamer for format conversion.
 
 this feature can be disabled by setting 'idle_fps' to 0.
-switching to placeholder can be disabled by setting 'placeholder_delay' attr
-to -1.
+switching to placeholder can be disabled by setting 'timeout' attr to -1.
 
 --- FIXED CAPS DEVICE CREATION ---
 # v4l2loopback create "video/x-raw-yuv,width=640,height=480;any;video/x-raw-yuv,width=320,height=200"
