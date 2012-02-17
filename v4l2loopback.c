@@ -135,6 +135,7 @@ struct v4l2_loopback_device {
   /* pixel and stream format */
   struct v4l2_pix_format pix_format;
   struct v4l2_captureparm capture_param;
+  int keep_format; /* if device should sustain negotiated format even when all openers close() the device */
 
   /* buffers stuff */
   u8 *image;         /* pointer to actual buffers data */
@@ -185,6 +186,21 @@ struct v4l2l_format {
   int  depth;           /* bit/pixel          */
   int  flags;
 };
+
+
+/* forward declarations */
+static int get_capture_buffer(struct v4l2_loopback_device *dev,
+                              struct v4l2_loopback_opener *opener,
+                              struct file *file);
+static void init_buffers(struct v4l2_loopback_device *dev);
+static int allocate_buffers(struct v4l2_loopback_device *dev);
+static int free_buffers(struct v4l2_loopback_device *dev);
+static int free_buffers_if_needed(struct v4l2_loopback_device *dev);
+static void schedule_idle_frame(struct v4l2_loopback_device *dev);
+static const struct v4l2_file_operations v4l2_loopback_fops;
+static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
+
+
 /* set the v4l2l_format.flags to PLANAR for non-packed formats */
 #define FORMAT_FLAGS_PLANAR       0x01
 
@@ -429,6 +445,34 @@ static ssize_t attr_store_idlefps(struct device* cd,
 }
 static DEVICE_ATTR(idle_fps, S_IRUGO | S_IWUSR, attr_show_idlefps, attr_store_idlefps);
 
+static ssize_t attr_show_keepformat(struct device *cd,
+                                   struct device_attribute *attr,
+                                   char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  return sprintf(buf, "%d\n", dev->keep_format);
+}
+static ssize_t attr_store_keepformat(struct device* cd,
+                                    struct device_attribute *attr,
+                                    const char* buf, size_t len)
+{
+  struct v4l2_loopback_device *dev = NULL;
+  unsigned long curr=0;
+
+  if (strict_strtol(buf, 0, &curr))
+    return -EINVAL;
+
+  dev = v4l2loopback_cd2dev(cd);
+
+  if (dev->keep_format == curr)
+    return len;
+
+  dev->keep_format = (int)curr;
+  free_buffers_if_needed(dev);
+  return len;
+}
+static DEVICE_ATTR(keep_format, S_IRUGO | S_IWUSR, attr_show_keepformat, attr_store_keepformat);
+
 static ssize_t attr_show_placeholderdelay(struct device *cd,
                                           struct device_attribute *attr,
                                           char *buf)
@@ -482,6 +526,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 
   if (vdev) {
     V4L2_SYSFS_DESTROY(fourcc);
+    V4L2_SYSFS_DESTROY(keep_format);
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
     V4L2_SYSFS_DESTROY(idle_fps);
@@ -498,6 +543,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
   if (!vdev) return;
   do {
     V4L2_SYSFS_CREATE(fourcc);
+    V4L2_SYSFS_CREATE(keep_format);
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
     V4L2_SYSFS_CREATE(idle_fps);
@@ -538,17 +584,6 @@ v4l2loopback_getdevice        (struct file*f)
   if(nr<0 || nr>=devices){printk(KERN_ERR "v4l2-loopback: illegal device %d\n",nr);return NULL;}
   return devs[nr];
 }
-
-/* forward declarations */
-static int get_capture_buffer(struct v4l2_loopback_device *dev,
-                              struct v4l2_loopback_opener *opener,
-                              struct file *file);
-static void init_buffers(struct v4l2_loopback_device *dev);
-static int allocate_buffers(struct v4l2_loopback_device *dev);
-static int free_buffers(struct v4l2_loopback_device *dev);
-static void schedule_idle_frame(struct v4l2_loopback_device *dev);
-static const struct v4l2_file_operations v4l2_loopback_fops;
-static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 
 /* Queue helpers */
 /* next functions sets buffer flags and adjusts counters accordingly */
@@ -1661,13 +1696,7 @@ v4l2_loopback_close  (struct file *file)
   dev    = v4l2loopback_getdevice(file);
 
   atomic_dec(&dev->open_count);
-  /* TODO(vasaka) does the closed file means that mapped buffers are
-   * no more valid and one can free data? */
-  if (0 == dev->open_count.counter) {
-    free_buffers(dev);
-    dev->ready_for_capture = 0;
-    dev->buffer_size = 0;
-  }
+  free_buffers_if_needed(dev);
   kfree(opener);
   MARK();
   return 0;
@@ -1843,6 +1872,17 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 
   return 0;
 }
+
+static int free_buffers_if_needed(struct v4l2_loopback_device *dev)
+{
+  if (0 == dev->open_count.counter && !dev->keep_format) {
+    dev->ready_for_capture = 0;
+    dev->buffer_size = 0;
+    return free_buffers(dev);
+  }
+  return 0;
+}
+
 /* allocates buffers, if buffer_size is set */
 static int
 allocate_buffers    (struct v4l2_loopback_device *dev)
