@@ -370,7 +370,7 @@ static struct v4l2_loopback_device*v4l2loopback_cd2dev  (struct device*cd);
 /* available via sysfs: /sys/devices/virtual/video4linux/video* */
 
 static ssize_t attr_show_fourcc(struct device *cd,
-                         struct device_attribute *attr, 
+                         struct device_attribute *attr,
                          char *buf)
 {
   struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
@@ -431,7 +431,7 @@ static ssize_t attr_show_fps(struct device *cd,
                                  char *buf)
 {
   struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
-  return sprintf(buf, "%d/%d\n", 
+  return sprintf(buf, "%d/%d\n",
                  dev->capture_param.timeperframe.denominator,
                  dev->capture_param.timeperframe.numerator);
 }
@@ -1669,7 +1669,7 @@ v4l2_loopback_mmap  (struct file *file,
   } else {
     dprintk("userspace tries to mmap too far, fail\n");
     return -EINVAL;
-  } 
+  }
 
   while (size > 0) {
     struct page *page;
