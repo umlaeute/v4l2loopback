@@ -28,13 +28,13 @@ create() {
     count=`echo "$specs" | wc -l`
     numbers=`seq $(($last+1)) $(($last+$count))`
     sudo modprobe $MOD video_nr=`echo $numbers | tr ' ' ','`
-    i=$(($last+1))
+    i=$(($last))
     for spec in $specs; do
-        echo "Init /dev/video$i"
-        echo 1 | sudo tee /sys/devices/virtual/video4linux/video$i/keep_format > /dev/null
-        echo "$GSTL videotestsrc num-buffers=1 ! "$spec" ! v4l2sink device=/dev/video$i"
-        $GSTL videotestsrc num-buffers=1 ! "$spec" ! v4l2sink device=/dev/video$i
         i=$(($i+1))
+        [ "$spec" = "any" ] && continue
+        echo "Fix format for /dev/video$i"
+        echo 1 | sudo tee /sys/devices/virtual/video4linux/video$i/keep_format > /dev/null
+        $GSTL videotestsrc num-buffers=1 ! "$spec" ! v4l2sink device=/dev/video$i
     done
 }
 
