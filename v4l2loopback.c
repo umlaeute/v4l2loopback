@@ -157,6 +157,7 @@ struct v4l2_loopback_device {
   u8 *placeholder_frame;
   int idle_frame_needed;
   struct timer_list idle_frame_timer;
+  struct v4l2_fract idle_timeperframe;
 
   /* sync stuff */
   atomic_t open_count;
@@ -467,6 +468,58 @@ static ssize_t attr_store_fps(struct device* cd,
 }
 static DEVICE_ATTR(fps, S_IRUGO | S_IWUSR, attr_show_fps, attr_store_fps);
 
+static ssize_t attr_show_idlefps(struct device *cd,
+                                 struct device_attribute *attr,
+                                 char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  if(!dev->idle_timeperframe.denominator)return 0;
+
+  return sprintf(buf, "%d/%d\n",
+                 dev->idle_timeperframe.denominator,
+                 dev->idle_timeperframe.numerator);
+}
+static ssize_t attr_store_idlefps(struct device* cd,
+                                  struct device_attribute *attr,
+                                  const char* buf, size_t len)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+
+  int idlefps_denominator=1, idlefps_numerator=1;
+  int count=0;
+  double idlefps=0.;
+
+  /* reset to defaults */
+  dev->idle_timeperframe.denominator=0;
+  dev->idle_timeperframe.numerator=0;
+
+  count=str2fps(buf, len, &idlefps_numerator, &idlefps_denominator);
+
+  if(!count)
+    return len;
+
+  /* check the resulting idlefps */
+  idlefps=((double)idlefps_numerator)/((double)idlefps_denominator);
+  if(idlefps>1000. || idlefps<0.) {
+    /* something insane */
+    return len;
+  }
+
+  /* user passed a valid fps; use it rather than the default */
+
+  if(dev->idle_timeperframe.denominator==idlefps_numerator &&
+     dev->idle_timeperframe.numerator==idlefps_denominator)
+    return len;
+
+  dev->idle_timeperframe.denominator=idlefps_numerator;
+  dev->idle_timeperframe.numerator=idlefps_denominator;
+
+  return len;
+}
+static DEVICE_ATTR(idle_fps, S_IRUGO | S_IWUSR, attr_show_idlefps, attr_store_idlefps);
+
+
+
 static ssize_t attr_show_timeout(struct device *cd,
                                           struct device_attribute *attr,
                                           char *buf)
@@ -527,6 +580,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
     V4L2_SYSFS_DESTROY(max_openers);
     V4L2_SYSFS_DESTROY(fps);
     V4L2_SYSFS_DESTROY(timeout);
+    V4L2_SYSFS_DESTROY(idle_fps);
     V4L2_SYSFS_DESTROY(max_buffers);
     V4L2_SYSFS_DESTROY(buffer_size);
     /* ... */
@@ -543,6 +597,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
     V4L2_SYSFS_CREATE(max_openers);
     V4L2_SYSFS_CREATE(fps);
     V4L2_SYSFS_CREATE(timeout);
+    V4L2_SYSFS_CREATE(idle_fps);
     V4L2_SYSFS_CREATE(max_buffers);
     V4L2_SYSFS_CREATE(buffer_size);
     /* ... */
@@ -1851,10 +1906,24 @@ get_capture_buffer(struct v4l2_loopback_device *dev,
 
 static void schedule_idle_frame(struct v4l2_loopback_device *dev)
 {
-  long frame_jiffies = msecs_to_jiffies(1000) * dev->capture_param.timeperframe.numerator / dev->capture_param.timeperframe.denominator;
- 
- if (frame_jiffies > 0) {
-     mod_timer(&dev->idle_frame_timer, jiffies + frame_jiffies);
+  long frame_jiffies = 0;
+
+  /* if the user has set a valid idle_fps (denominator!=0),
+   * we use that for scheduling the next idle frame;
+   * if they haven't done so, we use fps/2 by default
+   */
+  __u32 num=2*dev->capture_param.timeperframe.numerator;
+  __u32 denom=dev->capture_param.timeperframe.denominator;
+
+  if(dev->idle_timeperframe.denominator) {
+    num=dev->idle_timeperframe.numerator;
+    denom=dev->idle_timeperframe.denominator;
+  }
+
+  frame_jiffies = msecs_to_jiffies(1000) * ((double)num)/((double)denom);
+
+  if (frame_jiffies > 0) {
+    mod_timer(&dev->idle_frame_timer, jiffies + frame_jiffies);
   } else {
     del_timer(&dev->idle_frame_timer);
   }
@@ -2020,6 +2089,9 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->timeout = timeout;
   mutex_init(&dev->write_mutex);
   setup_timer(&dev->idle_frame_timer, idle_frame_callback, nr);
+
+  dev->idle_timeperframe.numerator=0;
+  dev->idle_timeperframe.denominator=0;
 
   /* FIXME set buffers to 0 */
 
