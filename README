@@ -124,7 +124,8 @@ the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
 
 --- LICENSE/COPYING ---
-Copyright (c) 2010-2011 IOhannes m zmoelnig <zmoelnig@iem.at>
+Copyright (c) 2012 Anton Novikov <an146@ya.ru>
+Copyright (c) 2010-2012 IOhannes m zmoelnig <zmoelnig@iem.at>
 Copyright (c) 2011 Stefan Diewald (stefan.diewald@mytum.de)
 Copyright (c) 2010 Scott Maines <smaines@alaya.com>
 Copyright (c) 2009 Gorinich Zmey
