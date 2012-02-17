@@ -1,0 +1,90 @@
+#!/bin/sh
+
+usage() {
+    echo "v4l2loopback control script"
+    echo "---------------------------"
+    echo
+    echo "Usage: $0 create 'gst-spec-1;gst-spec-2;...;gst=spec-n'"
+    echo "Usage: $0 set-placeholder image [device]"
+    exit 1
+}
+
+die() {
+    echo $1
+    exit 1
+}
+
+MOD=v4l2loopback
+GSTL=`which gst-launch-0.10`
+[ -x "$GSTL" ] || die "gst-launch executable not found"
+
+
+create() {
+    sudo rmmod $MOD
+    lsmod | grep -q $MOD && die "can't remove module"
+    last=`ls /dev/video* | tail -n 1 | sed 's!/dev/video\(.*\)!\1!'`
+    [ -z "$last" ] && last=0
+    specs=`echo "$1" | sed 's/;/\n/g'`
+    count=`echo "$specs" | wc -l`
+    numbers=`seq $(($last+1)) $(($last+$count))`
+    sudo modprobe $MOD video_nr=`echo $numbers | tr ' ' ','`
+    i=$(($last))
+    for spec in $specs; do
+        i=$(($i+1))
+        [ "$spec" = "any" ] && continue
+        echo "Fix format for /dev/video$i"
+        echo 1 | sudo tee /sys/devices/virtual/video4linux/video$i/keep_format > /dev/null
+        $GSTL videotestsrc num-buffers=1 ! "$spec" ! v4l2sink device=/dev/video$i
+    done
+}
+
+set_placeholder() {
+    LOOPBACK_IO="`dirname $(which $0)`/v4l2loopback_io"
+    [ -x "$LOOPBACK_IO" ] || die "v4l2loopback_io executable not found"
+
+    image="$1"
+    device="$2"
+    [ -r "$image" ] || usage
+    [ -n "$device" ] || device="/dev/video0"
+    absimage=`readlink -f "$image"`
+
+    echo "Setting placeholder image of $device to $image"
+    caps=`$GSTL -v v4l2src num-buffers=1 ! fakesink | grep 'src: caps = video/'`
+    [ "$?" = "0" ] || die "can't get device caps; does it have writer/readers running?"
+
+    mime=`echo $caps | sed 's!.*caps = \([A-Za-z0-9/-]*\).*!\1!'`
+    [ -n "$mime" ] || die "can't get mime type"
+    fourcc=`echo $caps | sed 's!.*format=(fourcc)\([A-Za-z0-9]*\).*!\1!'`
+    [ -n "$fourcc" ] || die "can't get fourcc"
+    width=`echo $caps | sed 's!.*width=(int)\([0-9]*\).*!\1!'`
+    [ -n "$width" ] || die "can't get width"
+    height=`echo $caps | sed 's!.*height=(int)\([0-9]*\).*!\1!'`
+    [ -n "$height" ] || die "can't get height"
+    echo "Device caps:"
+    echo "mime:   $mime"
+    echo "fourcc: $fourcc"
+    echo "width:  $width"
+    echo "height: $height"
+    caps="$mime, format=(fourcc)$fourcc, width=(int)$width, height=(int)$height"
+    frame_file=`mktemp`
+
+    $GSTL uridecodebin uri="file://$absimage" ! ffmpegcolorspace ! videoscale ! "$caps" ! filesink location="$frame_file"
+    [ "$?" = "0" ] || die "image conversion failed"
+
+    cat "$frame_file" | $LOOPBACK_IO -w placeholder "$device"
+    [ "$?" = "0" ] || die "v4l2loopback_io failed"
+    echo "Placeholder set!"
+}
+
+command="$1"
+shift
+case "$command" in
+    "create")
+        create $@
+        ;;
+    "set-placeholder")
+        set_placeholder $@
+        ;;
+    *)
+        usage
+esac

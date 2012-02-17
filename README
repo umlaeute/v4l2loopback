@@ -74,6 +74,28 @@ you can set and/or query some per-device attributes via sysfs, in a human
 readable format. see
  /sys/devices/virtual/video4linux/video*/
 
+--- IDLE FRAME GENERATION ---
+when the writer process dies or doesn't feed enough frames, the module will
+continue producing video output on its own, in order to sustain FPS specified
+in 'idle_fps' sysfs attribute. It will be sending duplicates of last received
+frame; if 'placeholder_delay' msecs pass without any new input seen,
+contents of the placeholder buffer will be sent. By default it is zero-filled;
+you can override it with a custom picture using command like:
+# v4l2loopback set-placeholder service_unavailable.png [/dev/videoX]
+it relies on GStreamer for format conversion.
+
+this feature can be disabled by setting 'idle_fps' to 0.
+switching to placeholder can be disabled by setting 'placeholder_delay' attr
+to -1.
+
+--- FIXED CAPS DEVICE CREATION ---
+# v4l2loopback create "video/x-raw-yuv,width=640,height=480;any;video/x-raw-yuv,width=320,height=200"
+this command will remove (if needed) the module, modprobe it back (creating 3 devices),
+set 'keep_format' sysfs setting to 1 for first and third ones, and output a frame in corresponding format to
+them. So, without a process writing there, readers can open these devices and get placeholder frames.
+The second device (with 'any' spec) will receive no special handling and will always return to uninitialized state
+when there are no processes using it.
+
 --- KERNELs ---
 the original module has been developed for linux-2.6.28;
 i don't have a system with such an old kernel anymore, so i don't know whether
