@@ -341,7 +341,7 @@ static int str2fps(const char*buffer, size_t len, int*numerator, int*denominator
   int res=0;
   int num=1;
   int denom=1;
-  res=sscanf(buffer, "%d/%d", &num, &denom);
+  res=sscanf(buffer, "%10d/%10d", &num, &denom);
 
     /* 100/4 -> 25fps
      * 55    -> 55fps
