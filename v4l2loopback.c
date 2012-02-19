@@ -2313,7 +2313,7 @@ init_module         (void)
 
   dprintk("module installed\n");
 
-  printk(KERN_INFO "v4l2loopack driver version %d.%d.%d loaded\n",
+  printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
          (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
          (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
          (V4L2LOOPBACK_VERSION_CODE      ) & 0xff);
