@@ -5,26 +5,17 @@ PWD		:= $(shell pwd)
 
 obj-m		:= v4l2loopback.o
 
-
-PREFIX = "/usr/bin"
 MODULE_OPTIONS = devices=2
 
-all: v4l2loopback.ko v4l2loopback_io
-
-v4l2loopback:
-	@touch $@
+all: v4l2loopback.ko
 
 v4l2loopback.ko: v4l2loopback.c Makefile
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
 
-v4l2loopback_io: v4l2loopback_io.c Makefile
-	$(CC) -o $@ $<
-
-install: v4l2loopback v4l2loopback_io
+install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
 	depmod -ae
-	cp $^ $(PREFIX)
 
 clean:
 	rm -f *~
