@@ -1949,7 +1949,7 @@ static void schedule_idle_frame(struct v4l2_loopback_device *dev)
     denom=dev->idle_timeperframe.denominator;
   }
 
-  frame_jiffies = msecs_to_jiffies(1000) * ((double)num)/((double)denom);
+  frame_jiffies = (msecs_to_jiffies(1000) * num) / denom;
 
   if (frame_jiffies > 0) {
     mod_timer(&dev->idle_frame_timer, jiffies + frame_jiffies);
