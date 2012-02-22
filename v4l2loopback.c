@@ -458,7 +458,7 @@ static ssize_t attr_store_fps(struct device* cd,
   struct v4l2_loopback_device *dev = NULL;
   int fps_denominator=1, fps_numerator=1;
   int count=0;
-  double fps=0.;
+  long fps=0;
 
   count=str2fps(buf, len, &fps_numerator, &fps_denominator);
 
@@ -466,8 +466,8 @@ static ssize_t attr_store_fps(struct device* cd,
     return -EINVAL;
 
   /* check the resulting fps */
-  fps=((double)fps_numerator)/((double)fps_denominator);
-  if(fps>1000. || fps<0.) {
+  fps=fps_numerator/fps_denominator;
+  if(fps>1000 || fps<0) {
     /* something insane */
     return -EINVAL;
   }
@@ -503,7 +503,7 @@ static ssize_t attr_store_idlefps(struct device* cd,
 
   int idlefps_denominator=1, idlefps_numerator=1;
   int count=0;
-  double idlefps=0.;
+  long idlefps=0;
 
   /* reset to defaults */
   dev->idle_timeperframe.denominator=0;
@@ -515,8 +515,8 @@ static ssize_t attr_store_idlefps(struct device* cd,
     return len;
 
   /* check the resulting idlefps */
-  idlefps=((double)idlefps_numerator)/((double)idlefps_denominator);
-  if(idlefps>1000. || idlefps<0.) {
+  idlefps=idlefps_numerator/idlefps_denominator;
+  if(idlefps>1000 || idlefps<0) {
     /* something insane */
     return len;
   }
