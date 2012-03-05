@@ -25,3 +25,6 @@ modprobe: v4l2loopback
 	sudo modprobe videodev
 	-sudo rmmod $<
 	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
+
+test:
+	./v4l2-loopback-test
