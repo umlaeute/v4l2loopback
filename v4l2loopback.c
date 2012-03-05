@@ -327,7 +327,7 @@ static ssize_t attr_show_fourcc(struct device *cd,
   struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 
   char buf4cc[5];
-  if(!dev)return 0;
+  if(!dev || !dev->ready_for_capture)return 0;
 
   fourcc2str(dev->pix_format.pixelformat, buf4cc);
 
