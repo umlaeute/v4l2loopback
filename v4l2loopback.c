@@ -16,6 +16,7 @@
 #include <linux/mm.h>
 #include <linux/time.h>
 #include <linux/module.h>
+#include <linux/hardirq.h>
 #include <linux/videodev2.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
@@ -50,8 +51,13 @@ MODULE_LICENSE("GPL");
     } } while (0)
 
 #define dprintkrw(fmt, args...)                                         \
-  do { if (debug > 2) {                                                 \
-      printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
+  do { if (debug > 3) {                                                 \
+         /* Note that we use thread group ID, as current->pid
+          * would refer to thread ID, which is less useful */           \
+         int pid = in_interrupt() ? -1 : current->tgid;                 \
+         printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: (pid=%i) " fmt, pid, ##args); \
+       } else if (debug == 3) {                                         \
+         printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
     } } while (0)
 
 
@@ -60,7 +66,7 @@ MODULE_LICENSE("GPL");
 /* module parameters */
 static int debug = 0;
 module_param(debug, int, S_IRUGO|S_IWUSR );
-MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
+MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0-4");
 
 #define MAX_BUFFERS 32  /* max buffers that can be mapped, actually they
                          * are all mapped to max_buffers buffers */
