@@ -1,0 +1,330 @@
+#!/bin/bash
+
+set -m
+export LESS='--chop-long-lines'
+
+usage() {
+    echo "v4l2loopback test script"
+    echo "---------------------------"
+    echo
+    echo "Usage: $0 [-d device]"
+    exit 1
+}
+
+
+# --- Options
+verbose=false
+wait_children=false
+device=/dev/video1
+module_opts="devices=2 debug=4"
+logsdir=testlogs
+while getopts d:vwh opt; do
+    case $opt in
+        d) device=${OPTARG}            ;;
+        v) verbose=true                ;;
+        w) wait_children=true          ;;
+        h) usage                       ;;
+    esac
+done
+device_name=${device##*/}
+sysfs=/sys/devices/virtual/video4linux/$device_name
+gstl="GST_DEBUG=v4l2:5,v4l2src:5,v4l2sink:5 gst-launch-0.10 -v --gst-debug-no-color"
+
+ARGS="$@"
+shift $(($OPTIND - 1))
+make modprobe MODULE_OPTIONS="\"$module_opts\"" || die "make failed"
+
+
+# --- Utils
+# Colorful output
+txtund=$(tput sgr 0 1)          # Underline
+txtbld=$(tput bold)             # Bold
+bldgra=${txtbld}$(tput setaf 0) #  gray
+bldred=${txtbld}$(tput setaf 1) #  red
+bldblu=${txtbld}$(tput setaf 4) #  blue
+bldwht=${txtbld}$(tput setaf 7) #  white
+wht=$(tput setaf 7)             # Non-bold white
+txtrst=$(tput sgr0)             # Reset
+info=${bldwht}***${txtrst}        # Feedback
+pass=${bldblu}***${txtrst}
+warn=${bldred}***${txtrst}
+ques=${bldblu}???${txtrst}
+info()  { echo -e "${bldwht}*** $@${txtrst}" >&2; }
+warn()  { echo -e "${bldred}*** $@${txtrst}" >&2; }
+ques() {
+    echo -en "${bldblu}??? $@${txtrst} " >&2
+    read line
+    [ -n "$line" ] && echo $line
+}
+debug() { echo "*** $@" >&2; }
+
+die() {
+    warn "$@"
+    kill_children
+    exit 1
+}
+run-bg() {
+    info "(BG) $* &"
+    eval "$* &"
+    remember_child $!
+}
+
+remember_child() {
+    children="$children $1"
+}
+children_alive() {
+    ps $children >/dev/null
+}
+kill_children() {
+    [ -n "$children" ] || return
+    info "Killing bg tasks: $children"
+    kill $children
+    for i in `seq 1 30`; do
+        children_alive || break
+        sleep 0.1
+    done
+    children_alive && kill -9 $children
+    children=
+}
+# waits for any of the children to die and kills them all
+wait_for_finish() {
+    if $wait_children; then
+        wait
+    else
+        local save_traps=$(trap)
+        trap kill_children CHLD
+        wait
+        eval "$save_traps"
+    fi
+}
+
+is_device_ready() {
+    fourcc="`cat $sysfs/fourcc`"
+    [ -n "$fourcc" ] && echo fourcc: $fourcc
+}
+wait_for_device() {
+    timeout=5
+    for i in `seq 1 $[$timeout * 2]`; do
+        is_device_ready && return
+        sleep 0.5
+    done
+    is_device_ready || die "Device is not ready in ${timeout}sec, some problem on writer side?"
+}
+
+# gets series of timestamps on stdin
+analyze_tpf() {
+    awk '{ if (prev != "") { print $1-prev }
+           prev = $1 }' \
+    | awk 'BEGIN {
+               sum = sumsq = 0
+           } {
+               if (min == "") { min = max = $1 }
+               if ($1 < min) { min = $1 }
+               if ($1 > max) { max = $1 }
+               sum += $1
+               sumsq += $1*$1
+           } END {
+               OFS=""
+               if (NR) {
+                   avg = sum/NR
+                   deviation = sqrt(sumsq/NR - avg**2)
+                   rsd = deviation/avg
+                   print "count=", NR, "  [min=", min, "; max=", max, "]  avg=", avg, "  deviation=", rsd*100, "%"
+               } else {
+                   print "no data"
+               }
+           }'
+}
+dmesg_timestamps() {
+    sed 's/^\[ *\([0-9.]*\).*/\1/'
+}
+get_driver_buffer_lengths() {
+    grep 'buffer type.*size=' $dmesg | sed -r 's/.*size=([0-9]*).*?/\1/'
+}
+get_buffer_lengths() {
+    grep 'gst_v4l2_buffer_new.*length:' {$sink,$src1,$src2}.stderr | sed -r 's/.*length:\s*([0-9]*)$/\1/'
+    get_driver_buffer_lengths
+}
+
+
+# --- Test runners
+run_test() {
+    local save_traps=$(trap)
+    cleanup() {
+        info "Cleaning up..."
+        dmesg >$dmesg
+        kill_children
+        eval "$save_traps"
+    }
+    shutdown() {
+        cleanup
+        exit 1
+    }
+    trap shutdown HUP INT TERM
+    [ "`cat /sys/module/v4l2loopback/parameters/debug`" = "4" ] || warn "debug level is not 4, this can break stats"
+    sudo dmesg -c >/dev/null || warn "couldn't clear dmesg buffer"
+    mkdir -p $logsdir
+    logdir=$(mktemp --tmpdir=$logsdir -d `date +%Y-%m-%d-%H-%M-%S-XXXXXX`)
+    [ -d "$logdir" ] || die "couldn't create log directory"
+    debug "Created log dir: $logdir/"
+    #filename helpers
+    sink=$logdir/sink
+    src1=$logdir/src1
+    src2=$logdir/src2
+    dmesg=$logdir/dmesg
+    if echo $1 | egrep -q '[a-z]{1,8}://'; then
+        uri_test "$1"
+    else
+        test_$1 "$@"
+    fi
+    cleanup
+
+    grep -qi "call trace" $dmesg && {
+        warn "Call traces in dmesg!"
+        dmesg | grep -B 3 -A 7 -i "call trace"
+    }
+    info "frame intervals:"
+    echo -n "(output QBUF)   "
+    dmesg | grep 'output QBUF' | dmesg_timestamps | analyze_tpf
+    [ -n "$src1pid" ] && {
+        echo -n "(capture DQBUF for src1, pid=$src1pid) "
+        dmesg | grep 'capture DQBUF' | grep "pid=$src1pid" | dmesg_timestamps | analyze_tpf
+    }
+    [ -n "$src2pid" ] && {
+        echo -n "(capture DQBUF for src2, pid=$src2pid) "
+        dmesg | grep 'capture DQBUF' | grep "pid=$src2pid" | dmesg_timestamps | analyze_tpf
+    }
+    if [ `get_driver_buffer_lengths | sort | uniq | wc -l` != 1 ]; then
+        warn "Different buffer lengths in dmesg??"
+    fi
+    if [ `get_buffer_lengths | sort | uniq | wc -l` != 1 ]; then
+        warn "GStreamer instances don't agree on buffer size, should be `get_driver_buffer_lengths | head -n 1`:"
+        egrep --no-filename 'gst_v4l2_buffer_new.*(creating|index|offset|length)' {$sink,$src1,$src2}.stderr | sed -r 's/.*(v4l2\s)/\1/'
+    fi
+    info "You can check out the logs at $logdir/ or read some right now:"
+    echo "(b) buffers info"
+    echo "(d) dmesg"
+    echo "(r) restart the tests"
+    echo "(s) sync info"
+    local line=
+    while line=`ques "What now (hit ENTER to exit)?"`; do
+        case "$line" in
+            "")
+                ;;
+            "b")
+                egrep --no-filename 'gst_v4l2_buffer_(pool_)?new' {$sink,$src1,$src2}.stderr | less
+                ;;
+            "d")
+                less $dmesg
+                ;;
+            "r")
+                exec $0 "$ARGS"
+                ;;
+            "s")
+                {
+                    info "src1 sync:" 2>&1
+                    cat $src1.stderr | grep sync | head -n 10
+                    info "src2 sync:" 2>&1
+                    cat $src2.stderr | grep sync | head -n 10
+                } | less -R
+                ;;
+            *)
+                debug "unknown option: $line"
+                ;;
+        esac
+    done
+}
+
+# Element helpers
+text="textoverlay valignment=center font-desc='Sans 26' text="
+checksum="tee name=cktee ! queue ! checksumsink  cktee. ! queue"
+uri="uridecodebin uri="
+v4l2sink="v4l2sink queue-size=2 device=$device"
+v4l2src="v4l2src queue-size=2 device=$device"
+
+videorate_test() {
+    pipeline=$1
+    mime=$2
+    frate=$3
+    rated_caps="$mime, framerate=$frate"
+
+    #WTF: ffmpegcolorspace doesn't seem to change caps here, but is needed for text to work,
+    #     caps don't get negotiated otherwise (see test_tee_*)
+    run-bg "$gstl $pipeline ! tee name=t ! queue ! $v4l2sink" \
+                               "t. ! queue ! ffmpegcolorspace ! $text'Origin' ! timeoverlay ! fpsdisplaysink >$sink.stdout 2>$sink.stderr"
+    sinkpid=$!
+    wait_for_device
+
+    run-bg "$gstl $v4l2src name=v4l2src0 ! $checksum ! $text'No videorate' ! timeoverlay ! fpsdisplaysink >$src1.stdout 2>$src1.stderr"
+    src1pid=$!
+    run-bg "$gstl $v4l2src name=v4l2src1 ! videorate ! $checksum ! $text'Videorate' ! $rated_caps ! timeoverlay ! fpsdisplaysink >$src2.stdout 2>$src2.stderr"
+    src2pid=$!
+    wait_for_finish
+
+    process_checksums() {
+        local regexp='^[0-9]{1,2}:'
+        egrep "$regexp" $1.stdout | awk '{print $2;}' | sort | tee $1.sort | uniq >$1.uniq
+    }
+    src_stats() {
+        comm_stats() {
+            echo "lost: `comm -23 $1 $2 | wc -l`  corrupt: `comm -13 $1 $2 | wc -l`  ok: `comm -12 $1 $2 | wc -l`"
+        }
+        echo "(all frames) `comm_stats $sink.sort $1.sort`"
+        echo "(unique)     `comm_stats $sink.sort $1.sort`"
+    }
+    process_checksums $sink
+    process_checksums $src1
+    process_checksums $src2
+    info "No videorate stats:"
+    src_stats $src1
+    info "Videorate stats:"
+    src_stats $src2
+}
+
+uri_test() {
+    videorate_test "uridecodebin uri='$1'" video/x-raw-yuv 30/1
+}
+
+
+# --- Tests
+tests="1 bunny webcast"
+default_test=1
+
+test_1() {
+    videorate_test "videotestsrc pattern=ball ! video/x-raw-yuv, framerate=10/1" video/x-raw-yuv 30/1
+}
+test_bunny() {
+    uri_test 'rtsp://184.72.239.149/vod/mp4:bigbuckbunny_450.mp4'
+}
+test_webcast() {
+    uri_test 'http://multimedia.stargazette.com/webcasts/weather/webcast.mov'
+}
+
+# Tee tests
+test_tee_notext() {
+    pipeline="$uri'rtsp://184.72.239.149/vod/mp4:bigbuckbunny_450.mp4'"
+    run-bg "$gstl $pipeline ! tee name=t ! queue ! $v4l2sink  t. ! queue ! fpsdisplaysink  >$sink.stdout"
+    wait_for_device
+    run-bg "$gstl v4l2src device=$device ! fpsdisplaysink  >$src1.stdout"
+    wait_for_finish
+}
+test_tee_broken() {
+    #pipeline="videotestsrc pattern=ball ! video/x-raw-yuv, framerate=10/1"
+    pipeline="$uri'rtsp://184.72.239.149/vod/mp4:bigbuckbunny_450.mp4'"
+    run-bg "$gstl $pipeline ! tee name=t ! queue ! $v4l2sink  t. ! queue ! $text'Origin' ! fpsdisplaysink  >$sink.stdout"
+    wait_for_device
+    run-bg "$gstl $v4l2src ! $text'v4l2loopback' ! fpsdisplaysink >$src1.stdout"
+    wait_for_finish
+}
+test_tee_ok() {
+    pipeline="$uri'rtsp://184.72.239.149/vod/mp4:bigbuckbunny_450.mp4'"
+    run-bg "$gstl -v $pipeline ! tee name=t ! queue ! $v4l2sink  t. ! queue ! ffmpegcolorspace ! $text'Origin' ! fpsdisplaysink  >$sink.stdout"
+    wait_for_device
+    run-bg "$gstl $v4l2src ! $text'v4l2loopback' ! fpsdisplaysink >$src1.stdout"
+    wait_for_finish
+}
+
+t=${1:-$default_test}
+run_test $t
+kill_children
+exit 0
