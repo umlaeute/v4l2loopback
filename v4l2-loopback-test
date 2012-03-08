@@ -32,6 +32,7 @@ gstl="GST_DEBUG=v4l2:5,v4l2src:5,v4l2sink:5 gst-launch-0.10 -v --gst-debug-no-co
 
 ARGS="$@"
 shift $(($OPTIND - 1))
+make modprobe MODULE_OPTIONS="\"$module_opts\"" || die "make failed"
 
 
 # --- Utils
@@ -217,7 +218,6 @@ run_test() {
                 less $dmesg
                 ;;
             "r")
-                make modprobe MODULE_OPTIONS="\"$module_opts\"" || die "make failed"
                 exec $0 "$ARGS"
                 ;;
             "s")
