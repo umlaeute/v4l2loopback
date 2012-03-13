@@ -320,21 +320,6 @@ static struct v4l2_loopback_device*v4l2loopback_cd2dev  (struct device*cd);
 /* device attributes */
 /* available via sysfs: /sys/devices/virtual/video4linux/video* */
 
-static ssize_t attr_show_fourcc(struct device *cd,
-                         struct device_attribute *attr, 
-                         char *buf)
-{
-  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
-
-  char buf4cc[5];
-  if(!dev)return 0;
-
-  fourcc2str(dev->pix_format.pixelformat, buf4cc);
-
-  return sprintf(buf, "%.*s\n", 4, buf4cc);
-}
-static DEVICE_ATTR(fourcc, S_IRUGO, attr_show_fourcc, NULL);
-
 static ssize_t attr_show_format(struct device *cd,
                                 struct device_attribute *attr,
                                 char *buf)
@@ -428,7 +413,6 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 #define V4L2_SYSFS_DESTROY(x) device_remove_file(&vdev->dev, &dev_attr_##x)
 
   if (vdev) {
-    V4L2_SYSFS_DESTROY(fourcc);
     V4L2_SYSFS_DESTROY(format);
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
@@ -441,7 +425,6 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 #define V4L2_SYSFS_CREATE(x)     res = device_create_file(&vdev->dev, &dev_attr_##x); if (res < 0) break
   if (!vdev) return;
   do {
-    V4L2_SYSFS_CREATE(fourcc);
     V4L2_SYSFS_CREATE(format);
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
