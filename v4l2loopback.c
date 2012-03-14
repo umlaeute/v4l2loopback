@@ -335,6 +335,46 @@ static ssize_t attr_show_fourcc(struct device *cd,
 }
 static DEVICE_ATTR(fourcc, S_IRUGO, attr_show_fourcc, NULL);
 
+static ssize_t attr_show_format(struct device *cd,
+                                struct device_attribute *attr,
+                                char *buf)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  const struct v4l2_fract *tpf;
+  char buf4cc[5], buf_fps[32];
+
+  if (!dev || !dev->ready_for_capture)
+    return 0;
+  tpf = &dev->capture_param.timeperframe;
+
+  fourcc2str(dev->pix_format.pixelformat, buf4cc);
+  if (tpf->numerator == 1)
+    snprintf(buf_fps, sizeof(buf_fps), "%d", tpf->denominator);
+  else
+    snprintf(buf_fps, sizeof(buf_fps), "%d/%d", tpf->denominator, tpf->numerator);
+
+  return sprintf(buf, "%4s:%dx%d@%s\n",
+                   buf4cc, dev->pix_format.width, dev->pix_format.height, buf_fps);
+}
+static ssize_t attr_store_format(struct device* cd,
+                                 struct device_attribute *attr,
+                                 const char* buf, size_t len)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+  int fps_num = 0, fps_den = 1;
+
+  /* only fps changing is supported */
+  if (sscanf(buf, "@%d/%d", &fps_num, &fps_den) > 0) {
+    if (fps_num < 1 || fps_den < 1)
+      return -EINVAL;
+    dev->capture_param.timeperframe.denominator = fps_num;
+    dev->capture_param.timeperframe.numerator = fps_den;
+    return len;
+  } else
+    return -EINVAL;
+}
+static DEVICE_ATTR(format, S_IRUGO | S_IWUSR, attr_show_format, attr_store_format);
+
 static ssize_t attr_show_buffers(struct device *cd,
                                  struct device_attribute *attr,
                                  char *buf)
@@ -389,6 +429,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 
   if (vdev) {
     V4L2_SYSFS_DESTROY(fourcc);
+    V4L2_SYSFS_DESTROY(format);
     V4L2_SYSFS_DESTROY(buffers);
     V4L2_SYSFS_DESTROY(max_openers);
     /* ... */
@@ -401,6 +442,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
   if (!vdev) return;
   do {
     V4L2_SYSFS_CREATE(fourcc);
+    V4L2_SYSFS_CREATE(format);
     V4L2_SYSFS_CREATE(buffers);
     V4L2_SYSFS_CREATE(max_openers);
     /* ... */
