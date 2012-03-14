@@ -102,6 +102,11 @@ MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)"
 #define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH   640
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
 
+
+/* control IDs */
+#define CID_KEEP_FORMAT        (V4L2_CID_PRIVATE_BASE+0)
+
+
 /* module structures */
 struct v4l2loopback_private {
   int devicenr;
@@ -123,6 +128,9 @@ struct v4l2_loopback_device {
   /* pixel and stream format */
   struct v4l2_pix_format pix_format;
   struct v4l2_captureparm capture_param;
+
+  /* ctrls */
+  int keep_format; /* stay ready_for_capture when all openers close() */
 
   /* buffers stuff */
   u8 *image;         /* pointer to actual buffers data */
@@ -467,6 +475,7 @@ v4l2loopback_getdevice        (struct file*f)
 static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
 static int free_buffers(struct v4l2_loopback_device *dev);
+static void try_free_buffers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 
@@ -1015,16 +1024,75 @@ vidioc_querystd     (struct file *file,
 }
 
 
-/* dummy queyr control
+/* get ctrls info
  * called on VIDIOC_QUERYCTRL
  */
 static int
 vidioc_queryctrl(struct file *file, void *fh,
-                 struct v4l2_queryctrl *a)
+                 struct v4l2_queryctrl *q)
 {
-  return -EINVAL;
+  switch (q->id) {
+  case CID_KEEP_FORMAT:
+    q->type = V4L2_CTRL_TYPE_BOOLEAN;
+    q->minimum = 0;
+    q->maximum = 1;
+    q->step = 1;
+    break;
+  default:
+    return -EINVAL;
+  }
+
+  switch (q->id) {
+  case CID_KEEP_FORMAT:
+    strcpy(q->name, "keep_format");
+    q->default_value = 0;
+    break;
+  default:
+    BUG();
+  }
+
+  memset(q->reserved, 0, sizeof(q->reserved));
+  return 0;
 }
 
+
+static int
+vidioc_g_ctrl(struct file *file, void *fh,
+              struct v4l2_control *c)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+
+  switch (c->id) {
+  case CID_KEEP_FORMAT:
+    c->value = dev->keep_format;
+    break;
+  default:
+    return -EINVAL;
+  }
+
+  return 0;
+}
+
+
+static int
+vidioc_s_ctrl(struct file *file, void *fh,
+              struct v4l2_control *c)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+
+  switch (c->id) {
+  case CID_KEEP_FORMAT:
+    if (c->value < 0 || c->value > 1)
+      return -EINVAL;
+    dev->keep_format = c->value;
+    try_free_buffers(dev);
+    break;
+  default:
+    return -EINVAL;
+  }
+
+  return 0;
+}
 
 
 /* returns set of device outputs, in our case there is only one
@@ -1560,13 +1628,7 @@ v4l2_loopback_close  (struct file *file)
   dev    = v4l2loopback_getdevice(file);
 
   atomic_dec(&dev->open_count);
-  /* TODO(vasaka) does the closed file means that mapped buffers are
-   * no more valid and one can free data? */
-  if (0 == dev->open_count.counter) {
-    free_buffers(dev);
-    dev->ready_for_capture = 0;
-    dev->buffer_size = 0;
-  }
+  try_free_buffers(dev);
   kfree(opener);
   MARK();
   return 0;
@@ -1662,6 +1724,16 @@ static int free_buffers(struct v4l2_loopback_device *dev)
   dev->imagesize=0;
 
   return 0;
+}
+/* frees buffers, if they are no longer needed */
+static void
+try_free_buffers(struct v4l2_loopback_device *dev)
+{
+  if (0 == dev->open_count.counter && !dev->keep_format) {
+    free_buffers(dev);
+    dev->ready_for_capture = 0;
+    dev->buffer_size = 0;
+  }
 }
 /* allocates buffers, if buffer_size is set */
 static int
@@ -1779,6 +1851,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
 
   init_vdev(dev->vdev);
   init_capture_param(&dev->capture_param);
+  dev->keep_format = 0;
   dev->buffers_number = max_buffers;
   dev->used_buffers = max_buffers;
   dev->max_openers = max_openers;
@@ -1814,6 +1887,8 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #endif
 
   .vidioc_queryctrl         = &vidioc_queryctrl,
+  .vidioc_g_ctrl            = &vidioc_g_ctrl,
+  .vidioc_s_ctrl            = &vidioc_s_ctrl,
 
   .vidioc_enum_output       = &vidioc_enum_output,
   .vidioc_g_output          = &vidioc_g_output,
@@ -1878,6 +1953,7 @@ free_devices        (void)
   int i;
   for(i=0; i<devices; i++) {
     if(NULL!=devs[i]) {
+      free_buffers(devs[i]);
       v4l2loopback_remove_sysfs(devs[i]->vdev);
       kfree(video_get_drvdata(devs[i]->vdev));
       video_unregister_device(devs[i]->vdev);
