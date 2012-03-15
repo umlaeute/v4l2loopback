@@ -105,6 +105,7 @@ MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)"
 
 /* control IDs */
 #define CID_KEEP_FORMAT        (V4L2_CID_PRIVATE_BASE+0)
+#define CID_SUSTAIN_FRAMERATE  (V4L2_CID_PRIVATE_BASE+1)
 
 
 /* module structures */
@@ -132,6 +133,7 @@ struct v4l2_loopback_device {
 
   /* ctrls */
   int keep_format; /* stay ready_for_capture when all openers close() */
+  int sustain_framerate; /* duplicate frames to maintain ~nominal framerate */
 
   /* buffers stuff */
   u8 *image;         /* pointer to actual buffers data */
@@ -144,11 +146,16 @@ struct v4l2_loopback_device {
   int write_position; /* number of last written frame + 1 */
   long buffer_size;
 
+  /* sustain_framerate stuff */
+  struct timer_list sustain_timer;
+  unsigned int reread_count;
+
   /* sync stuff */
   atomic_t open_count;
   int ready_for_capture;/* set to true when at least one writer opened
                          * device and negotiated format */
   wait_queue_head_t read_event;
+  spinlock_t lock;
 };
 
 /* types of opener shows what opener wants to do with loopback */
@@ -164,6 +171,7 @@ struct v4l2_loopback_opener {
   int vidioc_enum_frameintervals_calls;
   int read_position; /* number of last processed frame + 1 or
                       * write_position - 1 if reader went out of sync */
+  unsigned int reread_count;
   struct v4l2_buffer *buffers;
   int buffers_number;  /* should not be big, 4 is a good choice */
 };
@@ -484,6 +492,7 @@ static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
 static int free_buffers(struct v4l2_loopback_device *dev);
 static void try_free_buffers(struct v4l2_loopback_device *dev);
+static void check_timers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 
@@ -1041,6 +1050,7 @@ vidioc_queryctrl(struct file *file, void *fh,
 {
   switch (q->id) {
   case CID_KEEP_FORMAT:
+  case CID_SUSTAIN_FRAMERATE:
     q->type = V4L2_CTRL_TYPE_BOOLEAN;
     q->minimum = 0;
     q->maximum = 1;
@@ -1053,6 +1063,10 @@ vidioc_queryctrl(struct file *file, void *fh,
   switch (q->id) {
   case CID_KEEP_FORMAT:
     strcpy(q->name, "keep_format");
+    q->default_value = 0;
+    break;
+  case CID_SUSTAIN_FRAMERATE:
+    strcpy(q->name, "sustain_framerate");
     q->default_value = 0;
     break;
   default:
@@ -1074,6 +1088,9 @@ vidioc_g_ctrl(struct file *file, void *fh,
   case CID_KEEP_FORMAT:
     c->value = dev->keep_format;
     break;
+  case CID_SUSTAIN_FRAMERATE:
+    c->value = dev->sustain_framerate;
+    break;
   default:
     return -EINVAL;
   }
@@ -1094,6 +1111,14 @@ vidioc_s_ctrl(struct file *file, void *fh,
       return -EINVAL;
     dev->keep_format = c->value;
     try_free_buffers(dev);
+    break;
+  case CID_SUSTAIN_FRAMERATE:
+    if (c->value < 0 || c->value > 1)
+      return -EINVAL;
+    spin_lock_bh(&dev->lock);
+    dev->sustain_framerate = c->value;
+    check_timers(dev);
+    spin_unlock_bh(&dev->lock);
     break;
   default:
     return -EINVAL;
@@ -1304,6 +1329,17 @@ vidioc_querybuf     (struct file *file,
   return 0;
 }
 
+static void
+buffer_written(struct v4l2_loopback_device *dev)
+{
+  del_timer_sync(&dev->sustain_timer);
+  spin_lock_bh(&dev->lock);
+  ++dev->write_position;
+  dev->reread_count = 0;
+  check_timers(dev);
+  spin_unlock_bh(&dev->lock);
+}
+
 /* put buffer to queue
  * called on VIDIOC_QBUF
  */
@@ -1333,11 +1369,52 @@ vidioc_qbuf         (struct file *file,
     dprintkrw("output QBUF index: %d\n", index);
     do_gettimeofday(&b->buffer.timestamp);
     set_done(b);
+    buffer_written(dev);
     wake_up_all(&dev->read_event);
     return 0;
   default:
     return -EINVAL;
   }
+}
+
+static int
+can_read(struct v4l2_loopback_device *dev, struct v4l2_loopback_opener *opener)
+{
+  int ret;
+  spin_lock_bh(&dev->lock);
+  check_timers(dev);
+  ret = dev->write_position > opener->read_position || dev->reread_count > opener->reread_count;
+  spin_unlock_bh(&dev->lock);
+  return ret;
+}
+
+static int
+get_capture_buffer(struct file *file)
+{
+  struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+  struct v4l2_loopback_opener *opener = file->private_data;
+  int ret;
+
+  if ((file->f_flags&O_NONBLOCK) && (dev->write_position <= opener->read_position &&
+                                      dev->reread_count <= opener->reread_count))
+    return -EAGAIN;
+  wait_event_interruptible(dev->read_event, can_read(dev, opener));
+
+  spin_lock_bh(&dev->lock);
+  if (dev->write_position == opener->read_position) {
+    if (dev->reread_count > opener->reread_count+2)
+      opener->reread_count = dev->reread_count - 1;
+    ++opener->reread_count;
+    ret = opener->read_position % dev->used_buffers;
+  } else {
+    opener->reread_count = 0;
+    if (dev->write_position > opener->read_position+2)
+      opener->read_position = dev->write_position - 1;
+    ret = opener->read_position++ % dev->used_buffers;
+  }
+  spin_unlock_bh(&dev->lock);
+
+  return ret;
 }
 
 /* put buffer to dequeue
@@ -1357,20 +1434,14 @@ vidioc_dqbuf        (struct file *file,
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    if ((dev->write_position <= opener->read_position) &&
-        (file->f_flags&O_NONBLOCK))
-      return -EAGAIN;
-    wait_event_interruptible(dev->read_event, (dev->write_position >
-					       opener->read_position));
-    if (dev->write_position > opener->read_position+2)
-      opener->read_position = dev->write_position - 1;
-    index = opener->read_position % dev->used_buffers;
+    index = get_capture_buffer(file);
+    if (index < 0)
+      return index;
     dprintkrw("capture DQBUF index: %d\n", index);
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
       dprintk("trying to return not mapped buf\n");
       return -EINVAL;
     }
-    ++opener->read_position;
     unset_flags(&dev->buffers[index]);
     *buf = dev->buffers[index].buffer;
     return 0;
@@ -1591,7 +1662,7 @@ v4l2_loopback_poll  (struct file *file,
     break;
   case READER:
     poll_wait(file, &dev->read_event, pts);
-    if (dev->write_position > opener->read_position)
+    if (can_read(dev, opener))
       ret_mask =  POLLIN | POLLRDNORM;
     break;
   default:
@@ -1636,6 +1707,8 @@ v4l2_loopback_close  (struct file *file)
   dev    = v4l2loopback_getdevice(file);
 
   atomic_dec(&dev->open_count);
+  if (dev->open_count.counter == 0)
+    del_timer_sync(&dev->sustain_timer);
   try_free_buffers(dev);
   kfree(opener);
   MARK();
@@ -1656,24 +1729,15 @@ v4l2_loopback_read   (struct file *file,
   opener = file->private_data;
   dev    = v4l2loopback_getdevice(file);
 
-  if ((dev->write_position <= opener->read_position) &&
-      (file->f_flags&O_NONBLOCK)) {
-    return -EAGAIN;
-  }
-  wait_event_interruptible(dev->read_event,
-                           (dev->write_position > opener->read_position));
+  read_index = get_capture_buffer(file);
   if (count > dev->buffer_size)
     count = dev->buffer_size;
-  if (dev->write_position > opener->read_position+2)
-    opener->read_position = dev->write_position - 1;
-  read_index = opener->read_position % dev->used_buffers;
   if (copy_to_user((void *) buf, (void *) (dev->image +
                                            dev->buffers[read_index].buffer.m.offset), count)) {
     printk(KERN_ERR "v4l2-loopback: "
            "failed copy_from_user() in write buf\n");
     return -EFAULT;
   }
-  ++opener->read_position;
   dprintkrw("leave v4l2_loopback_read()\n");
   return count;
 }
@@ -1714,7 +1778,8 @@ v4l2_loopback_write  (struct file *file,
     return -EFAULT;
   }
   do_gettimeofday(&b->timestamp);
-  b->sequence = dev->write_position++;
+  b->sequence = dev->write_position;
+  buffer_written(dev);
   wake_up_all(&dev->read_event);
   dprintkrw("leave v4l2_loopback_write()\n");
   return count;
@@ -1840,6 +1905,33 @@ init_capture_param  (struct v4l2_captureparm *capture_param)
   capture_param->timeperframe.denominator = 30;
 }
 
+static void
+check_timers(struct v4l2_loopback_device *dev)
+{
+  if (!dev->ready_for_capture)
+    return;
+
+  if (dev->sustain_framerate && !timer_pending(&dev->sustain_timer))
+    mod_timer(&dev->sustain_timer, jiffies + dev->frame_jiffies * 3 / 2);
+}
+
+static void
+sustain_timer_clb(unsigned long nr)
+{
+  struct v4l2_loopback_device *dev = devs[nr];
+  spin_lock(&dev->lock);
+  if (dev->sustain_framerate) {
+    dev->reread_count++;
+    dprintkrw("reread: %d %d", dev->write_position, dev->reread_count);
+    if (dev->reread_count == 1)
+      mod_timer(&dev->sustain_timer, jiffies + max(1UL, dev->frame_jiffies / 2));
+    else
+      mod_timer(&dev->sustain_timer, jiffies + dev->frame_jiffies);
+    wake_up_all(&dev->read_event);
+  }
+  spin_unlock(&dev->lock);
+}
+
 /* init loopback main structure */
 static int
 v4l2_loopback_init  (struct v4l2_loopback_device *dev,
@@ -1861,6 +1953,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   init_capture_param(&dev->capture_param);
   set_timeperframe(dev, &dev->capture_param.timeperframe);
   dev->keep_format = 0;
+  dev->sustain_framerate = 0;
   dev->buffers_number = max_buffers;
   dev->used_buffers = max_buffers;
   dev->max_openers = max_openers;
@@ -1869,6 +1962,8 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->buffer_size = 0;
   dev->image = NULL;
   dev->imagesize = 0;
+  setup_timer(&dev->sustain_timer, sustain_timer_clb, nr);
+  dev->reread_count = 0;
 
   /* FIXME set buffers to 0 */
 
