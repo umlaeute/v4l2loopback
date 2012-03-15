@@ -128,6 +128,7 @@ struct v4l2_loopback_device {
   /* pixel and stream format */
   struct v4l2_pix_format pix_format;
   struct v4l2_captureparm capture_param;
+  unsigned long frame_jiffies;
 
   /* ctrls */
   int keep_format; /* stay ready_for_capture when all openers close() */
@@ -323,6 +324,13 @@ pix_format_set_size     (struct v4l2_pix_format *       f,
   }
 }
 
+static void
+set_timeperframe(struct v4l2_loopback_device *dev, struct v4l2_fract *tpf)
+{
+  dev->capture_param.timeperframe = *tpf;
+  dev->frame_jiffies = max(1UL, msecs_to_jiffies(1000) * tpf->numerator / tpf->denominator);
+}
+
 static struct v4l2_loopback_device*v4l2loopback_cd2dev  (struct device*cd);
 
 /* device attributes */
@@ -360,8 +368,8 @@ static ssize_t attr_store_format(struct device* cd,
   if (sscanf(buf, "@%d/%d", &fps_num, &fps_den) > 0) {
     if (fps_num < 1 || fps_den < 1)
       return -EINVAL;
-    dev->capture_param.timeperframe.denominator = fps_num;
-    dev->capture_param.timeperframe.numerator = fps_den;
+    set_timeperframe(dev, &(struct v4l2_fract){.numerator   = fps_den,
+                                               .denominator = fps_num});
     return len;
   } else
     return -EINVAL;
@@ -958,10 +966,10 @@ vidioc_s_parm       (struct file *file,
 
   switch (parm->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-    dev->capture_param.timeperframe=parm->parm.capture.timeperframe;
+    set_timeperframe(dev, &parm->parm.capture.timeperframe);
     break;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-    dev->capture_param.timeperframe=parm->parm.capture.timeperframe;
+    set_timeperframe(dev, &parm->parm.capture.timeperframe);
     break;
   default:
     return -1;
@@ -1851,6 +1859,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
 
   init_vdev(dev->vdev);
   init_capture_param(&dev->capture_param);
+  set_timeperframe(dev, &dev->capture_param.timeperframe);
   dev->keep_format = 0;
   dev->buffers_number = max_buffers;
   dev->used_buffers = max_buffers;
