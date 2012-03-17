@@ -12,10 +12,12 @@ run_writers() {
 
 v4l2-ctl -d $device -c keep_format=1 || exit 1
 v4l2-ctl -d $device -c sustain_framerate=0 || exit 1
+v4l2-ctl -d $device -c timeout=2000 || exit 1
 gst-launch-0.10 videotestsrc num-buffers=1 ! v4l2sink device=$device || exit 1
 {
     run_writers
     sleep 1
+    # can see a flash of green here
     v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
     run_writers
 } >/dev/null 2>&1 &
