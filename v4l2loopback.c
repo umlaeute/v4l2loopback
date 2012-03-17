@@ -1806,6 +1806,7 @@ try_free_buffers(struct v4l2_loopback_device *dev)
     free_buffers(dev);
     dev->ready_for_capture = 0;
     dev->buffer_size = 0;
+    dev->write_position = 0;
   }
 }
 /* allocates buffers, if buffer_size is set */
@@ -1871,7 +1872,6 @@ init_buffers        (struct v4l2_loopback_device *dev)
 
     do_gettimeofday(&b->timestamp);
   }
-  dev->write_position = 0;
   MARK();
 }
 
@@ -1957,6 +1957,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->buffers_number = max_buffers;
   dev->used_buffers = max_buffers;
   dev->max_openers = max_openers;
+  dev->write_position = 0;
   atomic_set(&dev->open_count, 0);
   dev->ready_for_capture = 0;
   dev->buffer_size = 0;
