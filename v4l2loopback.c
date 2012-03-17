@@ -121,6 +121,7 @@ typedef struct v4l2loopback_private *priv_ptr;
 
 struct v4l2l_buffer {
   struct v4l2_buffer buffer;
+  struct list_head list_head;
   int use_count;
 };
 
@@ -144,6 +145,9 @@ struct v4l2_loopback_device {
   int max_openers;  /* how many times can this device be opened */
 
   int write_position; /* number of last written frame + 1 */
+  struct list_head outbufs_list; /* buffers in output DQBUF order */
+  int readpos2index[MAX_BUFFERS]; /* mapping of (read_position % used_buffers)
+                                   * to capture DQBUF index */
   long buffer_size;
 
   /* sustain_framerate stuff */
@@ -1330,12 +1334,16 @@ vidioc_querybuf     (struct file *file,
 }
 
 static void
-buffer_written(struct v4l2_loopback_device *dev)
+buffer_written(struct v4l2_loopback_device *dev, struct v4l2l_buffer *buf)
 {
   del_timer_sync(&dev->sustain_timer);
   spin_lock_bh(&dev->lock);
+
+  dev->readpos2index[dev->write_position % dev->used_buffers] = buf->buffer.index;
+  list_move_tail(&buf->list_head, &dev->outbufs_list);
   ++dev->write_position;
   dev->reread_count = 0;
+
   check_timers(dev);
   spin_unlock_bh(&dev->lock);
 }
@@ -1366,10 +1374,10 @@ vidioc_qbuf         (struct file *file,
     set_queued(b);
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-    dprintkrw("output QBUF index: %d\n", index);
+    dprintkrw("output QBUF pos: %d index: %d\n", dev->write_position, index);
     do_gettimeofday(&b->buffer.timestamp);
     set_done(b);
-    buffer_written(dev);
+    buffer_written(dev, b);
     wake_up_all(&dev->read_event);
     return 0;
   default:
@@ -1393,7 +1401,7 @@ get_capture_buffer(struct file *file)
 {
   struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
   struct v4l2_loopback_opener *opener = file->private_data;
-  int ret;
+  int pos;
 
   if ((file->f_flags&O_NONBLOCK) && (dev->write_position <= opener->read_position &&
                                       dev->reread_count <= opener->reread_count))
@@ -1405,16 +1413,17 @@ get_capture_buffer(struct file *file)
     if (dev->reread_count > opener->reread_count+2)
       opener->reread_count = dev->reread_count - 1;
     ++opener->reread_count;
-    ret = opener->read_position % dev->used_buffers;
+    pos = (opener->read_position + dev->used_buffers - 1) % dev->used_buffers;
   } else {
     opener->reread_count = 0;
     if (dev->write_position > opener->read_position+2)
       opener->read_position = dev->write_position - 1;
-    ret = opener->read_position++ % dev->used_buffers;
+    pos = opener->read_position % dev->used_buffers;
+    ++opener->read_position;
   }
   spin_unlock_bh(&dev->lock);
 
-  return ret;
+  return dev->readpos2index[pos];
 }
 
 /* put buffer to dequeue
@@ -1428,6 +1437,7 @@ vidioc_dqbuf        (struct file *file,
   struct v4l2_loopback_device *dev;
   struct v4l2_loopback_opener *opener;
   int index;
+  struct v4l2l_buffer *b;
 
   dev=v4l2loopback_getdevice(file);
   opener = file->private_data;
@@ -1437,7 +1447,7 @@ vidioc_dqbuf        (struct file *file,
     index = get_capture_buffer(file);
     if (index < 0)
       return index;
-    dprintkrw("capture DQBUF index: %d\n", index);
+    dprintkrw("capture DQBUF pos: %d index: %d\n", opener->read_position - 1, index);
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
       dprintk("trying to return not mapped buf\n");
       return -EINVAL;
@@ -1446,11 +1456,11 @@ vidioc_dqbuf        (struct file *file,
     *buf = dev->buffers[index].buffer;
     return 0;
   case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-    index = dev->write_position % dev->used_buffers;
-    dprintkrw("output DQBUF index: %d\n", index);
-    unset_flags(&dev->buffers[index]);
-    *buf = dev->buffers[index].buffer;
-    ++dev->write_position;
+    b = list_entry(dev->outbufs_list.next, struct v4l2l_buffer, list_head);
+    list_move_tail(&b->list_head, &dev->outbufs_list);
+    dprintkrw("output DQBUF index: %d\n", b->buffer.index);
+    unset_flags(b);
+    *buf = b->buffer;
     return 0;
   default:
     return -EINVAL;
@@ -1779,7 +1789,7 @@ v4l2_loopback_write  (struct file *file,
   }
   do_gettimeofday(&b->timestamp);
   b->sequence = dev->write_position;
-  buffer_written(dev);
+  buffer_written(dev, &dev->buffers[write_index]);
   wake_up_all(&dev->read_event);
   dprintkrw("leave v4l2_loopback_write()\n");
   return count;
@@ -1871,6 +1881,7 @@ init_buffers        (struct v4l2_loopback_device *dev)
     b->type              = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
     do_gettimeofday(&b->timestamp);
+    list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
   }
   MARK();
 }
@@ -1958,6 +1969,8 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->used_buffers = max_buffers;
   dev->max_openers = max_openers;
   dev->write_position = 0;
+  INIT_LIST_HEAD(&dev->outbufs_list);
+  memset(dev->readpos2index, 0, sizeof(dev->readpos2index));
   atomic_set(&dev->open_count, 0);
   dev->ready_for_capture = 0;
   dev->buffer_size = 0;
