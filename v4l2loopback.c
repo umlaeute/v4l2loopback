@@ -108,6 +108,7 @@ MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)"
 #define CID_KEEP_FORMAT        (V4L2_CID_PRIVATE_BASE+0)
 #define CID_SUSTAIN_FRAMERATE  (V4L2_CID_PRIVATE_BASE+1)
 #define CID_TIMEOUT            (V4L2_CID_PRIVATE_BASE+2)
+#define CID_TIMEOUT_IMAGE_IO   (V4L2_CID_PRIVATE_BASE+3)
 
 
 /* module structures */
@@ -158,7 +159,10 @@ struct v4l2_loopback_device {
 
   /* timeout stuff */
   unsigned long timeout_jiffies; /* CID_TIMEOUT; 0 means disabled */
+  int timeout_image_io; /* CID_TIMEOUT_IMAGE_IO; next opener will
+                         * read/write to timeout_image */
   u8 *timeout_image; /* copy of it will be captured when timeout passes */
+  struct v4l2l_buffer timeout_image_buffer;
   struct timer_list timeout_timer;
   int timeout_happened;
 
@@ -186,6 +190,7 @@ struct v4l2_loopback_opener {
   unsigned int reread_count;
   struct v4l2_buffer *buffers;
   int buffers_number;  /* should not be big, 4 is a good choice */
+  int timeout_image_io;
 };
 
 /* this is heavily inspired by the bttv driver found in the linux kernel */
@@ -1064,6 +1069,7 @@ vidioc_queryctrl(struct file *file, void *fh,
   switch (q->id) {
   case CID_KEEP_FORMAT:
   case CID_SUSTAIN_FRAMERATE:
+  case CID_TIMEOUT_IMAGE_IO:
     q->type = V4L2_CTRL_TYPE_BOOLEAN;
     q->minimum = 0;
     q->maximum = 1;
@@ -1092,6 +1098,10 @@ vidioc_queryctrl(struct file *file, void *fh,
     strcpy(q->name, "timeout");
     q->default_value = 0;
     break;
+  case CID_TIMEOUT_IMAGE_IO:
+    strcpy(q->name, "timeout_image_io");
+    q->default_value = 0;
+    break;
   default:
     BUG();
   }
@@ -1116,6 +1126,9 @@ vidioc_g_ctrl(struct file *file, void *fh,
     break;
   case CID_TIMEOUT:
     c->value = jiffies_to_msecs(dev->timeout_jiffies);
+    break;
+  case CID_TIMEOUT_IMAGE_IO:
+    c->value = dev->timeout_image_io;
     break;
   default:
     return -EINVAL;
@@ -1154,6 +1167,11 @@ vidioc_s_ctrl(struct file *file, void *fh,
     check_timers(dev);
     spin_unlock_bh(&dev->lock);
     allocate_timeout_image(dev);
+    break;
+  case CID_TIMEOUT_IMAGE_IO:
+    if (c->value < 0 || c->value > 1)
+      return -EINVAL;
+    dev->timeout_image_io = c->value;
     break;
   default:
     return -EINVAL;
@@ -1319,6 +1337,10 @@ vidioc_reqbufs      (struct file *file,
     /* do nothing here, buffers are always allocated*/
     if (0 == b->count)
       return 0;
+    if (opener->timeout_image_io) {
+      b->count = 1;
+      return 0;
+    }
     if (b->count > dev->buffers_number)
       b->count = dev->buffers_number;
     opener->buffers_number = b->count;
@@ -1637,6 +1659,7 @@ v4l2_loopback_mmap  (struct file *file,
   unsigned long start;
   unsigned long size;
   struct v4l2_loopback_device *dev;
+  struct v4l2_loopback_opener *opener;
   struct v4l2l_buffer *buffer = NULL;
   MARK();
 
@@ -1644,6 +1667,7 @@ v4l2_loopback_mmap  (struct file *file,
   size = (unsigned long) (vma->vm_end - vma->vm_start);
 
   dev=v4l2loopback_getdevice(file);
+  opener=file->private_data;
 
   if (size > dev->buffer_size) {
     dprintk("userspace tries to mmap too much, fail\n");
@@ -1662,17 +1686,28 @@ v4l2_loopback_mmap  (struct file *file,
     }
   }
 
-  for (i = 0; i < dev->buffers_number; ++i) {
-    buffer = &dev->buffers[i];
-    if ((buffer->buffer.m.offset >> PAGE_SHIFT) == vma->vm_pgoff)
-      break;
-  }
+  if (opener->timeout_image_io) {
+    int r;
+    if (vma->vm_pgoff != 0)
+      return -EINVAL;
+    r = allocate_timeout_image(dev);
+    if (r < 0)
+      return r;
+    buffer = &dev->timeout_image_buffer;
+    addr = (unsigned long) dev->timeout_image;
+  } else {
+    for (i = 0; i < dev->buffers_number; ++i) {
+      buffer = &dev->buffers[i];
+      if ((buffer->buffer.m.offset >> PAGE_SHIFT) == vma->vm_pgoff)
+        break;
+    }
 
-  if(NULL == buffer) {
-    return -EINVAL;
-  }
+    if(NULL == buffer) {
+      return -EINVAL;
+    }
 
-  addr = (unsigned long) dev->image + (vma->vm_pgoff << PAGE_SHIFT);
+    addr = (unsigned long) dev->image + (vma->vm_pgoff << PAGE_SHIFT);
+  }
 
   while (size > 0) {
     struct page *page;
@@ -1746,6 +1781,9 @@ v4l2_loopback_open   (struct file *file)
     return -ENOMEM;
   file->private_data = opener;
   atomic_inc(&dev->open_count);
+
+  opener->timeout_image_io = dev->timeout_image_io;
+  dev->timeout_image_io = 0;;
   MARK();
   return 0;
 }
@@ -1941,7 +1979,10 @@ init_buffers        (struct v4l2_loopback_device *dev)
 static int
 allocate_timeout_image(struct v4l2_loopback_device *dev)
 {
-  if (dev->buffer_size > 0 && dev->timeout_image == NULL) {
+  if (dev->buffer_size <= 0)
+    return -EINVAL;
+
+  if (dev->timeout_image == NULL) {
     dev->timeout_image = vzalloc(dev->buffer_size);
     if (dev->timeout_image == NULL)
       return -ENOMEM;
