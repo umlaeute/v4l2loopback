@@ -1,0 +1,105 @@
+#!/bin/bash
+
+usage() {
+    cat <<!
+Usage:
+    $0 set-timeout DEVICE TIMEOUT [IMAGE]
+            Set timeout on device, and optionally the placeholder picture,
+            instead of default null frame
+    $0 set-spec DEVICE SPEC
+            Fix format for the device (using GStreamer spec), so it will be
+            maintained until reset, regardless of future readers/writers
+
+Arguments:
+    DEVICE   device file ("/dev/videoX"), or just number "X"
+    IMAGE    image file ("no-input.png"), or 'videotestsrc'
+    SPEC     GStreamer spec ("video/x-raw-yuv, width=640, height=480"),
+             or 'any' for reset to uninitialized state
+    TIMEOUT  timeout value, in milliseconds (0 for disable the timeout)
+!
+    exit 1
+}
+
+die() {
+    echo $1
+    exit 1
+}
+
+parse_device() {
+    if [ -e "$1" ]; then
+        device="$1"
+    elif [ -e "/dev/video$1" ]; then
+        device="/dev/video$1"
+    else
+        die "can't parse device"
+    fi
+    sysfs=/sys/devices/virtual/video4linux/${device##*/}
+}
+
+
+set_spec() {
+    parse_device "$1"
+    spec=$2
+    [ -z "$spec" ] && usage
+
+    [ "$2" = 'any' ] && {
+        v4l2-ctl -d $device -c keep_format=0
+        return
+    }
+
+    [ -n "`cat $sysfs/format`" ] && die "Device is busy"
+    declare -a params
+    declare -a nofps_params
+    IFS=',' read -ra params <<< "$spec"
+    for p in "${params[@]}"; do
+        if echo "$p" | grep -q framerate; then
+            fps=`echo "$p" | sed -r 's/.*(=|\))//g'`
+            echo "$fps" | grep -q '[^0-9/]' && die "could not parse framerate param"
+            echo "@$fps" | sudo tee $sysfs/format >/dev/null || die "could not set fps attr"
+            #echo "fps: $fps"
+        else
+            nofps_params=("${nofps_params[@]}" "$p")
+        fi
+    done
+    {
+        IFS=','
+        nofps_spec="${nofps_params[*]}"
+    }
+    #echo "nofps_spec: $nofps_spec"
+    v4l2-ctl -d $device -c keep_format=1 || exit 1
+    v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
+    gst-launch-0.10 videotestsrc num-buffers=1 ! "$nofps_spec" ! v4l2sink device=$device || die "output to $device failed"
+}
+
+set_timeout() {
+    parse_device "$1"
+    timeout=$2
+    imagefile=$3
+    [ -z "$timeout" ] && usage
+    v4l2-ctl -d $device -c timeout="$timeout"
+
+    [ -z "$imagefile" ] && return
+    [ -n "`cat $sysfs/format`" ] || die "Device has no format negotiated"
+    v4l2-ctl -d $device -c timeout_image_io=1
+    if [ "$imagefile" = 'videotestsrc' ]; then
+        gst-launch-0.10 videotestsrc num-buffers=1 ! v4l2sink device=$device
+    else
+        uri="file://`readlink -f $imagefile`" || die "no file"
+        echo "Reading from $uri"
+        gst-launch-0.10 uridecodebin uri=$uri ! ffmpegcolorspace ! videoscale ! imagefreeze ! identity error-after=2 ! v4l2sink show-preroll-frame=false device=/dev/video0
+    fi
+}
+
+command="$1"
+shift
+case "$command" in
+    "set-spec")
+        set_spec "$@"
+        ;;
+    "set-timeout")
+        set_timeout "$@"
+        ;;
+    *)
+        usage
+        ;;
+esac
