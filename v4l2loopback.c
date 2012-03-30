@@ -136,8 +136,10 @@ struct v4l2_loopback_device {
   unsigned long frame_jiffies;
 
   /* ctrls */
-  int keep_format; /* stay ready_for_capture when all openers close() */
-  int sustain_framerate; /* duplicate frames to maintain ~nominal framerate */
+  int keep_format; /* CID_KEEP_FORMAT; stay ready_for_capture even when all
+                      openers close() the device */
+  int sustain_framerate; /* CID_SUSTAIN_FRAMERATE; duplicate frames to maintain
+                            (close to) nominal framerate */
 
   /* buffers stuff */
   u8 *image;         /* pointer to actual buffers data */

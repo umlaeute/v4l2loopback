@@ -73,6 +73,19 @@ will create 3 devices (/dev/video3 /dev/video4 & /dev/video7)
 you can set and/or query some per-device attributes via sysfs, in a human
 readable format. see
  /sys/devices/virtual/video4linux/video*/
+also there are some V4L2 controls that you can list with
+# v4l2-ctl -d /dev/video1 -l
+
+--- CONTROL SCRIPT ---
+run v4l2loopback-ctl without arguments for usage info.
+currently it provides ability to fix GStreamer-0.10 specs for a device, e.g.
+# v4l2loopback-ctl set-spec /dev/video1 "video/x-raw-yuv, width=640, height=480"
+(this sets keep_format and sustain_framerate controls and outputs a frame)
+and set timeout value to get a custom image captured when there's no input:
+# v4l2loopback-ctl set-timeout /dev/video1 2000 service-unavailable.png
+which depends on GStreamer-0.10 too. Alternatively, you can set timeout and
+timeout_image_io controls with v4l2-ctl, and output the timeout image
+to the device by some other means.
 
 --- KERNELs ---
 the original module has been developed for linux-2.6.28;
