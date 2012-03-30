@@ -1341,11 +1341,24 @@ vidioc_reqbufs      (struct file *file,
       b->count = 1;
       return 0;
     }
+
     if (b->count > dev->buffers_number)
       b->count = dev->buffers_number;
     opener->buffers_number = b->count;
     if (opener->buffers_number < dev->used_buffers)
       dev->used_buffers = opener->buffers_number;
+
+    /* make sure that outbufs_list contains buffers from 0 to used_buffers-1 */
+    if (list_empty(&dev->outbufs_list)) {
+      for (i = 0; i < dev->used_buffers; ++i)
+        list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
+    } else {
+      struct v4l2l_buffer *pos, *n;
+      list_for_each_entry_safe(pos, n, &dev->outbufs_list, list_head) {
+        if (pos->buffer.index >= dev->used_buffers)
+          list_del(&pos->list_head);
+      }
+    }
     return 0;
   default:
     return -EINVAL;
@@ -1971,7 +1984,6 @@ init_buffers        (struct v4l2_loopback_device *dev)
     b->type              = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
     do_gettimeofday(&b->timestamp);
-    list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
   }
   MARK();
 }
