@@ -1331,16 +1331,19 @@ vidioc_reqbufs      (struct file *file,
   opener = file->private_data;
 
   dprintk("reqbufs: %d\t%d=%d", b->memory, b->count, dev->buffers_number);
+  if (opener->timeout_image_io) {
+    if (b->memory != V4L2_MEMORY_MMAP)
+      return -EINVAL;
+    b->count = 1;
+    return 0;
+  }
+
   init_buffers(dev);
   switch (b->memory) {
   case V4L2_MEMORY_MMAP:
     /* do nothing here, buffers are always allocated*/
     if (0 == b->count)
       return 0;
-    if (opener->timeout_image_io) {
-      b->count = 1;
-      return 0;
-    }
 
     if (b->count > dev->buffers_number)
       b->count = dev->buffers_number;
@@ -1350,6 +1353,7 @@ vidioc_reqbufs      (struct file *file,
 
     /* make sure that outbufs_list contains buffers from 0 to used_buffers-1 */
     if (list_empty(&dev->outbufs_list)) {
+      int i;
       for (i = 0; i < dev->used_buffers; ++i)
         list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
     } else {
@@ -1378,11 +1382,13 @@ vidioc_querybuf     (struct file *file,
   enum v4l2_buf_type type ;
   int index;
   struct v4l2_loopback_device *dev;
+  struct v4l2_loopback_opener *opener;
   MARK();
 
   type = b->type;
   index = b->index;
   dev=v4l2loopback_getdevice(file);
+  opener = file->private_data;
 
   if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
       (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
@@ -1391,7 +1397,10 @@ vidioc_querybuf     (struct file *file,
   if (b->index > max_buffers)
     return -EINVAL;
 
-  *b = dev->buffers[b->index % dev->used_buffers].buffer;
+  if (opener->timeout_image_io)
+    *b = dev->timeout_image_buffer.buffer;
+  else
+    *b = dev->buffers[b->index % dev->used_buffers].buffer;
 
   b->type = type;
   b->index = index;
@@ -1424,13 +1433,17 @@ vidioc_qbuf         (struct file *file,
                      struct v4l2_buffer *buf)
 {
   struct v4l2_loopback_device *dev;
+  struct v4l2_loopback_opener *opener;
   struct v4l2l_buffer *b;
   int index;
 
   dev=v4l2loopback_getdevice(file);
+  opener = file->private_data;
 
   if (buf->index > max_buffers)
     return -EINVAL;
+  if (opener->timeout_image_io)
+    return 0;
 
   index = buf->index % dev->used_buffers;
   b=&dev->buffers[index];
@@ -1520,6 +1533,10 @@ vidioc_dqbuf        (struct file *file,
 
   dev=v4l2loopback_getdevice(file);
   opener = file->private_data;
+  if (opener->timeout_image_io) {
+    *buf = dev->timeout_image_buffer.buffer;
+    return 0;
+  }
 
   switch (buf->type) {
   case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -1686,7 +1703,13 @@ v4l2_loopback_mmap  (struct file *file,
     dprintk("userspace tries to mmap too much, fail\n");
     return -EINVAL;
   }
-  if ((vma->vm_pgoff << PAGE_SHIFT) >
+  if (opener->timeout_image_io) {
+    /* we are going to map the timeout_image_buffer */
+    if ((vma->vm_pgoff << PAGE_SHIFT) != dev->buffer_size * MAX_BUFFERS) {
+      dprintk("invalid mmap offset for timeout_image_io mode\n");
+      return -EINVAL;
+    }
+  } else if ((vma->vm_pgoff << PAGE_SHIFT) >
       dev->buffer_size * (dev->buffers_number - 1)) {
     dprintk("userspace tries to mmap too far, fail\n");
     return -EINVAL;
@@ -1700,12 +1723,6 @@ v4l2_loopback_mmap  (struct file *file,
   }
 
   if (opener->timeout_image_io) {
-    int r;
-    if (vma->vm_pgoff != 0)
-      return -EINVAL;
-    r = allocate_timeout_image(dev);
-    if (r < 0)
-      return r;
     buffer = &dev->timeout_image_buffer;
     addr = (unsigned long) dev->timeout_image;
   } else {
@@ -1737,8 +1754,7 @@ v4l2_loopback_mmap  (struct file *file,
 
   vma->vm_ops = &vm_ops;
   vma->vm_private_data = buffer;
-  dev->buffers[(vma->vm_pgoff<<PAGE_SHIFT)/dev->buffer_size].buffer.flags |=
-    V4L2_BUF_FLAG_MAPPED;
+  buffer->buffer.flags |= V4L2_BUF_FLAG_MAPPED;
 
   vm_open(vma);
 
@@ -1796,7 +1812,15 @@ v4l2_loopback_open   (struct file *file)
   atomic_inc(&dev->open_count);
 
   opener->timeout_image_io = dev->timeout_image_io;
-  dev->timeout_image_io = 0;;
+  dev->timeout_image_io = 0;
+
+  if (opener->timeout_image_io) {
+    int r = allocate_timeout_image(dev);
+    if (r < 0) {
+      dprintk("timeout image allocation failed\n");
+      return r;
+    }
+  }
   MARK();
   return 0;
 }
@@ -1985,6 +2009,8 @@ init_buffers        (struct v4l2_loopback_device *dev)
 
     do_gettimeofday(&b->timestamp);
   }
+  dev->timeout_image_buffer = dev->buffers[0];
+  dev->timeout_image_buffer.buffer.m.offset = MAX_BUFFERS * buffer_size;
   MARK();
 }
 
