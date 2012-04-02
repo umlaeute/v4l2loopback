@@ -3,19 +3,17 @@
 usage() {
     cat <<!
 Usage:
-    $0 set-timeout DEVICE TIMEOUT [IMAGE]
+    $0 set-timeout-image IMAGE /dev/videoX
             Set timeout on device, and optionally the placeholder picture,
             instead of default null frame
-    $0 set-spec DEVICE SPEC
-            Fix format for the device (using GStreamer spec), so it will be
+    $0 set-caps CAPS /dev/videoX
+            Fix format for the device (using GStreamer caps), so it will be
             maintained until reset, regardless of future readers/writers
 
 Arguments:
-    DEVICE   device file ("/dev/videoX"), or just number "X"
     IMAGE    image file ("no-input.png"), or 'videotestsrc'
-    SPEC     GStreamer spec ("video/x-raw-yuv, width=640, height=480"),
-             or 'any' for reset to uninitialized state
-    TIMEOUT  timeout value, in milliseconds (0 for disable the timeout)
+    CAPS     GStreamer caps ("video/x-raw-yuv, width=640, height=480"),
+             or 'any'
 !
     exit 1
 }
@@ -37,10 +35,10 @@ parse_device() {
 }
 
 
-set_spec() {
-    parse_device "$1"
-    spec=$2
-    [ -z "$spec" ] && usage
+set_caps() {
+    caps="$1"
+    parse_device "$2"
+    [ -z "$caps" ] && usage
 
     [ "$2" = 'any' ] && {
         v4l2-ctl -d $device -c keep_format=0
@@ -50,7 +48,7 @@ set_spec() {
     [ -n "`cat $sysfs/format`" ] && die "Device is busy"
     declare -a params
     declare -a nofps_params
-    IFS=',' read -ra params <<< "$spec"
+    IFS=',' read -ra params <<< "$caps"
     for p in "${params[@]}"; do
         if echo "$p" | grep -q framerate; then
             fps=`echo "$p" | sed -r 's/.*(=|\))//g'`
@@ -63,20 +61,17 @@ set_spec() {
     done
     {
         IFS=','
-        nofps_spec="${nofps_params[*]}"
+        nofps_caps="${nofps_params[*]}"
     }
-    #echo "nofps_spec: $nofps_spec"
+    #echo "nofps_caps: $nofps_caps"
     v4l2-ctl -d $device -c keep_format=1 || exit 1
     v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
-    gst-launch-0.10 videotestsrc num-buffers=1 ! "$nofps_spec" ! v4l2sink device=$device || die "output to $device failed"
+    gst-launch-0.10 videotestsrc num-buffers=1 ! "$nofps_caps" ! v4l2sink device=$device || die "output to $device failed"
 }
 
-set_timeout() {
-    parse_device "$1"
-    timeout=$2
-    imagefile=$3
-    [ -z "$timeout" ] && usage
-    v4l2-ctl -d $device -c timeout="$timeout"
+set_timeout_image() {
+    imagefile="$1"
+    parse_device "$2"
 
     [ -z "$imagefile" ] && return
     [ -n "`cat $sysfs/format`" ] || die "Device has no format negotiated"
@@ -93,11 +88,11 @@ set_timeout() {
 command="$1"
 shift
 case "$command" in
-    "set-spec")
-        set_spec "$@"
+    "set-caps")
+        set_caps "$@"
         ;;
-    "set-timeout")
-        set_timeout "$@"
+    "set-timeout-image")
+        set_timeout_image "$@"
         ;;
     *)
         usage
