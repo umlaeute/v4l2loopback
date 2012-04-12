@@ -368,6 +368,7 @@ static ssize_t attr_show_format(struct device *cd,
                                 struct device_attribute *attr,
                                 char *buf)
 {
+  /* gets the current format as "FOURCC:WxH@f/s", e.g. "YUYV:320x240@1000/30"
   struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
   const struct v4l2_fract *tpf;
   char buf4cc[5], buf_fps[32];
@@ -399,8 +400,9 @@ static ssize_t attr_store_format(struct device* cd,
     set_timeperframe(dev, &(struct v4l2_fract){.numerator   = fps_den,
                                                .denominator = fps_num});
     return len;
-  } else
+  } else {
     return -EINVAL;
+  }
 }
 static DEVICE_ATTR(format, S_IRUGO | S_IWUSR, attr_show_format, attr_store_format);
 
