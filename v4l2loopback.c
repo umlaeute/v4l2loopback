@@ -836,6 +836,7 @@ vidioc_g_fmt_out    (struct file *file,
                         dev->pix_format.width, dev->pix_format.height);
 
     dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+    dprintk("buffer_size = %ld (=%d)", dev->buffer_size, dev->pix_format.sizeimage);
     allocate_buffers(dev);
   }
   fmt->fmt.pix = dev->pix_format;
@@ -870,6 +871,12 @@ vidioc_try_fmt_out  (struct file *file,
     __u32 pixfmt=fmt->fmt.pix.pixelformat;
     const struct v4l2l_format*format=format_by_fourcc(pixfmt);
 
+    if(w>V4L2LOOPBACK_SIZE_MAX_WIDTH)
+      w=V4L2LOOPBACK_SIZE_MAX_WIDTH;
+    if(h>V4L2LOOPBACK_SIZE_MAX_HEIGHT)
+      h=V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+
+    dprintk("trying image %dx%d", w, h);
 
     if(w<1)
       w=V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
@@ -1824,6 +1831,7 @@ v4l2_loopback_open   (struct file *file)
       return r;
     }
   }
+  dprintk("opened dev:%p with image:%p", dev, dev?dev->image:NULL);
   MARK();
   return 0;
 }
@@ -1923,7 +1931,8 @@ v4l2_loopback_write  (struct file *file,
 /* frees buffers, if already allocated */
 static int free_buffers(struct v4l2_loopback_device *dev)
 {
-  dprintk("freeing %p -> %p", dev, dev->image);
+  MARK();
+  dprintk("freeing image@%p for dev:%p", dev?(dev->image):NULL, dev);
   if(dev->image) {
     vfree(dev->image);
     dev->image=NULL;
@@ -1940,6 +1949,7 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 static void
 try_free_buffers(struct v4l2_loopback_device *dev)
 {
+  MARK();
   if (0 == dev->open_count.counter && !dev->keep_format) {
     free_buffers(dev);
     dev->ready_for_capture = 0;
@@ -1970,6 +1980,9 @@ allocate_buffers    (struct v4l2_loopback_device *dev)
   }
 
   dev->imagesize=dev->buffer_size * dev->buffers_number;
+
+  dprintk("allocating %ld = %ldx%d", dev->imagesize, dev->buffer_size, dev->buffers_number);
+
   dev->image = vmalloc(dev->imagesize);
   if (dev->timeout_jiffies > 0)
     allocate_timeout_image(dev);
@@ -2020,6 +2033,7 @@ init_buffers        (struct v4l2_loopback_device *dev)
 static int
 allocate_timeout_image(struct v4l2_loopback_device *dev)
 {
+  MARK();
   if (dev->buffer_size <= 0)
     return -EINVAL;
 
@@ -2053,6 +2067,7 @@ init_vdev           (struct video_device *vdev)
 static void
 init_capture_param  (struct v4l2_captureparm *capture_param)
 {
+  MARK();
   capture_param->capability               = 0;
   capture_param->capturemode              = 0;
   capture_param->extendedmode             = 0;
@@ -2146,6 +2161,8 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   /* FIXME set buffers to 0 */
 
   init_waitqueue_head(&dev->read_event);
+
+  MARK();
   return 0;
 };
 
@@ -2224,6 +2241,7 @@ static void
 zero_devices        (void)
 {
   int i;
+  MARK();
   for(i=0; i<MAX_DEVICES; i++) {
     devs[i]=NULL;
   }
@@ -2233,6 +2251,7 @@ static void
 free_devices        (void)
 {
   int i;
+  MARK();
   for(i=0; i<devices; i++) {
     if(NULL!=devs[i]) {
       free_buffers(devs[i]);
