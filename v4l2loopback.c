@@ -62,7 +62,7 @@ MODULE_LICENSE("GPL");
 /* module parameters */
 static int debug = 0;
 module_param(debug, int, S_IRUGO|S_IWUSR );
-MODULE_PARM_DESC(debug, "if debug output is enabled, values are 0, 1 or 2");
+MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
 #define MAX_BUFFERS 32  /* max buffers that can be mapped, actually they
                          * are all mapped to max_buffers buffers */
