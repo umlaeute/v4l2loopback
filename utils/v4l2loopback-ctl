@@ -40,7 +40,7 @@ set_caps() {
     parse_device "$2"
     [ -z "$caps" ] && usage
 
-    [ "$2" = 'any' ] && {
+    [ "$caps" = 'any' ] && {
         v4l2-ctl -d $device -c keep_format=0
         return
     }
