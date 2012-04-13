@@ -73,6 +73,16 @@ will create 3 devices (/dev/video3 /dev/video4 & /dev/video7)
 you can set and/or query some per-device attributes via sysfs, in a human
 readable format. see
  /sys/devices/virtual/video4linux/video*/
+also there are some V4L2 controls that you can list with
+$ v4l2-ctl -d /dev/video1 -l
+
+--- FORCING A GSTREAMER (0.10) CAPS ---
+$ v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480" /dev/video0
+
+--- SETTING STREAM TIMEOUT ---
+$ v4l2-ctl -d /dev/video0 -c timeout=3000
+(will output null frames by default)
+$ v4l2loopback-ctl set-timeout-image service-unavailable.png /dev/video0
 
 --- KERNELs ---
 the original module has been developed for linux-2.6.28;
@@ -103,7 +113,8 @@ the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
 
 --- LICENSE/COPYING ---
-Copyright (c) 2010-2011 IOhannes m zmoelnig <zmoelnig@iem.at>
+Copyright (c) 2010-2012 IOhannes m zmoelnig <zmoelnig@iem.at>
+Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
 Copyright (c) 2011 Stefan Diewald (stefan.diewald@mytum.de)
 Copyright (c) 2010 Scott Maines <smaines@alaya.com>
 Copyright (c) 2009 Gorinich Zmey
