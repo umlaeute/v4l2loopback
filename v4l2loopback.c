@@ -2154,6 +2154,12 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   dev->max_openers = max_openers;
   dev->write_position = 0;
   INIT_LIST_HEAD(&dev->outbufs_list);
+  if (list_empty(&dev->outbufs_list)) {
+    int i;
+    for (i = 0; i < dev->used_buffers; ++i) {
+      list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
+    }
+  }
   memset(dev->readpos2index, 0, sizeof(dev->readpos2index));
   atomic_set(&dev->open_count, 0);
   dev->ready_for_capture = 0;
