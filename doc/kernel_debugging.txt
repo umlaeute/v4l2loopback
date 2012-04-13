@@ -1,0 +1,22 @@
+some hints how to debug kernel panics
+
+
+https://wiki.ubuntu.com/Kernel/KernelDebuggingTricks
+
+
+basically it is:
+- run tests in a virtual machine (i use VirtualBox)
+- configure the vm to have a serial output
+	VirtualBox-Settings/Serial Ports
+		enable serial port COM1
+		port mode: Raw File
+		file path: /tmp/vbox_serial.log
+- configure the vm's kernel to log to the kernel:
+	add "console=tty console=ttyS0,9600" to the kernel-parms
+	(i put that into grub)
+- reboot
+- raise the vm's kernel console verbosity:
+	echo 7 > /proc/sys/kernel/printk
+
+- run
+- examine /tmp/vbox_serial.log on the host
