@@ -11,16 +11,19 @@ INSTALL_DIR     = $(INSTALL) -p -m 755 -d
 
 MODULE_OPTIONS = devices=2
 
+.PHONY: all install install-utils clean modprobe
+
 
 all: v4l2loopback.ko
 v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
-install:
+install: install-utils
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
 	depmod -ae
+install-utils: utils/v4l2loopback-ctl
 	$(INSTALL_DIR) "$(DESTDIR)$(BINDIR)"
-	$(INSTALL_PROGRAM) v4l2loopback-ctl "$(DESTDIR)$(BINDIR)"
+	$(INSTALL_PROGRAM) $< "$(DESTDIR)$(BINDIR)"
 clean:
 	rm -f *~
 	rm -f Module.symvers Module.markers modules.order
