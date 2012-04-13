@@ -104,6 +104,13 @@ MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)"
 #define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH   640
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT  480
 
+static int max_width = V4L2LOOPBACK_SIZE_MAX_WIDTH;
+module_param(max_width, int, S_IRUGO);
+MODULE_PARM_DESC(max_width, "maximum frame width");
+static int max_height = V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+module_param(max_height, int, S_IRUGO);
+MODULE_PARM_DESC(max_height, "maximum frame height");
+
 
 /* control IDs */
 #define CID_KEEP_FORMAT        (V4L2_CID_PRIVATE_BASE+0)
@@ -599,8 +606,8 @@ vidioc_enum_framesizes        (struct file *file, void *fh,
     argp->stepwise.min_width=V4L2LOOPBACK_SIZE_MIN_WIDTH;
     argp->stepwise.min_height=V4L2LOOPBACK_SIZE_MIN_HEIGHT;
 
-    argp->stepwise.max_width=V4L2LOOPBACK_SIZE_MAX_WIDTH;
-    argp->stepwise.max_height=V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+    argp->stepwise.max_width=max_width;
+    argp->stepwise.max_height=max_height;
 
     argp->stepwise.step_width=1;
     argp->stepwise.step_height=1;
@@ -873,10 +880,10 @@ vidioc_try_fmt_out  (struct file *file,
     __u32 pixfmt=fmt->fmt.pix.pixelformat;
     const struct v4l2l_format*format=format_by_fourcc(pixfmt);
 
-    if(w>V4L2LOOPBACK_SIZE_MAX_WIDTH)
-      w=V4L2LOOPBACK_SIZE_MAX_WIDTH;
-    if(h>V4L2LOOPBACK_SIZE_MAX_HEIGHT)
-      h=V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+    if(w>max_width)
+      w=max_width;
+    if(h>max_height)
+      h=max_height;
 
     dprintk("trying image %dx%d", w, h);
 
@@ -2299,6 +2306,15 @@ init_module         (void)
   if (max_openers < 0) {
     printk(KERN_INFO "v4l2loopback: allowing %d openers rather than %d\n", 2, max_openers);
     max_openers=2;
+  }
+
+  if (max_width < 1) {
+    max_width = V4L2LOOPBACK_SIZE_MAX_WIDTH;
+    printk(KERN_INFO "v4l2loopback: using max_width %d\n", max_width);
+  }
+  if (max_height < 1) {
+    max_height = V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+    printk(KERN_INFO "v4l2loopback: using max_height %d\n", max_height);
   }
 
   /* kfree on module release */
