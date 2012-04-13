@@ -12,8 +12,8 @@ INSTALL_DIR     = $(INSTALL) -p -m 755 -d
 MODULE_OPTIONS = devices=2
 
 
-all: v4l2loopback
-v4l2loopback:
+all: v4l2loopback.ko
+v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
 install:
@@ -26,8 +26,8 @@ clean:
 	rm -f Module.symvers Module.markers modules.order
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
 
-modprobe: v4l2loopback
+modprobe: v4l2loopback.ko
 	chmod a+r v4l2loopback.ko
 	sudo modprobe videodev
-	-sudo rmmod $<
+	-sudo rmmod v4l2loopback
 	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
