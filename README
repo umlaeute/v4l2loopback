@@ -75,6 +75,19 @@ readable format. see
  /sys/devices/virtual/video4linux/video*/
 also there are some V4L2 controls that you can list with
 $ v4l2-ctl -d /dev/video1 -l
+keep_format(0/1): while set to 1, once negotiated format will be fixed forever,
+                  until the setting is set back to 0
+sustain_framerate(0/1): if set to 1, nominal device fps will be ensured by means
+                        of frame duplication when needed
+timeout(integer): if >0, will cause a timeout picture (a null frame, by default)
+                  to be displayed after (value) msecs of missing input
+timeout_image_io(0/1): if set to 1, the next opener will write to timeout frame
+                       buffer
+
+--- FORCING FPS ---
+$ v4l2loopback-ctl set-fps 25 /dev/video0
+or
+$ echo '@100' | sudo tee /sys/devices/virtual/video4linux/video0/format
 
 --- FORCING A GSTREAMER (0.10) CAPS ---
 $ v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480" /dev/video0
@@ -83,6 +96,7 @@ $ v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480" /dev/video0
 $ v4l2-ctl -d /dev/video0 -c timeout=3000
 (will output null frames by default)
 $ v4l2loopback-ctl set-timeout-image service-unavailable.png /dev/video0
+this currently requires GStreamer 0.10 installed
 
 --- KERNELs ---
 the original module has been developed for linux-2.6.28;
