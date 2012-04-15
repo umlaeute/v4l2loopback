@@ -3,6 +3,8 @@
 usage() {
     cat <<!
 Usage:
+    $0 set-fps FPS /dev/videoX
+            Set device fps (if format is already negotiated)
     $0 set-timeout-image IMAGE /dev/videoX
             Set timeout on device, and optionally the placeholder picture,
             instead of default null frame
@@ -35,12 +37,21 @@ parse_device() {
 }
 
 
+set_fps() {
+    fps="$1"
+    parse_device "$2"
+    [ -z "$fps" ] && usage
+
+    echo "@$fps" | sudo tee "$sysfs/format" >/dev/null || die "Set fps failed"
+    echo OK
+}
+
 set_caps() {
     caps="$1"
     parse_device "$2"
     [ -z "$caps" ] && usage
 
-    [ "$2" = 'any' ] && {
+    [ "$caps" = 'any' ] && {
         v4l2-ctl -d $device -c keep_format=0
         return
     }
@@ -88,6 +99,9 @@ set_timeout_image() {
 command="$1"
 shift
 case "$command" in
+    "set-fps")
+        set_fps "$@"
+        ;;
     "set-caps")
         set_caps "$@"
         ;;
