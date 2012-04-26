@@ -6,8 +6,6 @@ usage() {
 Usage:
     $0 [command] [args]
 
-   Set a special aspect of a given v4l2-loopback device
-
 Commands:
      set-fps <FPS> /dev/videoX  Set device fps (if format is already
                                 negotiated).
