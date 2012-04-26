@@ -1,25 +1,44 @@
 #!/bin/bash
 
 usage() {
+## ugly linebreaks in order to make help2man more happy
     cat <<!
 Usage:
-    $0 set-fps FPS /dev/videoX
-            Set device fps (if format is already negotiated)
-    $0 set-timeout-image IMAGE /dev/videoX
-            Set timeout on device, and optionally the placeholder picture,
-            instead of default null frame
-    $0 set-caps CAPS /dev/videoX
-            Fix format for the device (using GStreamer caps), so it will be
-            maintained until reset, regardless of future readers/writers
+    $0 [command] [args]
 
-Arguments:
+   Set a special aspect of a given v4l2-loopback device
+
+Commands:
+     set-fps <FPS> /dev/videoX  Set device fps (if format is already
+                                negotiated).
+
+     set-timeout-image <IMAGE> /dev/videoX  Set timeout on device, and 
+                                            optionally the placeholder picture,
+                                            instead of default null frame.
+
+     set-caps <CAPS> /dev/videoX  Fix format for the device (using GStreamer
+                                  caps), so it will be maintained until reset,
+                                  regardless of future readers/writers.
+
+Options:
+    FPS      frames per second, either as integer ('30') or fraction ('50/2')
     IMAGE    image file ("no-input.png"), or 'videotestsrc'
     CAPS     GStreamer caps ("video/x-raw-yuv, width=640, height=480"),
              or 'any'
+    /dev/videoX  the v4l2-loopback device file you want to act on
 !
     exit 1
 }
 
+version() {
+cat <<!
+$0 0.6
+
+Copyright (c) 2012 IOhannes m zmoelnig <zmoelnig@iem.at>
+Copyright (c) 2012 Anton Novikov (random.plant@gmail.com)
+!
+    exit 1
+}
 die() {
     echo "$@" 1>&2
     exit 1
@@ -111,6 +130,12 @@ set_timeout_image() {
 command="$1"
 shift
 case "$command" in
+    "-h"|"--help")
+	usage
+	;;
+    "-v"|"--version")
+	version
+	;;
     "set-fps")
         set_fps "$@"
         ;;
