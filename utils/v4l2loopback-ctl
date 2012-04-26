@@ -36,8 +36,8 @@ parse_device() {
     sysfs=/sys/devices/virtual/video4linux/${device##*/}
 }
 
-check_gstreamer() {
- which gst-launch-0.10 > /dev/null || die "can't find gstreamer"
+check_application() {
+ which $1 > /dev/null || die "can't find $1"
 }
 
 
@@ -56,6 +56,7 @@ set_caps() {
     [ -z "$caps" ] && usage
 
     [ "$caps" = 'any' ] && {
+        check_application v4l2-ctl
         v4l2-ctl -d $device -c keep_format=0
         return
     }
@@ -79,6 +80,9 @@ set_caps() {
         nofps_caps="${nofps_params[*]}"
     }
     #echo "nofps_caps: $nofps_caps"
+    check_application v4l2-ctl
+    check_application gst-launch-0.10
+
     v4l2-ctl -d $device -c keep_format=1 || exit 1
     v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
     gst-launch-0.10 videotestsrc num-buffers=1 ! "$nofps_caps" ! v4l2sink device=$device || die "output to $device failed"
@@ -90,6 +94,10 @@ set_timeout_image() {
 
     [ -z "$imagefile" ] && return
     [ -n "`cat $sysfs/format`" ] || die "Device has no format negotiated"
+
+    check_application v4l2-ctl
+    check_application gst-launch-0.10
+
     v4l2-ctl -d $device -c timeout_image_io=1
     if [ "$imagefile" = 'videotestsrc' ]; then
         gst-launch-0.10 videotestsrc num-buffers=1 ! v4l2sink device=$device
