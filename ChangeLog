@@ -1,3 +1,63 @@
+v4l2loopback (0.6.0) UNRELEASED; urgency=low
+
+  [ IOhannes m zmölnig ]
+  * added direct link to wiki
+  * fixed typos
+  * check for (devices<0) rather than (devices==-1)
+
+  [ Anton Novikov ]
+  * add .gitignore files
+  * add 'format' sysfs attr
+  * remove 'fourcc' sysfs attr
+  * 'keep_format' ctrl
+  * set_timeperframe(), dev->frame_jiffies
+  * 'sustain_framerate' ctrl
+  * add examples/restarting-writer.sh
+  * reset write_position only when !ready_for_capture
+  * handle arbitrary output QBUF index order
+  * 'timeout' ctrl
+  * add ability to do i/o on placeholder picture buf
+  * add v4l2loopback-ctl script
+  * installing v4l2loopback-ctl
+  * fix dequeuing unused buffers
+  * timeout_image_io cleaner memory handling
+  * some documentation on controls
+  * some v4l2loopback-ctl syntax&doc tweaks
+
+  [ IOhannes m zmölnig ]
+  * moved utility into utils/
+  * Updated copyright notice
+  * use max image size to prevent insane allocations
+  * in-code documentation of the format string
+  * fixed description of 'debug' option
+  * fixed closing comment
+  * allow to set the max.framesize via module parameters
+  * renamed 'v4l2loopback' target to 'v4l2loopback.ko'
+  * added install-utils target
+
+  [ Anton Novikov ]
+  * script bugfix
+  * v4l2loopback-ctl set-fps
+  * more README
+
+  [ IOhannes m zmölnig ]
+  * initialize list in all cases
+  * notes on how to do kernel-debugging
+  * when dying, write to stderr
+  * check for applications before using them
+  * fix usage/version to make it fit for help2man
+  * manpage for v4l2loopback-ctl
+  * placeholder
+  * simplified description
+  * build and install manpages
+  * deleted manage (it's generated automatically)
+  * updated in-module AUTHORs
+  * debugging printout
+  * don't try to force a given format
+  * clarify README about default device in ./test
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Fri, 27 Apr 2012 09:29:52 +0200
+
 v4l2loopback (0.5.0) UNRELEASED; urgency=low
 
   [ IOhannes m zmölnig ]
