@@ -7,12 +7,13 @@ test
 this small sample application will write an image into a v4l2loopback device.
 the image will be 640x480 pixels in UYVY colorspace (and since all pixels are
 set to "0" it will be green).
-the video-device is currently hard-coded to /dev/video1
+the video-device defaults to /dev/video1 but you can specify another device on
+the commandline
 
 USAGE:
 $ make test
-$ ./test &
-$ xawtv -c /dev/video1
+$ ./test /dev/video2 &
+$ xawtv -c /dev/video2
 
 if you want to use another device you need to modify the VIDEO_DEVICE define at
 the beginning of the code and recompile.
