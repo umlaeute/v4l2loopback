@@ -32,7 +32,7 @@
 
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
-MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>, Stefan Diewald <stefan.diewald@mytum.de>");
+MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>, Stefan Diewald, Anton Novikov");
 MODULE_LICENSE("GPL");
 
 
