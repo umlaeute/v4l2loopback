@@ -100,39 +100,27 @@ int main(int argc, char**argv)
 	__u8*buffer;
 	__u8*check_buffer;
 
-        const char*video_device=VIDEO_DEVICE;
+  const char*video_device=VIDEO_DEVICE;
+	int fdwr = 0;
+	int ret_code = 0;
 
-	if(!format_properties(FRAME_FORMAT,
-		FRAME_WIDTH, FRAME_HEIGHT,
-		&linewidth,
-		&framesize)) {
-		printf("unable to guess correct settings for format '%d'\n", FRAME_FORMAT);
-	}
-
-
-	buffer=(__u8*)malloc(sizeof(__u8)*framesize);
-	check_buffer=(__u8*)malloc(sizeof(__u8)*framesize);
+	int i;
 
 	if(argc>1) {
 		video_device=argv[1];
 		printf("using output device: %s\n", video_device);
 	}
 
-	int i;
-	memset(buffer, 0, framesize);
-	memset(check_buffer, 0, framesize);
-	for (i = 0; i < framesize; ++i) {
-		//buffer[i] = i % 2;
-		check_buffer[i] = 0;
-	}
-
-	int fdwr = open(video_device, O_RDWR);
+	fdwr = open(video_device, O_RDWR);
 	assert(fdwr >= 0);
 
-	int ret_code = ioctl(fdwr, VIDIOC_QUERYCAP, &vid_caps);
+	ret_code = ioctl(fdwr, VIDIOC_QUERYCAP, &vid_caps);
 	assert(ret_code != -1);
 
 	memset(&vid_format, 0, sizeof(vid_format));
+
+	ret_code = ioctl(fdwr, VIDIOC_G_FMT, &vid_format);
+  if(debug)print_format(&vid_format);
 
 	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	vid_format.fmt.pix.width = FRAME_WIDTH;
@@ -150,6 +138,26 @@ int main(int argc, char**argv)
 
 	if(debug)printf("frame: format=%d\tsize=%d\n", FRAME_FORMAT, framesize);
   print_format(&vid_format);
+
+	if(!format_properties(vid_format.fmt.pix.pixelformat,
+                        vid_format.fmt.pix.width, vid_format.fmt.pix.height,
+                        &linewidth,
+                        &framesize)) {
+		printf("unable to guess correct settings for format '%d'\n", FRAME_FORMAT);
+	}
+	buffer=(__u8*)malloc(sizeof(__u8)*framesize);
+	check_buffer=(__u8*)malloc(sizeof(__u8)*framesize);
+
+	memset(buffer, 0, framesize);
+	memset(check_buffer, 0, framesize);
+	for (i = 0; i < framesize; ++i) {
+		//buffer[i] = i % 2;
+		check_buffer[i] = 0;
+	}
+
+
+
+
 
 	write(fdwr, buffer, framesize);
 
