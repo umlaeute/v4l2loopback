@@ -1,4 +1,4 @@
-/* 
+/*
  * How to test v4l2loopback:
  * 1. launch this test program (even in background), it will initialize the
  *    loopback device and keep it open so it won't loose the settings.
@@ -48,6 +48,9 @@
 # define FRAME_FORMAT V4L2_PIX_FMT_YVU420
 #endif
 
+static int debug=0;
+
+
 int format_properties(const unsigned int format,
 		const unsigned int width,
 		const unsigned int height,
@@ -75,6 +78,16 @@ size_t lw, fw;
 }
 
 
+void print_format(struct v4l2_format*vid_format) {
+  printf("	vid_format->type                =%d\n",	vid_format->type );
+  printf("	vid_format->fmt.pix.width       =%d\n",	vid_format->fmt.pix.width );
+  printf("	vid_format->fmt.pix.height      =%d\n",	vid_format->fmt.pix.height );
+  printf("	vid_format->fmt.pix.pixelformat =%d\n",	vid_format->fmt.pix.pixelformat);
+  printf("	vid_format->fmt.pix.sizeimage   =%d\n",	vid_format->fmt.pix.sizeimage );
+  printf("	vid_format->fmt.pix.field       =%d\n",	vid_format->fmt.pix.field );
+  printf("	vid_format->fmt.pix.bytesperline=%d\n",	vid_format->fmt.pix.bytesperline );
+  printf("	vid_format->fmt.pix.colorspace  =%d\n",	vid_format->fmt.pix.colorspace );
+}
 
 int main(int argc, char**argv)
 {
@@ -129,10 +142,14 @@ int main(int argc, char**argv)
 	vid_format.fmt.pix.field = V4L2_FIELD_NONE;
 	vid_format.fmt.pix.bytesperline = linewidth;
 	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
+
+  if(debug)print_format(&vid_format);
 	ret_code = ioctl(fdwr, VIDIOC_S_FMT, &vid_format);
+
 	assert(ret_code != -1);
 
-	printf("frame: format=%d\tsize=%d\n", FRAME_FORMAT, framesize);
+	if(debug)printf("frame: format=%d\tsize=%d\n", FRAME_FORMAT, framesize);
+  print_format(&vid_format);
 
 	write(fdwr, buffer, framesize);
 
