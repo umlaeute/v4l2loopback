@@ -10,7 +10,8 @@ run_writers() {
     done
 }
 
-v4l2-ctl -d $device -c keep_format=1 || exit 1
+#v4l2-ctl -d $device -c keep_format=1 || exit 1
+./utils/v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480, framerate=(fraction)25/1" $device || exit 1
 v4l2-ctl -d $device -c sustain_framerate=0 || exit 1
 v4l2-ctl -d $device -c timeout=2000 || exit 1
 gst-launch-0.10 videotestsrc num-buffers=1 ! v4l2sink device=$device || exit 1
@@ -21,6 +22,6 @@ gst-launch-0.10 videotestsrc num-buffers=1 ! v4l2sink device=$device || exit 1
     v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
     run_writers
 } >/dev/null 2>&1 &
-gst-launch-0.10 v4l2src device=$device ! timeoverlay ! videorate force-fps="30/1" ! fpsdisplaysink
+gst-launch-0.10 v4l2src device=$device ! timeoverlay ! ffmpegcolorspace ! autovideosink
 kill $! 2>/dev/null
 wait
