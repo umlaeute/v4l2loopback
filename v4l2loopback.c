@@ -169,8 +169,8 @@ struct v4l2_loopback_device {
 
   int write_position; /* number of last written frame + 1 */
   struct list_head outbufs_list; /* buffers in output DQBUF order */
-  int readpos2index[MAX_BUFFERS]; /* mapping of (read_position % used_buffers)
-                                   * to capture DQBUF index */
+  int bufpos2index[MAX_BUFFERS]; /* mapping of (read/write_position % used_buffers)
+                                  * to inner buffer index */
   long buffer_size;
 
   /* sustain_framerate stuff */
@@ -1444,7 +1444,7 @@ buffer_written(struct v4l2_loopback_device *dev, struct v4l2l_buffer *buf)
   del_timer_sync(&dev->timeout_timer);
   spin_lock_bh(&dev->lock);
 
-  dev->readpos2index[dev->write_position % dev->used_buffers] = buf->buffer.index;
+  dev->bufpos2index[dev->write_position % dev->used_buffers] = buf->buffer.index;
   list_move_tail(&buf->list_head, &dev->outbufs_list);
   ++dev->write_position;
   dev->reread_count = 0;
@@ -1538,7 +1538,7 @@ get_capture_buffer(struct file *file)
   dev->timeout_happened = 0;
   spin_unlock_bh(&dev->lock);
 
-  ret = dev->readpos2index[pos];
+  ret = dev->bufpos2index[pos];
   if (timeout_happened) {
     /* although allocated on-demand, timeout_image is freed only in free_buffers(),
      * so we don't need to worry about it being deallocated suddenly */
@@ -2170,7 +2170,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
       list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
     }
   }
-  memset(dev->readpos2index, 0, sizeof(dev->readpos2index));
+  memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
   atomic_set(&dev->open_count, 0);
   dev->ready_for_capture = 0;
   dev->buffer_size = 0;
