@@ -24,6 +24,16 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
 # define v4l2_file_operations file_operations
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
+void * v4l2l_vzalloc (	unsigned long size) {
+ void*data=vmalloc(size);
+ memset(data, 0, size);
+ return data;
+}
+#else
+# define v4l2l_vzalloc vzalloc
+#endif
+
 
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -2047,7 +2057,7 @@ allocate_timeout_image(struct v4l2_loopback_device *dev)
     return -EINVAL;
 
   if (dev->timeout_image == NULL) {
-    dev->timeout_image = vzalloc(dev->buffer_size);
+    dev->timeout_image = v4l2l_vzalloc(dev->buffer_size);
     if (dev->timeout_image == NULL)
       return -ENOMEM;
   }
