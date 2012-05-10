@@ -121,8 +121,15 @@ set_timeout_image() {
     else
         uri="file://`readlink -f $imagefile`" || die "no file"
         echo "Reading from $uri"
-        gst-launch-0.10 uridecodebin uri=$uri ! ffmpegcolorspace ! videoscale ! imagefreeze ! identity error-after=2 ! v4l2sink show-preroll-frame=false device=/dev/video0
+        gst-launch-0.10 uridecodebin uri=$uri ! ffmpegcolorspace ! videoscale ! imagefreeze ! identity error-after=2 ! v4l2sink show-preroll-frame=false device=$device
     fi
+    timeout=`v4l2-ctl -d $device -C timeout | sed -n 's/^timeout: //p'`
+    [ -n "$timeout" ] || die "couldn't get timeout"
+    echo "timeout: $timeout"
+    [ "$timeout" = 0 ] && {
+        echo 'Timeout is currently disabled; you can set it to some positive value, e.g.:'
+        echo "$ v4l2-ctl -d $device -c timeout=3000"
+    }
 }
 
 command="$1"

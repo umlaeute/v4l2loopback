@@ -24,6 +24,16 @@
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,29)
 # define v4l2_file_operations file_operations
 #endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,37)
+void * v4l2l_vzalloc (	unsigned long size) {
+ void*data=vmalloc(size);
+ memset(data, 0, size);
+ return data;
+}
+#else
+# define v4l2l_vzalloc vzalloc
+#endif
+
 
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -159,8 +169,8 @@ struct v4l2_loopback_device {
 
   int write_position; /* number of last written frame + 1 */
   struct list_head outbufs_list; /* buffers in output DQBUF order */
-  int readpos2index[MAX_BUFFERS]; /* mapping of (read_position % used_buffers)
-                                   * to capture DQBUF index */
+  int bufpos2index[MAX_BUFFERS]; /* mapping of (read/write_position % used_buffers)
+                                  * to inner buffer index */
   long buffer_size;
 
   /* sustain_framerate stuff */
@@ -1344,6 +1354,7 @@ vidioc_reqbufs      (struct file *file,
 {
   struct v4l2_loopback_device *dev;
   struct v4l2_loopback_opener *opener;
+  int i;
   MARK();
 
   dev=v4l2loopback_getdevice(file);
@@ -1366,22 +1377,36 @@ vidioc_reqbufs      (struct file *file,
 
     if (b->count > dev->buffers_number)
       b->count = dev->buffers_number;
+
+    /* make sure that outbufs_list contains buffers from 0 to used_buffers-1
+     * actually, it will have been already populated via v4l2_loopback_init()
+     * at this point */
+    if (list_empty(&dev->outbufs_list)) {
+      for (i = 0; i < dev->used_buffers; ++i)
+        list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
+    }
+
+    /* also, if dev->used_buffers is going to be decreased, we should remove
+     * out-of-range buffers from outbufs_list, and fix bufpos2index mapping */
+    if (b->count < dev->used_buffers) {
+      struct v4l2l_buffer *pos, *n;
+      list_for_each_entry_safe(pos, n, &dev->outbufs_list, list_head) {
+        if (pos->buffer.index >= b->count)
+          list_del(&pos->list_head);
+      }
+
+      /* after we update dev->used_buffers, buffers in outbufs_list will
+       * correspond to dev->write_position + [0;b->count-1] range */
+      i = dev->write_position;
+      list_for_each_entry(pos, &dev->outbufs_list, list_head) {
+        dev->bufpos2index[i % b->count] = pos->buffer.index;
+        ++i;
+      }
+    }
+
     opener->buffers_number = b->count;
     if (opener->buffers_number < dev->used_buffers)
       dev->used_buffers = opener->buffers_number;
-
-    /* make sure that outbufs_list contains buffers from 0 to used_buffers-1 */
-    if (list_empty(&dev->outbufs_list)) {
-      int i;
-      for (i = 0; i < dev->used_buffers; ++i)
-        list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
-    } else {
-      struct v4l2l_buffer *pos, *n;
-      list_for_each_entry_safe(pos, n, &dev->outbufs_list, list_head) {
-        if (pos->buffer.index >= dev->used_buffers)
-          list_del(&pos->list_head);
-      }
-    }
     return 0;
   default:
     return -EINVAL;
@@ -1434,7 +1459,7 @@ buffer_written(struct v4l2_loopback_device *dev, struct v4l2l_buffer *buf)
   del_timer_sync(&dev->timeout_timer);
   spin_lock_bh(&dev->lock);
 
-  dev->readpos2index[dev->write_position % dev->used_buffers] = buf->buffer.index;
+  dev->bufpos2index[dev->write_position % dev->used_buffers] = buf->buffer.index;
   list_move_tail(&buf->list_head, &dev->outbufs_list);
   ++dev->write_position;
   dev->reread_count = 0;
@@ -1528,7 +1553,7 @@ get_capture_buffer(struct file *file)
   dev->timeout_happened = 0;
   spin_unlock_bh(&dev->lock);
 
-  ret = dev->readpos2index[pos];
+  ret = dev->bufpos2index[pos];
   if (timeout_happened) {
     /* although allocated on-demand, timeout_image is freed only in free_buffers(),
      * so we don't need to worry about it being deallocated suddenly */
@@ -2047,7 +2072,7 @@ allocate_timeout_image(struct v4l2_loopback_device *dev)
     return -EINVAL;
 
   if (dev->timeout_image == NULL) {
-    dev->timeout_image = vzalloc(dev->buffer_size);
+    dev->timeout_image = v4l2l_vzalloc(dev->buffer_size);
     if (dev->timeout_image == NULL)
       return -ENOMEM;
   }
@@ -2160,7 +2185,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
       list_add_tail(&dev->buffers[i].list_head, &dev->outbufs_list);
     }
   }
-  memset(dev->readpos2index, 0, sizeof(dev->readpos2index));
+  memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
   atomic_set(&dev->open_count, 0);
   dev->ready_for_capture = 0;
   dev->buffer_size = 0;

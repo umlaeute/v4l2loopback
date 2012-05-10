@@ -32,6 +32,10 @@ MODULE_OPTIONS = devices=2
 .PHONY: install-all install-utils install-man
 .PHONY: modprobe v4l2loopback
 
+# we don't control the .ko file dependencies, as it is done by kernel
+# makefiles. therefore v4l2loopback.ko is a phony target actually
+.PHONY: v4l2loopback.ko
+
 all: v4l2loopback.ko
 v4l2loopback: v4l2loopback.ko
 v4l2loopback.ko:
