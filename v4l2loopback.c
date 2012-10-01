@@ -2081,10 +2081,11 @@ allocate_timeout_image(struct v4l2_loopback_device *dev)
 
 /* fills and register video device */
 static void
-init_vdev           (struct video_device *vdev)
+init_vdev           (struct video_device *vdev,
+                     int nr)
 {
   MARK();
-  strlcpy(vdev->name, "Loopback video device", sizeof(vdev->name));
+  snprintf(vdev->name, sizeof(vdev->name), "Loopback video device %X", nr);
   vdev->tvnorms      = V4L2_STD_ALL;
   vdev->current_norm = V4L2_STD_ALL;
   vdev->vfl_type     = VFL_TYPE_GRABBER;
@@ -2169,7 +2170,7 @@ v4l2_loopback_init  (struct v4l2_loopback_device *dev,
   }
   ((priv_ptr)video_get_drvdata(dev->vdev))->devicenr = nr;
 
-  init_vdev(dev->vdev);
+  init_vdev(dev->vdev, nr);
   init_capture_param(&dev->capture_param);
   set_timeperframe(dev, &dev->capture_param.timeperframe);
   dev->keep_format = 0;
