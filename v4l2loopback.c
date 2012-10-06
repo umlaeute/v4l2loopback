@@ -1589,7 +1589,7 @@ vidioc_dqbuf        (struct file *file,
       return index;
     dprintkrw("capture DQBUF pos: %d index: %d\n", opener->read_position - 1, index);
     if (!(dev->buffers[index].buffer.flags&V4L2_BUF_FLAG_MAPPED)) {
-      dprintk("trying to return not mapped buf\n");
+      dprintk("trying to return not mapped buf[%d]\n", index);
       return -EINVAL;
     }
     unset_flags(&dev->buffers[index]);
