@@ -2024,7 +2024,7 @@ init_buffers        (struct v4l2_loopback_device *dev)
     b->length            = buffer_size;
     b->field             = V4L2_FIELD_NONE;
     b->flags             = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,1)
     b->input             = 0;
 #endif
     b->m.offset          = i * buffer_size;
