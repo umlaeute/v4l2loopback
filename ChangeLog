@@ -1,9 +1,25 @@
-v4l2loopback (0.6.1) UNRELEASED; urgency=low
+v4l2loopback (0.6.2) UNRELEASED; urgency=low
 
-  [ IOhannes m zmoelnig ]
+  [ IOhannes m zmölnig ]
   * Makefile fixes for debian
+  * provide our own v4l2l_vzalloc
+  * added missing includes
+  * create unique names for the various devices
+  * more verbose debugging output when capture DQBUF fails
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Fri, 27 Apr 2012 17:22:25 +0200
+  [ Anton Novikov ]
+  * make v4l2loopback.ko a PHONY target
+  * restarting-writer.sh runs on Ubuntu 11.10
+  * warning about disabled timeout when setting image
+  * readpos2index -> bufpos2index
+  * test different queue-sizes in restarting-writer.sh
+  * fix buffer indices before dev->used_buffers update
+  * fix ctl script (was hardcoded /dev/video0)
+
+  [ yukkeorg ]
+  * Fix error on compile in Linux kernel 3.6.1.
+
+ -- IOhannes m zmoelnig <zmoelnig@umlaeute.mur.at>  Tue, 23 Oct 2012 14:38:02 +0200
 
 v4l2loopback (0.6.0) UNRELEASED; urgency=low
 
