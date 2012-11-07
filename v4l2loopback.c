@@ -571,7 +571,7 @@ vidioc_querycap     (struct file *file,
 
   strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
   strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
-  snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loop:%d",
+  snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loopback:%d",
            ((priv_ptr)video_get_drvdata(dev->vdev))->devicenr);
 
   cap->version = V4L2LOOPBACK_VERSION_CODE;
