@@ -2100,6 +2100,12 @@ init_vdev           (struct video_device *vdev,
   vdev->minor        = -1;
   if (debug > 1)
     vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
+
+  /* since kernel-3.7, there is a new field 'vfl_dir' that has to be set to VFL_DIR_M2M for bidrectional devices */
+#ifdef VFL_DIR_M2M
+  vdev->vfl_dir = VFL_DIR_M2M;
+#endif
+
   MARK();
 }
 
