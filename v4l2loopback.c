@@ -568,11 +568,12 @@ vidioc_querycap     (struct file *file,
                      struct v4l2_capability *cap)
 {
   struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+  int devnr = ((priv_ptr)video_get_drvdata(dev->vdev))->devicenr;
 
   strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
   strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
-  snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loopback:%d",
-           ((priv_ptr)video_get_drvdata(dev->vdev))->devicenr);
+  snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)",devnr);
+  snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loopback:%d", devnr);
 
   cap->version = V4L2LOOPBACK_VERSION_CODE;
   cap->capabilities =
