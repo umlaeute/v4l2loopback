@@ -793,7 +793,7 @@ vidioc_enum_fmt_out (struct file *file,
     f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     //    f->flags = ??;
     snprintf(f->description, sizeof(f->description),
-             fmt->name);
+	     "%s", fmt->name);
 
     f->pixelformat = dev->pix_format.pixelformat;
   } else {
@@ -810,7 +810,7 @@ vidioc_enum_fmt_out (struct file *file,
 
     //    strlcpy(f->description, "dummy OUT format", sizeof(f->description));
     snprintf(f->description, sizeof(f->description),
-             fmt->name);
+             "%s", fmt->name);
 
   }
   f->flags=0;
