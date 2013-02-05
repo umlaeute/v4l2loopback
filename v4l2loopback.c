@@ -38,7 +38,7 @@ void * v4l2l_vzalloc (	unsigned long size) {
 #include <linux/sched.h>
 #include <linux/slab.h>
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,6,2)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0,6,3)
 
 
 MODULE_DESCRIPTION("V4L2 loopback video device");

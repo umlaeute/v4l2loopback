@@ -1,4 +1,17 @@
-v4l2loopback (0.6.2) UNRELEASED; urgency=low
+v4l2loopback (0.6.3) unstable; urgency=low
+
+  [ Ted Mielczarek ]
+  * Fill in the "v4l2_capability::bus_info" field (Closes: #30)
+
+  [ IOhannes m zmölnig ]
+  * make "v4l2_capability::card" unique per device (Closes: #37)
+  * fill in "video_device::vfl_dir" field on newer kernels (Closes: #35)
+  * always provide format-string when using printf()
+  * fixing update-changelog script
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Tue, 05 Feb 2013 10:03:28 +0100
+
+v4l2loopback (0.6.2) unstable; urgency=low
 
   [ IOhannes m zmölnig ]
   * Makefile fixes for debian
