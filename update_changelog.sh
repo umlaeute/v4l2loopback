@@ -49,7 +49,7 @@ echo "updating to $NEWVERSION"
 OK=false
 mkdir debian 
 cp ${CHANGELOG} debian/changelog
-git-dch --since "v${OLDVERSION}" -N ${NEWVERSION} && cat debian/changelog > ${CHANGELOG} && OK=true
+git-dch -R --since "v${OLDVERSION}" -N ${NEWVERSION} && cat debian/changelog > ${CHANGELOG} && OK=true
 rm -rf debian
 
 if [ "x$OK" = "xtrue" ]; then
