@@ -14,7 +14,6 @@ v4l2loopback (0.6.3) unstable; urgency=low
 v4l2loopback (0.6.2) unstable; urgency=low
 
   [ IOhannes m zmölnig ]
-  * Makefile fixes for debian
   * provide our own v4l2l_vzalloc
   * added missing includes
   * create unique names for the various devices
@@ -33,6 +32,13 @@ v4l2loopback (0.6.2) unstable; urgency=low
   * Fix error on compile in Linux kernel 3.6.1.
 
  -- IOhannes m zmoelnig <zmoelnig@umlaeute.mur.at>  Tue, 23 Oct 2012 14:38:02 +0200
+
+v4l2loopback (0.6.1) UNRELEASED; urgency=low
+
+  [ IOhannes m zmoelnig ]
+  * Makefile fixes for debian
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Fri, 27 Apr 2012 17:22:25 +0200
 
 v4l2loopback (0.6.0) UNRELEASED; urgency=low
 
