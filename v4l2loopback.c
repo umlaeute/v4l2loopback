@@ -2045,6 +2045,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->used_buffers = max_buffers;
 	dev->max_openers = max_openers;
 	dev->write_position = 0;
+	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
 		int i;
