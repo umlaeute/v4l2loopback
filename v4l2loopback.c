@@ -993,6 +993,7 @@ static int vidioc_s_parm(struct file *file, void *priv, struct v4l2_streamparm *
 	return 0;
 }
 
+#ifdef V4L2LOOPBACK_WITH_STD
 /* sets a tv standard, actually we do not need to handle this any special way
  * added to support effecttv
  * called on VIDIOC_S_STD
@@ -1034,7 +1035,7 @@ static int vidioc_querystd(struct file *file, void *private_data, v4l2_std_id *n
 		*norm = V4L2_STD_ALL;
 	return 0;
 }
-
+#endif /* V4L2LOOPBACK_WITH_STD */
 
 /* get ctrls info
  * called on VIDIOC_QUERYCTRL
@@ -2132,9 +2133,11 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_g_fmt_vid_overlay = &vidioc_g_fmt_overlay,
 #endif
 
+#ifdef V4L2LOOPBACK_WITH_STD
 	.vidioc_s_std            = &vidioc_s_std,
 	.vidioc_g_std            = &vidioc_g_std,
 	.vidioc_querystd         = &vidioc_querystd,
+#endif /* V4L2LOOPBACK_WITH_STD */
 
 	.vidioc_g_parm           = &vidioc_g_parm,
 	.vidioc_s_parm           = &vidioc_s_parm,
