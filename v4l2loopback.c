@@ -667,7 +667,6 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh, struct v4l2_fmtdesc 
 		return -EINVAL;
 	if (dev->ready_for_capture) {
 		const __u32 format = dev->pix_format.pixelformat;
-		/* strlcpy(f->description, "current format", sizeof(f->description)); */
 
 		snprintf(f->description, sizeof(f->description),
 				"[%c%c%c%c]",
