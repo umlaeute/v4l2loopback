@@ -44,7 +44,11 @@ void *v4l2l_vzalloc(unsigned long size)
 
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
-MODULE_AUTHOR("Vasily Levin, IOhannes m zmoelnig <zmoelnig@iem.at>, Stefan Diewald, Anton Novikov");
+MODULE_AUTHOR("Vasily Levin, " \
+              "IOhannes m zmoelnig <zmoelnig@iem.at>,"  \
+              "Stefan Diewald,"                         \
+              "Anton Novikov"                           \
+		);
 MODULE_LICENSE("GPL");
 
 
