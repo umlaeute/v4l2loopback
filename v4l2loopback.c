@@ -63,7 +63,7 @@ MODULE_LICENSE("GPL");
 
 #define MARK()                                                          \
 	do { if (debug > 1) {                                                  \
-		printk(KERN_INFO "%s:%d[%s]", __FILE__, __LINE__, __func__);	\
+		printk(KERN_INFO "%s:%d[%s]\n", __FILE__, __LINE__, __func__);	\
 	} } while (0)
 
 #define dprintkrw(fmt, args...)                                         \
@@ -346,7 +346,7 @@ static const struct v4l2l_format *format_by_fourcc(int fourcc)
 			return formats + i;
 	}
 
-	dprintk("unsupported format '%c%c%c%c'",
+	dprintk("unsupported format '%c%c%c%c'\n",
 			(fourcc >>  0) & 0xFF,
 			(fourcc >>  8) & 0xFF,
 			(fourcc >> 16) & 0xFF,
@@ -832,7 +832,7 @@ static int vidioc_g_fmt_out(struct file *file, void *priv, struct v4l2_format *f
 				dev->pix_format.width, dev->pix_format.height);
 
 		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-		dprintk("buffer_size = %ld (=%d)", dev->buffer_size, dev->pix_format.sizeimage);
+		dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size, dev->pix_format.sizeimage);
 		allocate_buffers(dev);
 	}
 	fmt->fmt.pix = dev->pix_format;
@@ -869,7 +869,7 @@ static int vidioc_try_fmt_out(struct file *file, void *priv, struct v4l2_format 
 		if (h > max_height)
 			h = max_height;
 
-		dprintk("trying image %dx%d", w, h);
+		dprintk("trying image %dx%d\n", w, h);
 
 		if (w < 1)
 			w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
@@ -909,7 +909,7 @@ static int vidioc_s_fmt_out(struct file *file, void *priv, struct v4l2_format *f
 	dev = v4l2loopback_getdevice(file);
 	ret = vidioc_try_fmt_out(file, priv, fmt);
 
-	dprintk("s_fmt_out(%d) %d...%d", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
+	dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture, dev->pix_format.sizeimage);
 
 	buf[4] = 0;
 	dprintk("outFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf));
@@ -1282,7 +1282,7 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
 	dev = v4l2loopback_getdevice(file);
 	opener = file->private_data;
 
-	dprintk("reqbufs: %d\t%d=%d", b->memory, b->count, dev->buffers_number);
+	dprintk("reqbufs: %d\t%d=%d\n", b->memory, b->count, dev->buffers_number);
 	if (opener->timeout_image_io) {
 		if (b->memory != V4L2_MEMORY_MMAP)
 			return -EINVAL;
@@ -1369,7 +1369,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 
 	b->type = type;
 	b->index = index;
-	dprintkrw("buffer type: %d (of %d with size=%ld)", b->memory, dev->buffers_number, dev->buffer_size);
+	dprintkrw("buffer type: %d (of %d with size=%ld)\n", b->memory, dev->buffers_number, dev->buffer_size);
 	return 0;
 }
 
@@ -1559,7 +1559,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 static int vidioc_streamoff(struct file *file, void *private_data, enum v4l2_buf_type type)
 {
 	MARK();
-	dprintk("%d", type);
+	dprintk("%d\n", type);
 	return 0;
 }
 
@@ -1736,7 +1736,7 @@ static int v4l2_loopback_open(struct file *file)
 			return r;
 		}
 	}
-	dprintk("opened dev:%p with image:%p", dev, dev ? dev->image : NULL);
+	dprintk("opened dev:%p with image:%p\n", dev, dev ? dev->image : NULL);
 	MARK();
 	return 0;
 }
@@ -1828,7 +1828,7 @@ static ssize_t v4l2_loopback_write(struct file *file,
 static int free_buffers(struct v4l2_loopback_device *dev)
 {
 	MARK();
-	dprintk("freeing image@%p for dev:%p", dev ? dev->image : NULL, dev);
+	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
 	if (dev->image) {
 		vfree(dev->image);
 		dev->image = NULL;
@@ -1861,7 +1861,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 		return -EINVAL;
 
 	if (dev->image) {
-		dprintk("allocating buffers again: %ld %ld",
+		dprintk("allocating buffers again: %ld %ld\n",
 			dev->buffer_size * dev->buffers_number, dev->imagesize);
 		/* FIXME: prevent double allocation more intelligently! */
 		if (dev->buffer_size * dev->buffers_number == dev->imagesize)
@@ -1876,7 +1876,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 
 	dev->imagesize = dev->buffer_size * dev->buffers_number;
 
-	dprintk("allocating %ld = %ldx%d", dev->imagesize, dev->buffer_size, dev->buffers_number);
+	dprintk("allocating %ld = %ldx%d\n", dev->imagesize, dev->buffer_size, dev->buffers_number);
 
 	dev->image = vmalloc(dev->imagesize);
 	if (dev->timeout_jiffies > 0)
@@ -1998,7 +1998,7 @@ static void sustain_timer_clb(unsigned long nr)
 	spin_lock(&dev->lock);
 	if (dev->sustain_framerate) {
 		dev->reread_count++;
-		dprintkrw("reread: %d %d", dev->write_position, dev->reread_count);
+		dprintkrw("reread: %d %d\n", dev->write_position, dev->reread_count);
 		if (dev->reread_count == 1)
 			mod_timer(&dev->sustain_timer, jiffies + max(1UL, dev->frame_jiffies / 2));
 		else
