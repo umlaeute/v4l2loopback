@@ -1173,10 +1173,11 @@ static int vidioc_enum_output(struct file *file, void *fh, struct v4l2_output *o
 	outp->audioset = 0;
 	outp->modulator = 0;
 	outp->std = V4L2_STD_ALL;
-
-#ifdef V4L2_OUT_CAP_STD
+#ifdef V4L2LOOPBACK_WITH_STD
+# ifdef V4L2_OUT_CAP_STD
 	outp->capabilities |= V4L2_OUT_CAP_STD;
-#endif
+# endif /*  V4L2_OUT_CAP_STD */
+#endif /* V4L2LOOPBACK_WITH_STD */
 
 	return 0;
 }
@@ -1234,9 +1235,12 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
 	inp->status = 0;
 
 
-#ifdef V4L2_IN_CAP_STD
+#ifdef V4L2LOOPBACK_WITH_STD
+# ifdef V4L2_IN_CAP_STD
 	inp->capabilities |= V4L2_IN_CAP_STD;
-#endif
+# endif
+#endif /* V4L2LOOPBACK_WITH_STD */
+
 	return 0;
 }
 
