@@ -1172,8 +1172,8 @@ static int vidioc_enum_output(struct file *file, void *fh, struct v4l2_output *o
 	outp->type = V4L2_OUTPUT_TYPE_ANALOG;
 	outp->audioset = 0;
 	outp->modulator = 0;
-	outp->std = V4L2_STD_ALL;
 #ifdef V4L2LOOPBACK_WITH_STD
+	outp->std = V4L2_STD_ALL;
 # ifdef V4L2_OUT_CAP_STD
 	outp->capabilities |= V4L2_OUT_CAP_STD;
 # endif /*  V4L2_OUT_CAP_STD */
@@ -1231,11 +1231,10 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
 	inp->audioset = 0;
 	inp->tuner = 0;
-	inp->std = V4L2_STD_ALL;
 	inp->status = 0;
 
-
 #ifdef V4L2LOOPBACK_WITH_STD
+	inp->std = V4L2_STD_ALL;
 # ifdef V4L2_IN_CAP_STD
 	inp->capabilities |= V4L2_IN_CAP_STD;
 # endif
@@ -1967,8 +1966,12 @@ static void init_vdev(struct video_device *vdev, int nr)
 {
 	MARK();
 	snprintf(vdev->name, sizeof(vdev->name), "Loopback video device %X", nr);
+
+#ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms      = V4L2_STD_ALL;
 	vdev->current_norm = V4L2_STD_ALL;
+#endif /* V4L2LOOPBACK_WITH_STD */
+
 	vdev->vfl_type     = VFL_TYPE_GRABBER;
 	vdev->fops         = &v4l2_loopback_fops;
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
