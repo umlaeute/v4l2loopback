@@ -194,6 +194,7 @@ struct v4l2_loopback_device {
 	atomic_t open_count;
 	int ready_for_capture;/* set to true when at least one writer opened
 			       * device and negotiated format */
+	int ready_for_output; /* set to true when no writer is currently attached */
 	wait_queue_head_t read_event;
 	spinlock_t lock;
 };
@@ -582,8 +583,13 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
 	cap->capabilities =
-		V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
 		V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
+	if (dev->ready_for_capture) {
+		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+	}
+	if (dev->ready_for_output) {
+		cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+	}
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
@@ -810,6 +816,7 @@ static int vidioc_g_fmt_out(struct file *file, void *priv, struct v4l2_format *f
 	dev = v4l2loopback_getdevice(file);
 	opener = file->private_data;
 	opener->type = WRITER;
+	dev->ready_for_output = 1;
 	/*
 	 * LATER: this should return the currently valid format
 	 * gstreamer doesn't like it, if this returns -EINVAL, as it
@@ -853,6 +860,7 @@ static int vidioc_try_fmt_out(struct file *file, void *priv, struct v4l2_format 
 	opener->type = WRITER;
 
 	dev = v4l2loopback_getdevice(file);
+	dev->ready_for_output = 1;
 
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow */
@@ -1537,6 +1545,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		dev->ready_for_output = 0;
 		if (!dev->ready_for_capture) {
 			ret = allocate_buffers(dev);
 			if (ret < 0)
@@ -1745,10 +1754,14 @@ static int v4l2_loopback_close(struct file *file)
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
+	int iswriter=0;
 	MARK();
 
 	opener = file->private_data;
 	dev    = v4l2loopback_getdevice(file);
+
+	if(WRITER == opener->type)
+		iswriter = 1;
 
 	atomic_dec(&dev->open_count);
 	if (dev->open_count.counter == 0) {
@@ -1757,6 +1770,9 @@ static int v4l2_loopback_close(struct file *file)
 	}
 	try_free_buffers(dev);
 	kfree(opener);
+	if(iswriter) {
+		dev->ready_for_output = 1;
+	}
 	MARK();
 	return 0;
 }
@@ -1795,6 +1811,9 @@ static ssize_t v4l2_loopback_write(struct file *file,
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
+
+	/* there's at least one writer, so don'stop announcing output capabilities */
+	dev->ready_for_output = 0;
 
 	if (!dev->ready_for_capture) {
 		ret = allocate_buffers(dev);
@@ -2056,6 +2075,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
 	atomic_set(&dev->open_count, 0);
 	dev->ready_for_capture = 0;
+	dev->ready_for_output  = 1;
 	dev->buffer_size = 0;
 	dev->image = NULL;
 	dev->imagesize = 0;
@@ -2233,7 +2253,6 @@ int __init init_module(void)
 		}
 		v4l2loopback_create_sysfs(devs[i]->vdev);
 	}
-
 
 	dprintk("module installed\n");
 
