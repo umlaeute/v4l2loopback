@@ -109,6 +109,10 @@ static int video_nr[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = -1 };
 module_param_array(video_nr, int, NULL, 0444);
 MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)");
 
+static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 1 };
+module_param_array(exclusive_caps, bool, NULL, 0444);
+/* FIXXME: wording */
+MODULE_PARM_DESC(exclusive_caps, "whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
 
 
 /* format specifications */
@@ -192,9 +196,17 @@ struct v4l2_loopback_device {
 
 	/* sync stuff */
 	atomic_t open_count;
+
+
 	int ready_for_capture;/* set to true when at least one writer opened
 			       * device and negotiated format */
-	int ready_for_output; /* set to true when no writer is currently attached */
+	int ready_for_output; /* set to true when no writer is currently attached
+			       * this differs slightly from !ready_for_capture,
+			       * e.g. when using fallback images */
+	int announce_all_caps;/* set to false, if device caps (OUTPUT/CAPTURE)
+			       * should only be announced if the resp. "ready"
+			       * flag is set; default=TRUE */
+
 	wait_queue_head_t read_event;
 	spinlock_t lock;
 };
@@ -584,11 +596,16 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
 	cap->capabilities =
 		V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
-	if (dev->ready_for_capture) {
-		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
-	}
-	if (dev->ready_for_output) {
-		cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+	if (dev->announce_all_caps) {
+		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
+	} else {
+
+		if (dev->ready_for_capture) {
+			cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+		}
+		if (dev->ready_for_output) {
+			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+		}
 	}
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
@@ -2076,6 +2093,8 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	atomic_set(&dev->open_count, 0);
 	dev->ready_for_capture = 0;
 	dev->ready_for_output  = 1;
+	dev->announce_all_caps = (!exclusive_caps[nr]);
+
 	dev->buffer_size = 0;
 	dev->image = NULL;
 	dev->imagesize = 0;
