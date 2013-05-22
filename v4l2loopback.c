@@ -589,7 +589,6 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 	int devnr = ((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))->devicenr;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
-	strlcpy(cap->card, "Dummy video device", sizeof(cap->card));
 	snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)", devnr);
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loopback:%d", devnr);
 
