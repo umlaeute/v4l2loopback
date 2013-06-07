@@ -1,3 +1,28 @@
+v4l2loopback (0.7.0) unstable; urgency=low
+
+  [ IOhannes m zmölnig ]
+  * don't implement STD-ioctls
+  * Revert "dummy audio ioctl's that return EINVAL"
+  * disable more STD-stuff based on V4L2LOOPBACK_WITH_STD
+  * don't announce all caps capabilities
+  * only announce capture/output capabilities if possible
+  * 'exclusive_caps' parameter to control caps announcment
+  * avoid duplicate setting of cardname
+  * break lines
+  * remove commented out code
+  * updated AUTHORS information
+  * fixed ChangeLog for 0.6.1
+  * updated NEWS for last releases
+
+  [ Anatolij Gustschin ]
+  * fix missing spin lock init
+  * add newlines to debug statements
+
+  [ Hans Verkuil ]
+  * reformatting to kernel-standards
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Fri, 07 Jun 2013 11:24:34 +0200
+
 v4l2loopback (0.6.3) unstable; urgency=low
 
   [ Ted Mielczarek ]

@@ -1,3 +1,11 @@
+v4l2loopback-0.7.0
+
+  - experimental'exclusive_caps' mode that only reports CAPTURE/OUTPUT
+    capabilities exclusively (support for Chromium/WebRTC)
+  - disabled fake STDs (e.g. ffmpeg support)
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Fri, 07 Jun 2013 11:08:10 +0200
+
 v4l2loopback-0.6.3
 
   - kernel compatibility
