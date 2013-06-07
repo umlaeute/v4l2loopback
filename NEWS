@@ -1,3 +1,34 @@
+v4l2loopback-0.6.3
+
+  - kernel compatibility
+	fixed issues with kernel-3.7
+  - unique "Card Type" Names (fixes broken clients like flash)
+  - create unique ID in "bus_info" field (fixes Firefox/WebRTC support)
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2013-02-05
+
+v4l2loopback-0.6.2
+
+  - kernel compatibility
+	fixed issues with older kernels (<2.6.37)
+	fixed issues with kernel-3.6.1
+  - distinct device names (fixes broken clients like google+)
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2012-10-23
+
+v4l2loopback-0.6.1
+
+  - Debian specific build-fixes
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2012-04-27
+
+v4l2loopback-0.6.0
+
+  - support fallback images (in case there is no live-stream)
+  - utilities to interact with v4l2loopback devices
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2012-04-27
+
 v4l2loopback-0.5.0
 
   - module parameters
