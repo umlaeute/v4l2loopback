@@ -1,3 +1,15 @@
+v4l2loopback (0.7.1) unstable; urgency=low
+
+  [ Aidan Thornton ]
+  * Linux 3.11 compatibility fix
+
+  [ IOhannes m zmölnig ]
+  * trying to keep pre-2.6.29 compatibility
+
+  [ IOhannes m zmoelnig (gpg-key at iem) ]
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Mon, 16 Sep 2013 09:55:51 +0200
+
 v4l2loopback (0.7.0) unstable; urgency=low
 
   [ IOhannes m zmölnig ]
