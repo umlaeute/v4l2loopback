@@ -854,23 +854,6 @@ static int vidioc_g_fmt_out(struct file *file, void *priv, struct v4l2_format *f
 	 * or whether we have to always provide a valid format
 	 */
 
-	if (0 == dev->ready_for_capture) {
-		/* we are not fixated yet, so return a default format */
-		const struct v4l2l_format *defaultfmt = &formats[0];
-
-		dev->pix_format.width = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
-		dev->pix_format.height = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
-		dev->pix_format.pixelformat = defaultfmt->fourcc;
-		dev->pix_format.colorspace = V4L2_COLORSPACE_SRGB; /* do we need to set this ? */
-		dev->pix_format.field = V4L2_FIELD_NONE;
-
-		pix_format_set_size(&fmt->fmt.pix, defaultfmt,
-				dev->pix_format.width, dev->pix_format.height);
-
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-		dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size, dev->pix_format.sizeimage);
-		allocate_buffers(dev);
-	}
 	fmt->fmt.pix = dev->pix_format;
 	return 0;
 }
@@ -2129,6 +2112,17 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->timeout_happened = 0;
 
 	/* FIXME set buffers to 0 */
+
+	/* Set initial format */
+	dev->pix_format.width = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
+	dev->pix_format.height = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
+	dev->pix_format.pixelformat = formats[0].fourcc;
+	dev->pix_format.colorspace = V4L2_COLORSPACE_SRGB; /* do we need to set this ? */
+	dev->pix_format.field = V4L2_FIELD_NONE;
+
+	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size, dev->pix_format.sizeimage);
+	allocate_buffers(dev);
 
 	init_waitqueue_head(&dev->read_event);
 
