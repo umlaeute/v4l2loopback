@@ -121,6 +121,10 @@ static int video_nr[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = -1 };
 module_param_array(video_nr, int, NULL, 0444);
 MODULE_PARM_DESC(video_nr, "video device numbers (-1=auto, 0=/dev/video0, etc.)");
 
+static char *card_labels[MAX_DEVICES];
+module_param_array(card_labels, charp, NULL, 0000);
+MODULE_PARM_DESC(card_labels, "card labels for every device");
+
 static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 1 };
 module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
@@ -602,7 +606,13 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 	int devnr = ((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))->devicenr;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
-	snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)", devnr);
+
+	if (card_labels[devnr] != NULL) {
+		snprintf(cap->card, sizeof(cap->card), card_labels[devnr]);
+	} else {
+		snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)", devnr);
+	}
+
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loopback:%d", devnr);
 
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
