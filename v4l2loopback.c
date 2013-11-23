@@ -1546,6 +1546,7 @@ static int vidioc_dqbuf(struct file *file, void *private_data, struct v4l2_buffe
 		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
 		unset_flags(b);
 		*buf = b->buffer;
+		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 		return 0;
 	default:
 		return -EINVAL;
