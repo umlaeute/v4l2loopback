@@ -59,4 +59,5 @@ rm -rf debian
 if [ "x$OK" = "xtrue" ]; then
  echo "all went well"
  echo "check your $CHANGELOG and don't forget to git-tag the new version as v${NEWVERSION}"
+ echo " git tag v${NEWVERSION}"
 fi
