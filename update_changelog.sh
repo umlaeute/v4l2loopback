@@ -18,6 +18,10 @@ else
  NEWVERSION=$2
 fi
 
+if [ "x$NEWVERSION" = "x" ]; then
+  NEWVERSION=$(./currentversion.sh)
+fi
+
 if git tag -l v${OLDVERSION} | grep . >/dev/null
 then
  :
@@ -27,7 +31,7 @@ else
 fi
 
 if [ "x$OLDVERSION" = "x" ]; then
- echo "usage: $0 [<LASTVERSION>] <CURVERSION>" 1>&2
+ echo "usage: $0 [[<LASTVERSION>] <CURVERSION>]" 1>&2
  exit 1
 fi
 
