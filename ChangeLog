@@ -1,3 +1,23 @@
+v4l2loopback (0.8.0) unstable; urgency=medium
+
+  [ Dmitry Eremin ]
+  * Add DKMS support.
+
+  [ Angus McInnes ]
+  * Make vidioc_g_fmt_out not change the format
+  * Set correct output buffer type in vidioc_dqbuf
+
+  [ Javier Infante ]
+  * Added card_labels option when loading module.
+
+  [ IOhannes m zmölnig ]
+  * renamed 'card_labels' to 'card_label'
+  * removed '-e' flag from call to 'depmod' (needs '-E' or '-F')
+  * auto-detect new version
+  * auto-update dkms.conf to new version
+
+ -- IOhannes m zmölnig <zmoelnig@iem.at>  Tue, 10 Dec 2013 18:12:15 +0100
+
 v4l2loopback (0.7.1) unstable; urgency=low
 
   [ Aidan Thornton ]
