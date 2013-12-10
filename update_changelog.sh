@@ -57,6 +57,10 @@ git-dch -R --since "v${OLDVERSION}" -N ${NEWVERSION} && cat debian/changelog > $
 rm -rf debian
 
 if [ "x$OK" = "xtrue" ]; then
+  sed -e "s|^PACKAGE_VERSION=\".*\"$|PACKAGE_VERSION=\"${NEWVERSION}\"|" -i dkms.conf
+fi
+
+if [ "x$OK" = "xtrue" ]; then
  echo "all went well"
  echo "check your $CHANGELOG and don't forget to git-tag the new version as v${NEWVERSION}"
  echo " git tag v${NEWVERSION}"
