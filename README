@@ -13,7 +13,7 @@ the loopback devices).
 
 --- NEWS ---
 to get the main features of each new release, see the NEWS file.
-you could also have a look at the ChangeLog (which gets automatically generated and might 
+you could also have a look at the ChangeLog (which gets automatically generated and might
 only be of limited use...
 
 
@@ -50,7 +50,7 @@ this will create an additional video-device, e.g. /dev/video0 (the number
 depends on whether you already had video devices on your system), which can be
 fed by various programs.
 tested feeders:
-	GStreamer: using the  "v4l2sink" element 
+	GStreamer: using the  "v4l2sink" element
 	Gem(>=0.93) using the "recordV4L2" plugin
 in theory most programs capable of _writing to_ a v4l2 device should work.
 
@@ -68,6 +68,12 @@ will give you 4 loopback devices (e.g. /dev/video1 ... /dev/video5)
 you can also specify the device IDs manually; e.g.
 # modprobe v4l2loopback video_nr=3,4,7
 will create 3 devices (/dev/video3 /dev/video4 & /dev/video7)
+
+# modprobe v4l2loopback video_nr=3,4,7 card_labels="device number 3","the number four","the last one"
+will create 3 devices with the card names passed as the second parameter:
+	/dev/video3 > device number 3
+	/dev/video4 > the number four
+	/dev/video7 > the last one
 
 --- ATTRIBUTES ---
 you can set and/or query some per-device attributes via sysfs, in a human
