@@ -1,3 +1,19 @@
+v4l2loopback-0.8.0
+
+  - DKMS config
+  - 'card_label' option to manually set device names
+  - fixes in format handling
+
+ -- IOhannes m zmölnig <zmoelnig@iem.at>  Tue, 10 Dec 2013 18:12:15 +0100
+
+v4l2loopback-0.7.1
+
+  - kernel compatibility
+        fixed issues with kernel-3.11
+        fixed regression with kernel<2.6.29
+
+ -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Mon, 16 Sep 2013 09:55:51 +0200
+
 v4l2loopback-0.7.0
 
   - experimental'exclusive_caps' mode that only reports CAPTURE/OUTPUT
