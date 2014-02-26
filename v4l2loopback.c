@@ -84,16 +84,33 @@ MODULE_LICENSE("GPL");
 	} } while (0)
 
 
-/* module constants */
-#define MAX_TIMEOUT (100 * 1000 * 1000) /* in msecs */
+/* module constants
+ *  can be overridden during he build process using something like
+ *      make KCPPFLAGS="-DMAX_DEVICES=100"
+ */
+
+
+/* maximum number of v4l2loopback devices that can be created */
+#ifndef MAX_DEVICES
+# define MAX_DEVICES 8
+#endif
+
+/* when a producer is considered to have gone stale */
+#ifndef MAX_TIMEOUT
+# define MAX_TIMEOUT (100 * 1000 * 1000) /* in msecs */
+#endif
+
+/* max buffers that can be mapped, actually they
+ * are all mapped to max_buffers buffers */
+#ifndef MAX_BUFFERS
+# define MAX_BUFFERS 32
+#endif
 
 /* module parameters */
 static int debug;
 module_param(debug, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
-#define MAX_BUFFERS 32  /* max buffers that can be mapped, actually they
-			 * are all mapped to max_buffers buffers */
 static int max_buffers = 8;
 module_param(max_buffers, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
@@ -111,7 +128,6 @@ module_param(max_openers, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(max_openers, "how many users can open loopback device");
 
 
-#define MAX_DEVICES 8
 static int devices = -1;
 module_param(devices, int, 0);
 MODULE_PARM_DESC(devices, "how many devices should be created");
