@@ -297,53 +297,53 @@ static const struct v4l2l_format formats[] = {
 		.flags    = 0,
 	}, {
 		.name     = "4:2:2, packed, YUYV",
-			.fourcc   = V4L2_PIX_FMT_YUYV,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_YUYV,
+                .depth    = 16,
+                .flags    = 0,
 	}, {
 		.name     = "4:2:2, packed, YUYV",
-			.fourcc   = V4L2_PIX_FMT_YUYV,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_YUYV,
+                .depth    = 16,
+                .flags    = 0,
 	}, {
 		.name     = "4:2:2, packed, UYVY",
-			.fourcc   = V4L2_PIX_FMT_UYVY,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_UYVY,
+                .depth    = 16,
+                .flags    = 0,
 	}, {
 #ifdef V4L2_PIX_FMT_YVYU
 		.name     = "4:2:2, packed YVYU",
-			.fourcc   = V4L2_PIX_FMT_YVYU,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_YVYU,
+                .depth    = 16,
+                .flags    = 0,
 	}, {
 #endif
 #ifdef V4L2_PIX_FMT_VYUY
 		.name     = "4:2:2, packed VYUY",
-			.fourcc   = V4L2_PIX_FMT_VYUY,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_VYUY,
+                .depth    = 16,
+                .flags    = 0,
 	}, {
 #endif
 		.name     = "4:2:2, packed YYUV",
-			.fourcc   = V4L2_PIX_FMT_YYUV,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_YYUV,
+                .depth    = 16,
+                .flags    = 0,
 	}, {
 		.name     = "YUV-8-8-8-8",
-			.fourcc   = V4L2_PIX_FMT_YUV32,
-			.depth    = 32,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_YUV32,
+                .depth    = 32,
+                .flags    = 0,
 	}, {
 		.name     = "8 bpp, gray",
-			.fourcc   = V4L2_PIX_FMT_GREY,
-			.depth    = 8,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_GREY,
+                .depth    = 8,
+                .flags    = 0,
 	}, {
 		.name     = "16 Greyscale",
-			.fourcc   = V4L2_PIX_FMT_Y16,
-			.depth    = 16,
-			.flags    = 0,
+                .fourcc   = V4L2_PIX_FMT_Y16,
+                .depth    = 16,
+                .flags    = 0,
 	},
 
 	/* here come the planar formats */
