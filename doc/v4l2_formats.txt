@@ -1,0 +1,116 @@
+/* RGB formats */
+V4L2_PIX_FMT_RGB332   /*  8  RGB-3-3-2     */
+V4L2_PIX_FMT_RGB444   /* 16  xxxxrrrr ggggbbbb */
+V4L2_PIX_FMT_RGB555   /* 16  RGB-5-5-5     */
+V4L2_PIX_FMT_RGB565   /* 16  RGB-5-6-5     */
+V4L2_PIX_FMT_RGB555X  /* 16  RGB-5-5-5 BE  */
+V4L2_PIX_FMT_RGB565X  /* 16  RGB-5-6-5 BE  */
+V4L2_PIX_FMT_BGR666   /* 18  BGR-6-6-6	  */
+V4L2_PIX_FMT_BGR24    /* 24  BGR-8-8-8     */
+V4L2_PIX_FMT_RGB24    /* 24  RGB-8-8-8     */
+V4L2_PIX_FMT_BGR32    /* 32  BGR-8-8-8-8   */
+V4L2_PIX_FMT_RGB32    /* 32  RGB-8-8-8-8   */
+
+/* Grey formats */
+V4L2_PIX_FMT_GREY     /*  8  Greyscale     */
+V4L2_PIX_FMT_Y4       /*  4  Greyscale     */
+V4L2_PIX_FMT_Y6       /*  6  Greyscale     */
+V4L2_PIX_FMT_Y10      /* 10  Greyscale     */
+V4L2_PIX_FMT_Y12      /* 12  Greyscale     */
+V4L2_PIX_FMT_Y16      /* 16  Greyscale     */
+
+/* Grey bit-packed formats */
+V4L2_PIX_FMT_Y10BPACK     /* 10  Greyscale bit-packed */
+
+/* Palette formats */
+V4L2_PIX_FMT_PAL8     /*  8  8-bit palette */
+
+/* Chrominance formats */
+V4L2_PIX_FMT_UV8      /*  8  UV 4:4 */
+
+/* Luminance+Chrominance formats */
+V4L2_PIX_FMT_YVU410   /*  9  YVU 4:1:0     */
+V4L2_PIX_FMT_YVU420   /* 12  YVU 4:2:0     */
+V4L2_PIX_FMT_YUYV     /* 16  YUV 4:2:2     */
+V4L2_PIX_FMT_YYUV     /* 16  YUV 4:2:2     */
+V4L2_PIX_FMT_YVYU     /* 16 YVU 4:2:2 */
+V4L2_PIX_FMT_UYVY     /* 16  YUV 4:2:2     */
+V4L2_PIX_FMT_VYUY     /* 16  YUV 4:2:2     */
+V4L2_PIX_FMT_YUV422P  /* 16  YVU422 planar */
+V4L2_PIX_FMT_YUV411P  /* 16  YVU411 planar */
+V4L2_PIX_FMT_Y41P     /* 12  YUV 4:1:1     */
+V4L2_PIX_FMT_YUV444   /* 16  xxxxyyyy uuuuvvvv */
+V4L2_PIX_FMT_YUV555   /* 16  YUV-5-5-5     */
+V4L2_PIX_FMT_YUV565   /* 16  YUV-5-6-5     */
+V4L2_PIX_FMT_YUV32    /* 32  YUV-8-8-8-8   */
+V4L2_PIX_FMT_YUV410   /*  9  YUV 4:1:0     */
+V4L2_PIX_FMT_YUV420   /* 12  YUV 4:2:0     */
+V4L2_PIX_FMT_HI240    /*  8  8-bit color   */
+V4L2_PIX_FMT_HM12     /*  8  YUV 4:2:0 16x16 macroblocks */
+V4L2_PIX_FMT_M420     /* 12  YUV 4:2:0 2 lines y, 1 line uv interleaved */
+
+/* two planes -- one Y, one Cr + Cb interleaved  */
+V4L2_PIX_FMT_NV12     /* 12  Y/CbCr 4:2:0  */
+V4L2_PIX_FMT_NV21     /* 12  Y/CrCb 4:2:0  */
+V4L2_PIX_FMT_NV16     /* 16  Y/CbCr 4:2:2  */
+V4L2_PIX_FMT_NV61     /* 16  Y/CrCb 4:2:2  */
+V4L2_PIX_FMT_NV24     /* 24  Y/CbCr 4:4:4  */
+V4L2_PIX_FMT_NV42     /* 24  Y/CrCb 4:4:4  */
+
+/* two non contiguous planes - one Y, one Cr + Cb interleaved  */
+V4L2_PIX_FMT_NV12M    /* 12  Y/CbCr 4:2:0  */
+V4L2_PIX_FMT_NV21M    /* 21  Y/CrCb 4:2:0  */
+V4L2_PIX_FMT_NV16M    /* 16  Y/CbCr 4:2:2  */
+V4L2_PIX_FMT_NV61M    /* 16  Y/CrCb 4:2:2  */
+V4L2_PIX_FMT_NV12MT   /* 12  Y/CbCr 4:2:0 64x32 macroblocks */
+V4L2_PIX_FMT_NV12MT_16X16  /* 12  Y/CbCr 4:2:0 16x16 macroblocks */
+
+/* three non contiguous planes - Y, Cb, Cr */
+V4L2_PIX_FMT_YUV420M  /* 12  YUV420 planar */
+V4L2_PIX_FMT_YVU420M  /* 12  YVU420 planar */
+
+/* Bayer formats - see http://www.siliconimaging.com/RGB%20Bayer.htm */
+V4L2_PIX_FMT_SBGGR8   /*  8  BGBG.. GRGR.. */
+V4L2_PIX_FMT_SGBRG8   /*  8  GBGB.. RGRG.. */
+V4L2_PIX_FMT_SGRBG8   /*  8  GRGR.. BGBG.. */
+V4L2_PIX_FMT_SRGGB8   /*  8  RGRG.. GBGB.. */
+V4L2_PIX_FMT_SBGGR10  /* 10  BGBG.. GRGR.. */
+V4L2_PIX_FMT_SGBRG10  /* 10  GBGB.. RGRG.. */
+V4L2_PIX_FMT_SGRBG10  /* 10  GRGR.. BGBG.. */
+V4L2_PIX_FMT_SRGGB10  /* 10  RGRG.. GBGB.. */
+V4L2_PIX_FMT_SBGGR12  /* 12  BGBG.. GRGR.. */
+V4L2_PIX_FMT_SGBRG12  /* 12  GBGB.. RGRG.. */
+V4L2_PIX_FMT_SGRBG12  /* 12  GRGR.. BGBG.. */
+V4L2_PIX_FMT_SRGGB12  /* 12  RGRG.. GBGB.. */
+	/* 10bit raw bayer a-law compressed to 8 bits */
+V4L2_PIX_FMT_SBGGR10ALAW8 
+V4L2_PIX_FMT_SGBRG10ALAW8 
+V4L2_PIX_FMT_SGRBG10ALAW8 
+V4L2_PIX_FMT_SRGGB10ALAW8 
+	/* 10bit raw bayer DPCM compressed to 8 bits */
+V4L2_PIX_FMT_SBGGR10DPCM8 
+V4L2_PIX_FMT_SGBRG10DPCM8 
+V4L2_PIX_FMT_SGRBG10DPCM8 
+V4L2_PIX_FMT_SRGGB10DPCM8 
+	/*
+	 * 10bit raw bayer, expanded to 16 bits
+	 * xxxxrrrrrrrrrrxxxxgggggggggg xxxxggggggggggxxxxbbbbbbbbbb...
+	 */
+V4L2_PIX_FMT_SBGGR16  /* 16  BGBG.. GRGR.. */
+
+/* compressed formats */
+V4L2_PIX_FMT_MJPEG     /* Motion-JPEG   */
+V4L2_PIX_FMT_JPEG      /* JFIF JPEG     */
+V4L2_PIX_FMT_DV        /* 1394          */
+V4L2_PIX_FMT_MPEG      /* MPEG-1/2/4 Multiplexed */
+V4L2_PIX_FMT_H264      /* H264 with start codes */
+V4L2_PIX_FMT_H264_NO_SC  /* H264 without start codes */
+V4L2_PIX_FMT_H264_MVC  /* H264 MVC */
+V4L2_PIX_FMT_H263      /* H263          */
+V4L2_PIX_FMT_MPEG1     /* MPEG-1 ES     */
+V4L2_PIX_FMT_MPEG2     /* MPEG-2 ES     */
+V4L2_PIX_FMT_MPEG4     /* MPEG-4 part 2 ES */
+V4L2_PIX_FMT_XVID      /* Xvid           */
+V4L2_PIX_FMT_VC1_ANNEX_G  /* SMPTE 421M Annex G compliant stream */
+V4L2_PIX_FMT_VC1_ANNEX_L  /* SMPTE 421M Annex L compliant stream */
+V4L2_PIX_FMT_VP8       /* VP8 */
