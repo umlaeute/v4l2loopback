@@ -1,0 +1,8 @@
+obsolete V4L2-API:
+	http://linuxtv.org/downloads/legacy/video4linux/API/V4L2_API/spec-single/v4l2.html
+	(an even more obsolete version 0.24 of this document used to be included
+	here, but is no longer)
+
+current V4L2-API:
+	http://linuxtv.org/downloads/v4l-dvb-apis/
+	(unfortunately this is multi-page)
