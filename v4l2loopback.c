@@ -272,6 +272,7 @@ struct v4l2l_format {
 };
 /* set the v4l2l_format.flags to PLANAR for non-packed formats */
 #define FORMAT_FLAGS_PLANAR       0x01
+#define FORMAT_FLAGS_COMPRESSED   0x02
 
 static const struct v4l2l_format formats[] = {
   {
@@ -319,6 +320,11 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 	if (fmt->flags & FORMAT_FLAGS_PLANAR) {
 		f->bytesperline = width; /* Y plane */
 		f->sizeimage = (width * height * fmt->depth) >> 3;
+	} else if (fmt->flags & FORMAT_FLAGS_COMPRESSED) {
+	        /* doesn't make sense for compressed formats */
+		f->bytesperline = 0;
+		/* 4 bytes per pixel should be on the safe side */
+		f->sizeimage = (width * height * 4);
 	} else {
 		f->bytesperline = (width * fmt->depth) >> 3;
 		f->sizeimage = height * f->bytesperline;
