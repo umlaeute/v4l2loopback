@@ -90,3 +90,111 @@
 		.fourcc   = V4L2_PIX_FMT_YUV420,
 		.depth    = 12,
 		.flags    = FORMAT_FLAGS_PLANAR,
+
+	/* here come the compressed formats */
+
+#ifdef V4L2_PIX_FMT_MJPEG
+	}, {
+		.name     = "Motion-JPEG",
+		.fourcc   = V4L2_PIX_FMT_MJPEG,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_MJPEG */
+#ifdef V4L2_PIX_FMT_JPEG
+	}, {
+		.name     = "JFIF JPEG",
+		.fourcc   = V4L2_PIX_FMT_JPEG,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_JPEG */
+#ifdef V4L2_PIX_FMT_DV
+	}, {
+		.name     = "1394",
+		.fourcc   = V4L2_PIX_FMT_DV,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_DV */
+#ifdef V4L2_PIX_FMT_MPEG
+	}, {
+		.name     = "MPEG-1/2/4 Multiplexed",
+		.fourcc   = V4L2_PIX_FMT_MPEG,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_MPEG */
+#ifdef V4L2_PIX_FMT_H264
+	}, {
+		.name     = "H264 with start codes",
+		.fourcc   = V4L2_PIX_FMT_H264,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_H264 */
+#ifdef V4L2_PIX_FMT_H264_NO_SC
+	}, {
+		.name     = "H264 without start codes",
+		.fourcc   = V4L2_PIX_FMT_H264_NO_SC,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_H264_NO_SC */
+#ifdef V4L2_PIX_FMT_H264_MVC
+	}, {
+		.name     = "H264 MVC",
+		.fourcc   = V4L2_PIX_FMT_H264_MVC,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_H264_MVC */
+#ifdef V4L2_PIX_FMT_H263
+	}, {
+		.name     = "H263",
+		.fourcc   = V4L2_PIX_FMT_H263,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_H263 */
+#ifdef V4L2_PIX_FMT_MPEG1
+	}, {
+		.name     = "MPEG-1 ES",
+		.fourcc   = V4L2_PIX_FMT_MPEG1,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_MPEG1 */
+#ifdef V4L2_PIX_FMT_MPEG2
+	}, {
+		.name     = "MPEG-2 ES",
+		.fourcc   = V4L2_PIX_FMT_MPEG2,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_MPEG2 */
+#ifdef V4L2_PIX_FMT_MPEG4
+	}, {
+		.name     = "MPEG-4 part 2 ES",
+		.fourcc   = V4L2_PIX_FMT_MPEG4,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_MPEG4 */
+#ifdef V4L2_PIX_FMT_XVID
+	}, {
+		.name     = "Xvid",
+		.fourcc   = V4L2_PIX_FMT_XVID,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_XVID */
+#ifdef V4L2_PIX_FMT_VC1_ANNEX_G
+	}, {
+		.name     = "SMPTE 421M Annex G compliant stream",
+		.fourcc   = V4L2_PIX_FMT_VC1_ANNEX_G,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_VC1_ANNEX_G */
+#ifdef V4L2_PIX_FMT_VC1_ANNEX_L
+	}, {
+		.name     = "SMPTE 421M Annex L compliant stream",
+		.fourcc   = V4L2_PIX_FMT_VC1_ANNEX_L,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_VC1_ANNEX_L */
+#ifdef V4L2_PIX_FMT_VP8
+	}, {
+		.name     = "VP8",
+		.fourcc   = V4L2_PIX_FMT_VP8,
+		.depth    = 0,
+		.flags    = FORMAT_FLAGS_COMPRESSED,
+#endif /* V4L2_PIX_FMT_VP8 */
