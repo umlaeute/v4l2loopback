@@ -1,3 +1,4 @@
+{
   /* here come the packed formats */
   .name     = "32 bpp RGB, le",
     .fourcc   = V4L2_PIX_FMT_BGR32,
@@ -227,4 +228,5 @@
      .fourcc   = V4L2_PIX_FMT_VP8,
      .depth    = 32,
      .flags    = FORMAT_FLAGS_COMPRESSED,
+     },
 #endif /* V4L2_PIX_FMT_VP8 */

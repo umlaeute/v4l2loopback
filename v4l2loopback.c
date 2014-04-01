@@ -275,9 +275,7 @@ struct v4l2l_format {
 #define FORMAT_FLAGS_COMPRESSED   0x02
 
 static const struct v4l2l_format formats[] = {
-  {
 #include "v4l2loopback_formats.h"
-  }
 };
 
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
