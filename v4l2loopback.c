@@ -323,8 +323,7 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 	} else if (fmt->flags & FORMAT_FLAGS_COMPRESSED) {
 	        /* doesn't make sense for compressed formats */
 		f->bytesperline = 0;
-		/* 4 bytes per pixel should be on the safe side */
-		f->sizeimage = (width * height * 4);
+		f->sizeimage = (width * height * fmt->depth) >> 3;
 	} else {
 		f->bytesperline = (width * fmt->depth) >> 3;
 		f->sizeimage = height * f->bytesperline;
