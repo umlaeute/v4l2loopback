@@ -1740,6 +1740,8 @@ static ssize_t v4l2_loopback_read(struct file *file,
 	dev    = v4l2loopback_getdevice(file);
 
 	read_index = get_capture_buffer(file);
+        if (read_index < 0)
+          return read_index;
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
 	if (copy_to_user((void *)buf, (void *)(dev->image +
