@@ -3,8 +3,10 @@
 ### for creating build for static code analysis
 .PHONY: default
 
-KERNEL_SOURCE=/usr/src/linux-headers-3.13-1-amd64
-KERNEL_SOURCE_COMMON=/usr/src/linux-headers-3.13-1-common
+KERNELRELEASE	?= `uname -r`
+KERNEL_SOURCE	?= /lib/modules/$(KERNELRELEASE)/build
+KERNEL_SOURCE_COMMON ?= /lib/modules/$(KERNELRELEASE)/source
+
 CFLAGS=-nostdinc -isystem /usr/lib/gcc/x86_64-linux-gnu/4.8/include -I$(KERNEL_SOURCE_COMMON)/arch/x86/include -I$(KERNEL_SOURCE)/arch/x86/include/generated  -I$(KERNEL_SOURCE_COMMON)/include -I$(KERNEL_SOURCE)/include -I$(KERNEL_SOURCE_COMMON)/arch/x86/include/uapi -I$(KERNEL_SOURCE)/arch/x86/include/generated/uapi -I$(KERNEL_SOURCE_COMMON)/include/uapi -I$(KERNEL_SOURCE)/include/generated/uapi -include $(KERNEL_SOURCE_COMMON)/include/linux/kconfig.h -I.  -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs -fno-strict-aliasing -fno-common -Werror-implicit-function-declaration -Wno-format-security -fno-delete-null-pointer-checks -O2 -m64 -mno-mmx -mno-sse -mpreferred-stack-boundary=3 -mtune=generic -mno-red-zone -mcmodel=kernel -funit-at-a-time -maccumulate-outgoing-args -fstack-protector -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1 -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1 -DCONFIG_AS_AVX=1 -DCONFIG_AS_AVX2=1 -pipe -Wno-sign-compare -fno-asynchronous-unwind-tables -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx -Wframe-larger-than=2048 -Wno-unused-but-set-variable -fomit-frame-pointer -g -Wdeclaration-after-statement -Wno-pointer-sign -fno-strict-overflow -fconserve-stack -Werror=implicit-int -Werror=strict-prototypes -DCC_HAVE_ASM_GOTO
 
 
