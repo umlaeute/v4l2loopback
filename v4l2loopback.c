@@ -750,6 +750,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 	} else {
 		__u32 format;
 		/* fill in a dummy format */
+                /* coverity[unsigned_compare] */
 		if (f->index < 0 || f->index >= FORMATS)
 			return -EINVAL;
 
