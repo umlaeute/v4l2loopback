@@ -1252,7 +1252,7 @@ static int vidioc_reqbufs(struct file *file, void *fh, struct v4l2_requestbuffer
 	switch (b->memory) {
 	case V4L2_MEMORY_MMAP:
 		/* do nothing here, buffers are always allocated*/
-		if (0 == b->count)
+		if (b->count < 1)
 			return 0;
 
 		if (b->count > dev->buffers_number)
