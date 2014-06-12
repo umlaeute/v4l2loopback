@@ -546,7 +546,10 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:v4l2loopback-%03d", devnr);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
+	/* since 3.1.0, the v4l2-core system is supposed to set the version */
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
+#endif
 	cap->capabilities =
 		V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 	if (dev->announce_all_caps) {
