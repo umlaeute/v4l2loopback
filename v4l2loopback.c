@@ -544,7 +544,7 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 		snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)", devnr);
 	}
 
-	snprintf(cap->bus_info, sizeof(cap->bus_info), "v4l2loopback:%d", devnr);
+	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:v4l2loopback-%03d", devnr);
 
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
 	cap->capabilities =
