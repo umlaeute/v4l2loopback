@@ -1134,6 +1134,9 @@ static int vidioc_enum_output(struct file *file, void *fh, struct v4l2_output *o
 	__u32 index = outp->index;
 	MARK();
 
+	if (v4l2loopback_getdevice(file)->ready_for_capture)
+		return -ENOTTY;
+
 	if (0 != index)
 		return -EINVAL;
 
@@ -1160,6 +1163,8 @@ static int vidioc_enum_output(struct file *file, void *fh, struct v4l2_output *o
  */
 static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
 {
+	if (v4l2loopback_getdevice(file)->ready_for_capture)
+		return -ENOTTY;
 	if (i)
 		*i = 0;
 	return 0;
@@ -1170,12 +1175,11 @@ static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
  */
 static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 {
+	if (v4l2loopback_getdevice(file)->ready_for_capture)
+		return -ENOTTY;
+
 	if (i)
 		return -EINVAL;
-	i = 0;
-
-	if (v4l2loopback_getdevice(file)->ready_for_capture)
-		return -EBUSY;
 
 	return 0;
 }
@@ -1189,11 +1193,10 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
 {
 	__u32 index = inp->index;
 	MARK();
+	if (!v4l2loopback_getdevice(file)->ready_for_capture)
+		return -ENOTTY;
 
 	if (0 != index)
-		return -EINVAL;
-
-	if (!v4l2loopback_getdevice(file)->ready_for_capture)
 		return -EINVAL;
 
 	/* clear all data (including the reserved fields) */
@@ -1222,7 +1225,7 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
 static int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
 {
 	if (!v4l2loopback_getdevice(file)->ready_for_capture)
-		return -EINVAL;
+		return -ENOTTY;
 	if (i)
 		*i = 0;
 	return 0;
@@ -1233,9 +1236,10 @@ static int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
  */
 static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 {
-	if ((i == 0) && (v4l2loopback_getdevice(file)->ready_for_capture))
+	if (!v4l2loopback_getdevice(file)->ready_for_capture)
+		return -ENOTTY;
+	if (i == 0)
 		return 0;
-
 	return -EINVAL;
 }
 
