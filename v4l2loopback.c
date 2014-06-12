@@ -564,6 +564,11 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 		}
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
+	cap->device_caps = cap->capabilities;
+	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
+#endif
+
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
 }
