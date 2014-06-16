@@ -1,6 +1,5 @@
 #!/bin/sh
 
-GSTLAUNCH=$(which gst-launch-1.0)
 DEVICE=$1
 WIDTH=320
 HEIGHT=240
@@ -20,6 +19,9 @@ debug() {
  $@
 }
 
+if [ "x${GSTLAUNCH}" = "x" ]; then
+ GSTLAUNCH=$(which gst-launch-1.0)
+fi
 if [ "x${GSTLAUNCH}" = "x" ]; then
   error "need gst-launch-1.0"
   exit 1
