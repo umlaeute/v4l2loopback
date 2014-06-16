@@ -1,3 +1,4 @@
+/* -*- c-file-style: "linux" -*- */
 /*
  * v4l2loopback.c  --  video4linux2 loopback driver
  *
