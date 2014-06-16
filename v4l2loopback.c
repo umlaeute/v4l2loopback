@@ -1132,9 +1132,10 @@ static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 static int vidioc_enum_output(struct file *file, void *fh, struct v4l2_output *outp)
 {
 	__u32 index = outp->index;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	MARK();
 
-	if (v4l2loopback_getdevice(file)->ready_for_capture)
+        if (!dev->announce_all_caps && dev->ready_for_capture)
 		return -ENOTTY;
 
 	if (0 != index)
@@ -1163,7 +1164,8 @@ static int vidioc_enum_output(struct file *file, void *fh, struct v4l2_output *o
  */
 static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
 {
-	if (v4l2loopback_getdevice(file)->ready_for_capture)
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+        if (!dev->announce_all_caps && dev->ready_for_capture)
 		return -ENOTTY;
 	if (i)
 		*i = 0;
@@ -1175,7 +1177,8 @@ static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
  */
 static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 {
-	if (v4l2loopback_getdevice(file)->ready_for_capture)
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+        if (!dev->announce_all_caps && dev->ready_for_capture)
 		return -ENOTTY;
 
 	if (i)
@@ -1192,8 +1195,9 @@ static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp)
 {
 	__u32 index = inp->index;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	MARK();
-	if (!v4l2loopback_getdevice(file)->ready_for_capture)
+        if (!dev->announce_all_caps && !dev->ready_for_capture)
 		return -ENOTTY;
 
 	if (0 != index)
@@ -1224,7 +1228,8 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
  */
 static int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
 {
-	if (!v4l2loopback_getdevice(file)->ready_for_capture)
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+        if (!dev->announce_all_caps && !dev->ready_for_capture)
 		return -ENOTTY;
 	if (i)
 		*i = 0;
@@ -1236,7 +1241,8 @@ static int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
  */
 static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 {
-	if (!v4l2loopback_getdevice(file)->ready_for_capture)
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+        if (!dev->announce_all_caps && !dev->ready_for_capture)
 		return -ENOTTY;
 	if (i == 0)
 		return 0;
