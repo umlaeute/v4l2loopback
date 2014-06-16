@@ -10,6 +10,7 @@ HEIGHT=240
 ## uncomment the 'progressive' line to switch to non-interlaced
 INTERLACED=interlaced
 #INTERLACED=progressive
+INTERLACED=mixed
 
 error() {
  echo "$@" 1>&2
