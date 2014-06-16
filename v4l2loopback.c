@@ -108,7 +108,7 @@ MODULE_LICENSE("GPL");
 #endif
 
 /* module parameters */
-static int debug;
+static int debug = 0;
 module_param(debug, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
