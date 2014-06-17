@@ -202,6 +202,7 @@ struct v4l2l_buffer {
 
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
+	struct v4l2_ctrl_handler ctrl_handler;
 	struct video_device *vdev;
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
@@ -2036,6 +2037,7 @@ static void timeout_timer_clb(unsigned long nr)
 static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 {
 	int ret;
+	struct v4l2_ctrl_handler *hdl = &dev->ctrl_handler;
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
                         "v4l2loopback-%03d", nr);
         ret = v4l2_device_register(NULL, &dev->v4l2_dev);
@@ -2090,6 +2092,11 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->timeout_image = NULL;
 	dev->timeout_happened = 0;
 
+	ret = v4l2_ctrl_handler_init(hdl, 1);
+	if(ret)
+		goto error;
+	dev->v4l2_dev.ctrl_handler = hdl;
+
 	/* FIXME set buffers to 0 */
 
 	/* Set initial format */
@@ -2109,6 +2116,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	return 0;
 
 error:
+        v4l2_ctrl_handler_free(&dev->ctrl_handler);
         v4l2_device_unregister(&dev->v4l2_dev);
 	kfree(dev->vdev);
         return ret;
@@ -2204,6 +2212,7 @@ static void free_devices(void)
 			kfree(video_get_drvdata(devs[i]->vdev));
 			video_unregister_device(devs[i]->vdev);
 			v4l2_device_unregister(&devs[i]->v4l2_dev);
+			v4l2_ctrl_handler_free(&devs[i]->ctrl_handler);
 			kfree(devs[i]);
 			devs[i] = NULL;
 		}
