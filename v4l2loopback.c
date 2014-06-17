@@ -19,42 +19,15 @@
 #include <linux/time.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
-# include <media/v4l2-device.h>
-#else
-/* dummy v4l2_device struct/functions */
-# define V4L2_DEVICE_NAME_SIZE (20 + 16)
-struct v4l2_device {
-  char name[V4L2_DEVICE_NAME_SIZE];
-};
-static inline int  v4l2_device_register  (void *dev, void *v4l2_dev) { return 0; }
-static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev) { return; }
-#endif
-#include <media/v4l2-ioctl.h>
-#include <media/v4l2-common.h>
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
-# define v4l2_file_operations file_operations
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 37)
-void *v4l2l_vzalloc(unsigned long size)
-{
-	void *data = vmalloc(size);
-
-	memset(data, 0, size);
-	return data;
-}
-#else
-# define v4l2l_vzalloc vzalloc
-#endif
-
-
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-common.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+# include <media/v4l2-device.h>
+#endif
 
 #define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 8, 0)
-
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_AUTHOR("Vasily Levin, " \
@@ -64,8 +37,9 @@ MODULE_AUTHOR("Vasily Levin, " \
 		);
 MODULE_LICENSE("GPL");
 
-
-/* helpers */
+/*
+ * helpers
+ */
 #define STRINGIFY(s) #s
 #define STRINGIFY2(s) STRINGIFY(s)
 
@@ -83,6 +57,35 @@ MODULE_LICENSE("GPL");
 	do { if (debug > 2) {                                                 \
 		printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(__LINE__)"]: " fmt, ##args); \
 	} } while (0)
+
+/*
+ * compatibility hacks
+ */
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
+/* dummy v4l2_device struct/functions */
+# define V4L2_DEVICE_NAME_SIZE (20 + 16)
+struct v4l2_device {
+  char name[V4L2_DEVICE_NAME_SIZE];
+};
+static inline int  v4l2_device_register  (void *dev, void *v4l2_dev) { return 0; }
+static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev) { return; }
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
+# define v4l2_file_operations file_operations
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 37)
+void *v4l2l_vzalloc(unsigned long size)
+{
+	void *data = vmalloc(size);
+
+	memset(data, 0, size);
+	return data;
+}
+#else
+# define v4l2l_vzalloc vzalloc
+#endif
 
 
 /* module constants
