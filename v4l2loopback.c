@@ -67,15 +67,48 @@ MODULE_LICENSE("GPL");
  * compatibility hacks
  */
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
+#ifndef HAVE__V4L2_CTRLS
+struct v4l2_ctrl_handler {
+	int error;
+};
+struct v4l2_ctrl_config {
+        void *ops;
+        u32 id;
+	const char *name;
+	int type;
+        s32 min;
+        s32 max;
+        u32 step;
+        s32 def;
+};
+int v4l2_ctrl_handler_init(struct v4l2_ctrl_handler*hdl,
+			   unsigned nr_of_controls_hint)
+{
+	hdl->error=0;
+	return 0;
+}
+void v4l2_ctrl_handler_free(struct v4l2_ctrl_handler *hdl)
+{
+}
+void*v4l2_ctrl_new_custom(struct v4l2_ctrl_handler *hdl,
+			  const struct v4l2_ctrl_config*conf,
+			  void*priv)
+{
+	return NULL;
+}
+#endif /* HAVE__V4L2_CTRLS */
+
+
+#ifndef HAVE__V4L2_DEVICE
 /* dummy v4l2_device struct/functions */
 # define V4L2_DEVICE_NAME_SIZE (20 + 16)
 struct v4l2_device {
-  char name[V4L2_DEVICE_NAME_SIZE];
+	char name[V4L2_DEVICE_NAME_SIZE];
+	struct v4l2_ctrl_handler*ctrl_handler;
 };
 static inline int  v4l2_device_register  (void *dev, void *v4l2_dev) { return 0; }
 static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev) { return; }
-#endif
+#endif /*  HAVE__V4L2_DEVICE */
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
 # define v4l2_file_operations file_operations
