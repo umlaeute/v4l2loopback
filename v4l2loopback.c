@@ -1075,45 +1075,32 @@ static int vidioc_querystd(struct file *file, void *private_data, v4l2_std_id *n
  */
 static int vidioc_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *q)
 {
+	const struct v4l2_ctrl_config *cnf = 0;
 	switch (q->id) {
 	case CID_KEEP_FORMAT:
+		cnf = &v4l2loopback_ctrl_keepformat;
+		break;
 	case CID_SUSTAIN_FRAMERATE:
-	case CID_TIMEOUT_IMAGE_IO:
-		q->type = V4L2_CTRL_TYPE_BOOLEAN;
-		q->minimum = 0;
-		q->maximum = 1;
-		q->step = 1;
+		cnf = &v4l2loopback_ctrl_sustainframerate;
 		break;
 	case CID_TIMEOUT:
-		q->type = V4L2_CTRL_TYPE_INTEGER;
-		q->minimum = 0;
-		q->maximum = MAX_TIMEOUT;
-		q->step = 1;
+		cnf = &v4l2loopback_ctrl_timeout;
+		break;
+	case CID_TIMEOUT_IMAGE_IO:
+		cnf = &v4l2loopback_ctrl_timeoutimageio;
 		break;
 	default:
 		return -EINVAL;
 	}
-
-	switch (q->id) {
-	case CID_KEEP_FORMAT:
-		strcpy(q->name, "keep_format");
-		q->default_value = 0;
-		break;
-	case CID_SUSTAIN_FRAMERATE:
-		strcpy(q->name, "sustain_framerate");
-		q->default_value = 0;
-		break;
-	case CID_TIMEOUT:
-		strcpy(q->name, "timeout");
-		q->default_value = 0;
-		break;
-	case CID_TIMEOUT_IMAGE_IO:
-		strcpy(q->name, "timeout_image_io");
-		q->default_value = 0;
-		break;
-	default:
+	if (!cnf)
 		BUG();
-	}
+
+	strcpy(q->name, cnf->name);
+	q->default_value=cnf->def;
+	q->type = cnf->type;
+	q->minimum = cnf->min;
+	q->maximum = cnf->max;
+	q->step = cnf->step;
 
 	memset(q->reserved, 0, sizeof(q->reserved));
 	return 0;
