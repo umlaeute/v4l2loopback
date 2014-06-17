@@ -1164,6 +1164,7 @@ static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 	return 0;
 }
 
+
 static int v4l2loopback_set_ctrl( struct v4l2_loopback_device *dev,
 				  u32 id,
 				  s64 val)
@@ -1215,7 +1216,6 @@ static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 
 	return 0;
 }
-
 
 /* returns set of device outputs, in our case there is only one
  * called on VIDIOC_ENUMOUTPUT
@@ -2389,3 +2389,13 @@ void __exit cleanup_module(void)
 	dprintk("module removed\n");
 }
 
+
+
+/*
+ * fake usage of unused functions
+ */
+#ifdef HAVE__V4L2_CTRLS
+static int vidioc_queryctrl(struct file *file, void *fh, struct v4l2_queryctrl *q)  __attribute__ ((unused));
+static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)  __attribute__ ((unused));
+static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)  __attribute__ ((unused));
+#endif /* HAVE__V4L2_CTRLS */
