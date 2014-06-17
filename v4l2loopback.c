@@ -1144,47 +1144,54 @@ static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 	return 0;
 }
 
-
-static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
+static int v4l2loopback_set_ctrl( struct v4l2_loopback_device *dev,
+				  u32 id,
+				  s64 val)
 {
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-
-	switch (c->id) {
+	switch (id) {
 	case CID_KEEP_FORMAT:
-		if (c->value < 0 || c->value > 1)
+		if (val < 0 || val > 1)
 			return -EINVAL;
-		dev->keep_format = c->value;
+		dev->keep_format = val;
 		try_free_buffers(dev);
 		break;
 	case CID_SUSTAIN_FRAMERATE:
-		if (c->value < 0 || c->value > 1)
+		if (val < 0 || val > 1)
 			return -EINVAL;
 		spin_lock_bh(&dev->lock);
-		dev->sustain_framerate = c->value;
+		dev->sustain_framerate = val;
 		check_timers(dev);
 		spin_unlock_bh(&dev->lock);
 		break;
 	case CID_TIMEOUT:
-		if (c->value < 0 || c->value > MAX_TIMEOUT)
+		if (val < 0 || val > MAX_TIMEOUT)
 			return -EINVAL;
 		spin_lock_bh(&dev->lock);
-		dev->timeout_jiffies = msecs_to_jiffies(c->value);
+		dev->timeout_jiffies = msecs_to_jiffies(val);
 		check_timers(dev);
 		spin_unlock_bh(&dev->lock);
 		allocate_timeout_image(dev);
 		break;
 	case CID_TIMEOUT_IMAGE_IO:
-		if (c->value < 0 || c->value > 1)
+		if (val < 0 || val > 1)
 			return -EINVAL;
-		dev->timeout_image_io = c->value;
+		dev->timeout_image_io = val;
 		break;
 	default:
 		return -EINVAL;
 	}
+	return 0;
+}
+
 static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 {
-	return -EINVAL;
+	struct v4l2_loopback_device *dev = container_of(ctrl->handler, struct v4l2_loopback_device, ctrl_handler);
+	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val64);
 }
+static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
+{
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	return v4l2loopback_set_ctrl(dev, c->id, c->value);
 
 	return 0;
 }
