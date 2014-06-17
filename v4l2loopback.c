@@ -2185,9 +2185,11 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_enum_frameintervals = &vidioc_enum_frameintervals,
 #endif
 
+#ifndef HAVE__V4L2_CTRLS
 	.vidioc_queryctrl         = &vidioc_queryctrl,
 	.vidioc_g_ctrl            = &vidioc_g_ctrl,
 	.vidioc_s_ctrl            = &vidioc_s_ctrl,
+#endif /* HAVE__V4L2_CTRLS */
 
 	.vidioc_enum_output       = &vidioc_enum_output,
 	.vidioc_g_output          = &vidioc_g_output,
