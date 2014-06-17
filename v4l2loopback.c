@@ -24,7 +24,12 @@
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
+# define HAVE__V4L2_DEVICE
 # include <media/v4l2-device.h>
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+# define HAVE__V4L2_CTRLS
+# include <media/v4l2-ctrls.h>
 #endif
 
 #define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 8, 0)
