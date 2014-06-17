@@ -2138,6 +2138,14 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	ret = v4l2_ctrl_handler_init(hdl, 1);
 	if(ret)
 		goto error;
+	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_keepformat, NULL);
+	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_sustainframerate, NULL);
+	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeout, NULL);
+	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeoutimageio, NULL);
+        if (hdl->error) {
+                ret = hdl->error;
+                goto error;
+        }
 	dev->v4l2_dev.ctrl_handler = hdl;
 
 	/* FIXME set buffers to 0 */
