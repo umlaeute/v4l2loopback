@@ -184,6 +184,51 @@ MODULE_PARM_DESC(max_height, "maximum frame height");
 #define CID_TIMEOUT            (V4L2LOOPBACK_CID_BASE + 2)
 #define CID_TIMEOUT_IMAGE_IO   (V4L2LOOPBACK_CID_BASE + 3)
 
+static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl);
+static const struct v4l2_ctrl_ops v4l2loopback_ctrl_ops = {
+	.s_ctrl = v4l2loopback_s_ctrl,
+};
+static const struct v4l2_ctrl_config v4l2loopback_ctrl_keepformat = {
+        .ops = &v4l2loopback_ctrl_ops,
+        .id = CID_KEEP_FORMAT,
+        .name = "keep_format",
+        .type = V4L2_CTRL_TYPE_BOOLEAN,
+        .min = 0,
+        .max = 1,
+        .step = 1,
+        .def = 0,
+};
+static const struct v4l2_ctrl_config v4l2loopback_ctrl_sustainframerate = {
+        .ops = &v4l2loopback_ctrl_ops,
+        .id = CID_SUSTAIN_FRAMERATE,
+        .name = "sustain_framerate",
+        .type = V4L2_CTRL_TYPE_BOOLEAN,
+        .min = 0,
+        .max = 1,
+        .step = 1,
+        .def = 0,
+};
+static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeout = {
+        .ops = &v4l2loopback_ctrl_ops,
+        .id = CID_TIMEOUT,
+        .name = "timeout",
+        .type = V4L2_CTRL_TYPE_INTEGER,
+        .min = 0,
+        .max = MAX_TIMEOUT,
+        .step = 1,
+        .def = 0,
+};
+static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeoutimageio = {
+        .ops = &v4l2loopback_ctrl_ops,
+        .id = CID_TIMEOUT_IMAGE_IO,
+        .name = "timeout_image_io",
+        .type = V4L2_CTRL_TYPE_BOOLEAN,
+        .min = 0,
+        .max = 1,
+        .step = 1,
+        .def = 0,
+};
+
 
 /* module structures */
 struct v4l2loopback_private {
@@ -1136,6 +1181,10 @@ static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 	default:
 		return -EINVAL;
 	}
+static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
+{
+	return -EINVAL;
+}
 
 	return 0;
 }
