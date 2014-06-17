@@ -2040,15 +2040,14 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	MARK();
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL) {
-		v4l2_device_unregister(&dev->v4l2_dev);
-		return -ENOMEM;
+		ret=-ENOMEM;
+		goto error;
 	}
 
 	video_set_drvdata(dev->vdev, kzalloc(sizeof(struct v4l2loopback_private), GFP_KERNEL));
 	if (video_get_drvdata(dev->vdev) == NULL) {
-		v4l2_device_unregister(&dev->v4l2_dev);
-		kfree(dev->vdev);
-		return -ENOMEM;
+		ret=-ENOMEM;
+		goto error;
 	}
 	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))->devicenr = nr;
 
@@ -2103,6 +2102,12 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 
 	MARK();
 	return 0;
+
+error:
+        v4l2_device_unregister(&dev->v4l2_dev);
+	kfree(dev->vdev);
+        return ret;
+
 };
 
 /* LINUX KERNEL */
