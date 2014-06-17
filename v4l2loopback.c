@@ -645,6 +645,10 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 #endif
 	cap->capabilities =
 		V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
+
+#ifdef V4L2_CAP_VIDEO_M2M
+	cap->capabilities |= V4L2_CAP_VIDEO_M2M;
+#endif /* V4L2_CAP_VIDEO_M2M */
 	if (dev->announce_all_caps) {
 		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 	} else {
