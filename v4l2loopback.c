@@ -498,10 +498,15 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 {
 	struct v4l2_loopback_device *dev = NULL;
 	unsigned long curr = 0;
-
+	
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+	if (kstrtoul(buf, 0, &curr))
+		return -EINVAL;
+	#else
 	if (strict_strtoul(buf, 0, &curr))
 		return -EINVAL;
-
+	#endif
+	
 	dev = v4l2loopback_cd2dev(cd);
 
 	if (dev->max_openers == curr)
