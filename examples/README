@@ -29,4 +29,18 @@ $ mkfifo /tmp/pipe
 $ ./yuv4mpeg_to_v4l2 < /tmp/pipe &
 $ mplayer movie.mp4 -vo yuv4mpeg:file=/tmp/pipe
 
+ondemandcam
+-----------
+Copyright 2015, tz@execpc.com, GPLv3.
+This will wait until something connects to pull frames then sends them.
+It uses two threads and semaphores to do the testing.
+It can setup and teardown the frame source.
+The example just sends a different color each second.
+It is 80x60 (it is a skeleton for hardware with this resolution)
 
+$ make ondemandcam
+$ ondemandcam /dev/videoX & # where X is the v4l2loopback device
+
+It can be viewed with:
+
+$ vlc v4l2:///dev/videoX # X is same device as above
