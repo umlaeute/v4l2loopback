@@ -2027,7 +2027,11 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
 	if (debug > 1)
-		vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
+		#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
+			vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
+		#else
+			vdev->dev_debug = V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
+		#endif
 
 	/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
 	 * set to VFL_DIR_M2M for bidrectional devices */
