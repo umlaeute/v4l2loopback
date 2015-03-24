@@ -48,6 +48,10 @@ void *v4l2l_vzalloc(unsigned long size)
 # define v4l2l_vzalloc vzalloc
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0)
+# define kstrtoul strict_strtoul
+#endif
+
 
 #include <linux/sched.h>
 #include <linux/slab.h>
@@ -498,14 +502,9 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 {
 	struct v4l2_loopback_device *dev = NULL;
 	unsigned long curr = 0;
-	
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,0)
+
 	if (kstrtoul(buf, 0, &curr))
 		return -EINVAL;
-	#else
-	if (strict_strtoul(buf, 0, &curr))
-		return -EINVAL;
-	#endif
 	
 	dev = v4l2loopback_cd2dev(cd);
 
