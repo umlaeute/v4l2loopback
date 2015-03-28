@@ -1,0 +1,43 @@
+#!/bin/sh
+
+DEVICE=$1
+WIDTH=320
+HEIGHT=240
+#WIDTH=1920
+#HEIGHT=1080
+
+
+## uncomment the 'progressive' line to switch to non-interlaced
+INTERLACED=interlaced
+#INTERLACED=progressive
+INTERLACED=mixed
+
+error() {
+ echo "$@" 1>&2
+}
+debug() {
+ error "$@"
+ $@
+}
+
+if [ "x${GSTLAUNCH}" = "x" ]; then
+ GSTLAUNCH=$(which gst-launch-1.0)
+fi
+if [ "x${GSTLAUNCH}" = "x" ]; then
+  error "need gst-launch-1.0"
+  exit 1
+fi
+if [ "x${DEVICE}" = "x" ]; then
+ DEVICE=/dev/video0
+fi
+
+if [ -c "${DEVICE}" ]; then
+ :
+else
+ error "illegal device ${DEVICE}"
+ exit 1
+fi
+
+debug ${GSTLAUNCH} videotestsrc horizontal-speed=16 \
+	! video/x-raw, format=UYVY, width=${WIDTH}, height=${HEIGHT}, frame-rate=30000/1001, interlace-mode=${INTERLACED} \
+	! v4l2sink device=${DEVICE}
