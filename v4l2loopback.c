@@ -143,7 +143,7 @@ void *v4l2l_vzalloc(unsigned long size)
 
 /* when a producer is considered to have gone stale */
 #ifndef MAX_TIMEOUT
-# define MAX_TIMEOUT (100 * 1000 * 1000) /* in msecs */
+# define MAX_TIMEOUT (100 * 1000) /* in msecs */
 #endif
 
 /* max buffers that can be mapped, actually they
@@ -1221,7 +1221,7 @@ static int v4l2loopback_set_ctrl( struct v4l2_loopback_device *dev,
 static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_loopback_device *dev = container_of(ctrl->handler, struct v4l2_loopback_device, ctrl_handler);
-	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val64);
+	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val);
 }
 static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 {
