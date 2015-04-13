@@ -140,14 +140,17 @@ i don't have a system with such an old kernel anymore, so i don't know whether
 it still works.
 further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
 newer kernels being continually tested as they enter debian.
+
 support:
- <= 2.6.27		definitely will NOT work
- 2.6.28 - 2.6.31	may work (seems to compile but i cannot test)
- >= 2.6.32		should work
- >= 3.0.0		should work as well
+- <= <kbd>2.6.27</kbd>		definitely will NOT work
+- <kbd>2.6.28</kbd> - <kbd>2.6.31</kbd>	may work (seems to compile but i cannot test)
+- >= <kbd>2.6.32</kbd>		should work
+- >= <kbd>3.0.0</kbd>		should work as well
 
 # DISTRIBUTIONS
 v4l2loopack is now (since 2010-10-13) available as a Debian-package.
+https://packages.debian.org/source/stable/v4l2loopback
+
 This means, that it is also part of Debian-derived distributions, including
 Ubuntu (starting with natty).
 The most convenient way is to install the package "v4l2loopback-dkms":
@@ -167,18 +170,19 @@ the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
 
 # LICENSE/COPYING
-Copyright (c) 2010-2015 IOhannes m zmoelnig
-Copyright (c) 2014-2015 Tasos Sahanidis
-Copyright (c) 2012-2015 Yusuke Ohshima
-Copyright (c) 2015 Tom Zerucha
-Copyright (c) 2013 Aidan Thornton
-Copyright (c) 2013 Anatolij Gustschin
-Copyright (c) 2012 Ted Mielczarek
-Copyright (c) 2012 Anton Novikov
-Copyright (c) 2011 Stefan Diewald
-Copyright (c) 2010 Scott Maines
-Copyright (c) 2009 Gorinich Zmey
-Copyright (c) 2005-2009 Vasily Levin
+
+- Copyright (c) 2010-2015 IOhannes m zmoelnig
+- Copyright (c) 2014-2015 Tasos Sahanidis
+- Copyright (c) 2012-2015 Yusuke Ohshima
+- Copyright (c) 2015 Tom Zerucha
+- Copyright (c) 2013 Aidan Thornton
+- Copyright (c) 2013 Anatolij Gustschin
+- Copyright (c) 2012 Ted Mielczarek
+- Copyright (c) 2012 Anton Novikov
+- Copyright (c) 2011 Stefan Diewald
+- Copyright (c) 2010 Scott Maines
+- Copyright (c) 2009 Gorinich Zmey
+- Copyright (c) 2005-2009 Vasily Levin
 
     This package is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
