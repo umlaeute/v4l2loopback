@@ -11,17 +11,17 @@ it also allows some more serious things (e.g. I've been using it to add
 streaming capabilities to an application by the means of hooking GStreamer into
 the loopback devices).
 
---- NEWS ---
+# NEWS
 to get the main features of each new release, see the NEWS file.
 you could also have a look at the ChangeLog (which gets automatically generated and might
 only be of limited use...
 
 
---- ISSUES ---
+# ISSUES
 for current issues, checkout https://github.com/umlaeute/v4l2loopback/issues
 please use the issue-tracker for reporting any problems
 
---- DEPENDENCIES ---
+# DEPENDENCIES
 The v4l2loopback module is a *kernel module*.
 In order to build it, you *must have* the kernel headers installed that match
 the linux kernel with which you want to use the module (in most this will be
@@ -32,37 +32,44 @@ the first few number are the same.
 (Modules will be incompatible if the versions don't match. If you are lucky, the module will
 simply refuse to load. If you are unlucky, your computer will spit in your eye or do worse.)
 
---- BUILD ---
-to build the kernel module run "make".
+# BUILD
+to build the kernel module run:
+
+    $ make
+
 this should give you a file named "v4l2loopback.ko", which is the kernel module
 
---- INSTALL ---
+# INSTALL
 to install the module run "make install" (you might have to be 'root' to have
 all necessary permissions to install the module).
 
 if your system has "sudo", do:
-$ make && sudo make install
+
+    $ make && sudo make install
 
 if your system lacks "sudo", do:
-$ make
-$ su
-(enter root password)
-# make install
-# exit
 
---- RUN ---
+    $ make
+    $ su
+    (enter root password)
+    # make install
+    # exit
+
+# RUN
 Load the v4l2loopback module as root :
-# modprobe v4l2loopback
+
+    # modprobe v4l2loopback
 
 using sudo use:
-$ sudo modprobe v4l2loopback
+
+    $ sudo modprobe v4l2loopback
 
 this will create an additional video-device, e.g. /dev/video0 (the number
 depends on whether you already had video devices on your system), which can be
 fed by various programs.
 tested feeders:
-	GStreamer: using the  "v4l2sink" element
-	Gem(>=0.93) using the "recordV4L2" plugin
+- GStreamer-0.10: using the  "v4l2sink" element
+- Gem(>=0.93) using the "recordV4L2" plugin
 in theory most programs capable of _writing to_ a v4l2 device should work.
 
 the data sent to the v4l2loopback device can then be read by any v4l2-capable
@@ -71,51 +78,63 @@ application.
 you can find a number of scenarios on the wiki at
 	http://github.com/umlaeute/v4l2loopback/wiki
 
---- OPTIONS ---
+# OPTIONS
 if you need several independent loopback devices, you can pass the "devices"
 option, when loading the module; e.g.
-# modprobe v4l2loopback devices=4
-will give you 4 loopback devices (e.g. /dev/video1 ... /dev/video5)
+
+    # modprobe v4l2loopback devices=4
+
+will give you 4 loopback devices (e.g. `/dev/video1` ... `/dev/video5`)
 you can also specify the device IDs manually; e.g.
-# modprobe v4l2loopback video_nr=3,4,7
-will create 3 devices (/dev/video3 /dev/video4 & /dev/video7)
 
-# modprobe v4l2loopback video_nr=3,4,7 card_label="device number 3","the number four","the last one"
+    # modprobe v4l2loopback video_nr=3,4,7
+
+will create 3 devices (`/dev/video3`, `/dev/video4` & `/dev/video7`)
+
+    # modprobe v4l2loopback video_nr=3,4,7 card_label="device number 3","the number four","the last one"
+
 will create 3 devices with the card names passed as the second parameter:
-	/dev/video3 > device number 3
-	/dev/video4 > the number four
-	/dev/video7 > the last one
+- `/dev/video3` -> *device number 3*
+- `/dev/video4` -> *the number four*
+- `/dev/video7` -> *the last one*
 
---- ATTRIBUTES ---
+# ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
-readable format. see
- /sys/devices/virtual/video4linux/video*/
+readable format. see `/sys/devices/virtual/video4linux/video*/`
+
 also there are some V4L2 controls that you can list with
-$ v4l2-ctl -d /dev/video1 -l
-keep_format(0/1): while set to 1, once negotiated format will be fixed forever,
+
+    $ v4l2-ctl -d /dev/video1 -l
+
+- `keep_format(0/1)`: while set to 1, once negotiated format will be fixed forever,
                   until the setting is set back to 0
-sustain_framerate(0/1): if set to 1, nominal device fps will be ensured by means
+- `sustain_framerate(0/1)`: if set to 1, nominal device fps will be ensured by means
                         of frame duplication when needed
-timeout(integer): if >0, will cause a timeout picture (a null frame, by default)
+- `timeout(integer)`: if >0, will cause a timeout picture (a null frame, by default)
                   to be displayed after (value) msecs of missing input
-timeout_image_io(0/1): if set to 1, the next opener will write to timeout frame
+- `timeout_image_io(0/1)`: if set to 1, the next opener will write to timeout frame
                        buffer
 
---- FORCING FPS ---
-$ v4l2loopback-ctl set-fps 25 /dev/video0
+# FORCING FPS
+
+    $ v4l2loopback-ctl set-fps 25 /dev/video0
+
 or
-$ echo '@100' | sudo tee /sys/devices/virtual/video4linux/video0/format
 
---- FORCING A GSTREAMER (0.10) CAPS ---
-$ v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480" /dev/video0
+    $ echo '@100' | sudo tee /sys/devices/virtual/video4linux/video0/format
 
---- SETTING STREAM TIMEOUT ---
+# FORCING A GSTREAMER (0.10) CAPS
+
+    $ v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480" /dev/video0
+
+# SETTING STREAM TIMEOUT
+~~~
 $ v4l2-ctl -d /dev/video0 -c timeout=3000
 (will output null frames by default)
 $ v4l2loopback-ctl set-timeout-image service-unavailable.png /dev/video0
 this currently requires GStreamer 0.10 installed
-
---- KERNELs ---
+~~~
+# KERNELs
 the original module has been developed for linux-2.6.28;
 i don't have a system with such an old kernel anymore, so i don't know whether
 it still works.
@@ -127,28 +146,34 @@ support:
  >= 2.6.32		should work
  >= 3.0.0		should work as well
 
---- DISTRIBUTIONS ---
-v4l2loopack is now (2010-10-13) available as a Debian-package.
+# DISTRIBUTIONS
+v4l2loopack is now (since 2010-10-13) available as a Debian-package.
 This means, that it is also part of Debian-derived distributions, including
 Ubuntu (starting with natty).
-The most convenient way is to install the package "v4l2loopback-dkms".
+The most convenient way is to install the package "v4l2loopback-dkms":
+
+    # aptitude install v4l2loopback-dkms
+
 This should automatically build and install the module for your current kernel
 (provided you have the matching kernel-headers installed).
 Another option is to install the "v4l2loopback-source" package.
 In this case you should be able to simply do (as root):
-# aptitude install v4l2loopback-source module-assistant
-# module-assistant auto-install v4l2loopback-source
 
---- DOWNLOAD ---
+    # aptitude install v4l2loopback-source module-assistant
+    # module-assistant auto-install v4l2loopback-source
+
+# DOWNLOAD
 the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
 
---- LICENSE/COPYING ---
-Copyright (c) 2010-2013 IOhannes m zmoelnig
+# LICENSE/COPYING
+Copyright (c) 2010-2015 IOhannes m zmoelnig
+Copyright (c) 2014-2015 Tasos Sahanidis
+Copyright (c) 2012-2015 Yusuke Ohshima
+Copyright (c) 2015 Tom Zerucha
 Copyright (c) 2013 Aidan Thornton
 Copyright (c) 2013 Anatolij Gustschin
 Copyright (c) 2012 Ted Mielczarek
-Copyright (c) 2012 Yusuke Ohshima
 Copyright (c) 2012 Anton Novikov
 Copyright (c) 2011 Stefan Diewald
 Copyright (c) 2010 Scott Maines
