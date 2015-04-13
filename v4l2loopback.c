@@ -32,7 +32,7 @@
 # include <media/v4l2-ctrls.h>
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3,18,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,6,1)
 # define kstrtoul strict_strtoul
 #endif
 
