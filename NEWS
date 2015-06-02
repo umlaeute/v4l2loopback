@@ -1,3 +1,11 @@
+v4l2loopback-0.9.0
+
+  - more formats
+  - kernel compatibility
+        fixed issues with kernel up to 4.0
+
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Tue, 02 Jun 2015 19:58:39 +0200
+
 v4l2loopback-0.8.0
 
   - DKMS config

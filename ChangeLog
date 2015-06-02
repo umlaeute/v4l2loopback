@@ -1,3 +1,54 @@
+v4l2loopback (0.9.0) unstable; urgency=medium
+
+  [ IOhannes m zmölnig ]
+  * formats
+    * support more formats
+    * support compressed formats
+    * move formats-enumeration to separate file
+    * tools to implement missing formats
+  * controls
+    * disable deprecated vidioc_*ctrl callbacks
+    * register custom-controls
+    * use ctrl_config information in (deprecated) queryctrl
+  * fixed bugs
+    * used static code analysis to find more bugs
+    * more error checking
+    * check timeperframe before setting it (Closes: #61)
+    * make MAX_DEVICES/TIMEOUT/BUFFERS settable during build-process (Closes: #55)
+    * check for errors returned by get_capture_buffer()
+    * check whether there is at least 1 requestbuffer
+    * unsigned comparision against <0
+    * avoid setting b->count to negative/null
+    * ...
+  * fixed typos
+  * code formatting
+  * standards compliancy
+    * standard-conformant bus_info
+    * pretend to not support {G,S,ENUM}_{IN,OUT}PUT depending on state
+    * only pretend to not support IN/OUTPUT enumeration in exclusive-caps mode
+  * test programs
+    * for (de)queuing buffers
+    * for writing interlaced video
+  * compatibility with newer kernels
+  * compatibility with older kernels
+  * Updated documentation
+  * Removed GFDL document
+    * note where to get API documentation
+
+  [ tatokis ]
+  * Updated v4l2loopback.c to compile on >= 3.18 kernel
+
+  [ tz ]
+  * add ondemandcam
+
+  [ Yusuke Ohshima ]
+  * Fix issue #79
+
+  [ Tasos Sahanidis ]
+  * Fix for kernel 4.0
+
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Tue, 02 Jun 2015 19:58:39 +0200
+
 v4l2loopback (0.8.0) unstable; urgency=medium
 
   [ Dmitry Eremin ]
