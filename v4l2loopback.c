@@ -36,13 +36,14 @@
 # define kstrtoul strict_strtoul
 #endif
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 8, 0)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 9, 1)
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_AUTHOR("Vasily Levin, " \
               "IOhannes m zmoelnig <zmoelnig@iem.at>,"  \
               "Stefan Diewald,"                         \
               "Anton Novikov"                           \
+	      "et al."					\
 		);
 MODULE_LICENSE("GPL");
 
