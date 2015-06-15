@@ -1863,6 +1863,7 @@ static ssize_t v4l2_loopback_read(struct file *file,
 	int read_index;
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
+	struct v4l2_buffer *b;
 	MARK();
 
 	opener = file->private_data;
@@ -1873,8 +1874,10 @@ static ssize_t v4l2_loopback_read(struct file *file,
           return read_index;
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
-	if (copy_to_user((void *)buf, (void *)(dev->image +
-			dev->buffers[read_index].buffer.m.offset), count)) {
+	b = &dev->buffers[read_index].buffer;
+	if (count > b->bytesused)
+		count = b->bytesused;
+	if (copy_to_user((void *)buf, (void *)(dev->image + b->m.offset), count)) {
 		printk(KERN_ERR
 			"v4l2-loopback: failed copy_from_user() in write buf\n");
 		return -EFAULT;
@@ -1917,6 +1920,7 @@ static ssize_t v4l2_loopback_write(struct file *file,
 		return -EFAULT;
 	}
 	do_gettimeofday(&b->timestamp);
+	b->bytesused = count;
 	b->sequence = dev->write_position;
 	buffer_written(dev, &dev->buffers[write_index]);
 	wake_up_all(&dev->read_event);
