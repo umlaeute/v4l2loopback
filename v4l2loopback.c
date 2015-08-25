@@ -1504,6 +1504,7 @@ static int vidioc_qbuf(struct file *file, void *private_data, struct v4l2_buffer
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw("output QBUF pos: %d index: %d\n", dev->write_position, index);
 		do_gettimeofday(&b->buffer.timestamp);
+		b->buffer.bytesused = buf->bytesused;
 		set_done(b);
 		buffer_written(dev, b);
 		wake_up_all(&dev->read_event);
