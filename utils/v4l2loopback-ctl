@@ -98,11 +98,11 @@ set_caps() {
     }
     #echo "nofps_caps: $nofps_caps"
     check_application v4l2-ctl
-    check_application gst-launch-0.10
+    check_application gst-launch-1.0
 
     v4l2-ctl -d $device -c keep_format=1 || exit 1
     v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
-    gst-launch-0.10 videotestsrc num-buffers=1 ! "$nofps_caps" ! v4l2sink device=$device || die "output to $device failed"
+    gst-launch-1.0 videotestsrc num-buffers=1 ! "$nofps_caps" ! v4l2sink device=$device || die "output to $device failed"
 }
 
 set_timeout_image() {
@@ -113,15 +113,15 @@ set_timeout_image() {
     [ -n "`cat $sysfs/format`" ] || die "Device has no format negotiated"
 
     check_application v4l2-ctl
-    check_application gst-launch-0.10
+    check_application gst-launch-1.0
 
     v4l2-ctl -d $device -c timeout_image_io=1
     if [ "$imagefile" = 'videotestsrc' ]; then
-        gst-launch-0.10 videotestsrc num-buffers=1 ! v4l2sink device=$device
+        gst-launch-1.0 videotestsrc num-buffers=1 ! v4l2sink device=$device
     else
         uri="file://`readlink -f $imagefile`" || die "no file"
         echo "Reading from $uri"
-        gst-launch-0.10 uridecodebin uri=$uri ! ffmpegcolorspace ! videoscale ! imagefreeze ! identity error-after=2 ! v4l2sink show-preroll-frame=false device=$device
+        gst-launch-1.0 uridecodebin uri=$uri ! videoconvert ! videoscale ! imagefreeze ! identity error-after=2 ! v4l2sink show-preroll-frame=false device=$device
     fi
     timeout=`v4l2-ctl -d $device -C timeout | sed -n 's/^timeout: //p'`
     [ -n "$timeout" ] || die "couldn't get timeout"
