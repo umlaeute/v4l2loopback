@@ -188,7 +188,7 @@ static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
 MODULE_PARM_DESC(card_label, "card labels for every device");
 
-static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 1 };
+static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 0 };
 module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
 MODULE_PARM_DESC(exclusive_caps, "whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
@@ -2057,7 +2057,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms      = V4L2_STD_ALL;
-	vdev->current_norm = V4L2_STD_ALL;
+	//vdev->current_norm = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
 
 	vdev->vfl_type     = VFL_TYPE_GRABBER;
