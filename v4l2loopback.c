@@ -2330,7 +2330,7 @@ static void free_devices(void)
 	}
 }
 
-int __init init_module(void)
+static int __init v4l2loopback_init_module(void)
 {
 	int ret;
 	int i;
@@ -2406,13 +2406,25 @@ int __init init_module(void)
 	return 0;
 }
 
-void __exit cleanup_module(void)
+static void v4l2loopback_cleanup_module(void)
 {
 	MARK();
 	/* unregister the device -> it deletes /dev/video* */
 	free_devices();
 	dprintk("module removed\n");
 }
+
+#ifdef MODULE
+int __init init_module(void)
+{
+        return v4l2loopback_init_module();
+}
+void __exit cleanup_module(void) {
+        return v4l2loopback_cleanup_module();
+}
+#else
+late_initcall(v4l2loopback_init_module);
+#endif
 
 
 
