@@ -12,7 +12,7 @@ INSTALL_PROGRAM = $(INSTALL) -p -m 755
 INSTALL_DIR     = $(INSTALL) -p -m 755 -d
 INSTALL_DATA    = $(INSTALL) -m 644
 
-MODULE_OPTIONS = devices=2
+MODULE_OPTIONS = devices=1
 
 ##########################################
 # note on build targets

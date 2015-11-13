@@ -188,7 +188,7 @@ static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
 MODULE_PARM_DESC(card_label, "card labels for every device");
 
-static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 0 };
+static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 1 };
 module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
 MODULE_PARM_DESC(exclusive_caps, "whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
@@ -661,11 +661,12 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 	} else {
 
-		if (dev->ready_for_capture) {
+		//if (dev->ready_for_capture) 
+		{
 			cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
 		}
 		if (dev->ready_for_output) {
-			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+//			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 		}
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
@@ -727,8 +728,12 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh, struct v4l2_f
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = file->private_data;
+	/* there can be only one... */
+	if (argp->index)
+		return -EINVAL;
 
-	if (dev->ready_for_capture) {
+
+	if (1 || dev->ready_for_capture) {
 		if (opener->vidioc_enum_frameintervals_calls > 0)
 			return -EINVAL;
 		if (argp->width == dev->pix_format.width &&
@@ -757,7 +762,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh, struct v4l2_fmtdesc 
 
 	if (f->index)
 		return -EINVAL;
-	if (dev->ready_for_capture) {
+	if (1 || dev->ready_for_capture) {
 		const __u32 format = dev->pix_format.pixelformat;
 
 		snprintf(f->description, sizeof(f->description),
@@ -1638,6 +1643,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 		}
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		dev->ready_for_capture = 1;
 		if (!dev->ready_for_capture)
 			return -EIO;
 		return 0;
@@ -2179,7 +2185,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	}
 	memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
 	atomic_set(&dev->open_count, 0);
-	dev->ready_for_capture = 0;
+	dev->ready_for_capture = 1;
 	dev->ready_for_output  = 1;
 	dev->announce_all_caps = (!exclusive_caps[nr]);
 
