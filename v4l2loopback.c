@@ -661,11 +661,12 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 	} else {
 
-		if (dev->ready_for_capture) {
+		//if (dev->ready_for_capture) 
+		{
 			cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
 		}
 		if (dev->ready_for_output) {
-			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+//			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 		}
 	}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 19, 0)
@@ -695,7 +696,7 @@ static int vidioc_enum_framesizes(struct file *file, void *fh, struct v4l2_frmsi
 		return -EINVAL;
 
 	dev = v4l2loopback_getdevice(file);
-	if (dev->ready_for_capture) {
+	if (1 || dev->ready_for_capture) {
 		/* format has already been negotiated
 		 * cannot change during runtime
 		 */
@@ -727,8 +728,12 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh, struct v4l2_f
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = file->private_data;
+	/* there can be only one... */
+	if (argp->index)
+		return -EINVAL;
 
-	if (dev->ready_for_capture) {
+
+	if (1 || dev->ready_for_capture) {
 		if (opener->vidioc_enum_frameintervals_calls > 0)
 			return -EINVAL;
 		if (argp->width == dev->pix_format.width &&
@@ -757,7 +762,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh, struct v4l2_fmtdesc 
 
 	if (f->index)
 		return -EINVAL;
-	if (dev->ready_for_capture) {
+	if (1 || dev->ready_for_capture) {
 		const __u32 format = dev->pix_format.pixelformat;
 
 		snprintf(f->description, sizeof(f->description),
@@ -847,15 +852,16 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 {
 	struct v4l2_loopback_device *dev;
 	const struct v4l2l_format *fmt;
+	__u32 format;
 
 	dev = v4l2loopback_getdevice(file);
 
 	if (dev->ready_for_capture) {
-		const __u32 format = dev->pix_format.pixelformat;
-
 		/* format has been fixed by the writer, so only one single format is supported */
 		if (f->index)
 			return -EINVAL;
+
+		format = dev->pix_format.pixelformat;
 
 		fmt = format_by_fourcc(format);
 		if (NULL == fmt)
@@ -863,11 +869,8 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 
 		f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		/* f->flags = ??; */
-		snprintf(f->description, sizeof(f->description), "%s", fmt->name);
 
-		f->pixelformat = dev->pix_format.pixelformat;
 	} else {
-		__u32 format;
 		/* fill in a dummy format */
                 /* coverity[unsigned_compare] */
 		if (f->index < 0 || f->index >= FORMATS)
@@ -875,13 +878,10 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 
 		fmt = &formats[f->index];
 
-		f->pixelformat = fmt->fourcc;
-		format = f->pixelformat;
-
-		/* strlcpy(f->description, "dummy OUT format", sizeof(f->description)); */
-		snprintf(f->description, sizeof(f->description), "%s", fmt->name);
-
+		format = fmt->fourcc;
 	}
+	f->pixelformat = format;
+	snprintf(f->description, sizeof(f->description), "%s", fmt->name);
 	f->flags = 0;
 
 	return 0;
@@ -1638,6 +1638,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 		}
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		dev->ready_for_capture = 1;
 		if (!dev->ready_for_capture)
 			return -EIO;
 		return 0;
@@ -2057,7 +2058,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms      = V4L2_STD_ALL;
-	vdev->current_norm = V4L2_STD_ALL;
+	//vdev->current_norm = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
 
 	vdev->vfl_type     = VFL_TYPE_GRABBER;
@@ -2179,7 +2180,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	}
 	memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
 	atomic_set(&dev->open_count, 0);
-	dev->ready_for_capture = 0;
+	dev->ready_for_capture = 1;
 	dev->ready_for_output  = 1;
 	dev->announce_all_caps = (!exclusive_caps[nr]);
 
@@ -2265,7 +2266,7 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_g_input          = &vidioc_g_input,
 	.vidioc_s_input          = &vidioc_s_input,
 
-	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
+	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_out,
 	.vidioc_g_fmt_vid_cap    = &vidioc_g_fmt_cap,
 	.vidioc_s_fmt_vid_cap    = &vidioc_s_fmt_cap,
 	.vidioc_try_fmt_vid_cap  = &vidioc_try_fmt_cap,

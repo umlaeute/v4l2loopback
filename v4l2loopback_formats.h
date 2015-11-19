@@ -1,5 +1,35 @@
   /* here come the packed formats */
 {
+   .name     = "4:2:2, packed, YUYV",
+     .fourcc   = V4L2_PIX_FMT_YUYV,
+     .depth    = 16,
+     .flags    = 0,
+     },
+#ifdef V4L2_PIX_FMT_JPEG
+{
+   .name     = "JFIF JPEG",
+     .fourcc   = V4L2_PIX_FMT_JPEG,
+     .depth    = 32,
+     .flags    = FORMAT_FLAGS_COMPRESSED,
+     },
+#endif /* V4L2_PIX_FMT_JPEG */
+#ifdef V4L2_PIX_FMT_MJPEG
+{
+   .name     = "Motion-JPEG",
+     .fourcc   = V4L2_PIX_FMT_MJPEG,
+     .depth    = 32,
+     .flags    = FORMAT_FLAGS_COMPRESSED,
+     },
+#endif /* V4L2_PIX_FMT_MJPEG */
+#ifdef V4L2_PIX_FMT_MPEG
+{
+   .name     = "MPEG-1/2/4 Multiplexed",
+     .fourcc   = V4L2_PIX_FMT_MPEG,
+     .depth    = 32,
+     .flags    = FORMAT_FLAGS_COMPRESSED,
+     },
+#endif /* V4L2_PIX_FMT_MPEG */
+{
    .name     = "32 bpp RGB, le",
      .fourcc   = V4L2_PIX_FMT_BGR32,
      .depth    = 32,
@@ -79,12 +109,6 @@
      .flags    = 0,
      },
 #endif /* V4L2_PIX_FMT_BGR666 */
-{
-   .name     = "4:2:2, packed, YUYV",
-     .fourcc   = V4L2_PIX_FMT_YUYV,
-     .depth    = 16,
-     .flags    = 0,
-     },
 {
    .name     = "4:2:2, packed, UYVY",
      .fourcc   = V4L2_PIX_FMT_UYVY,
@@ -241,22 +265,6 @@
 
  /* here come the compressed formats */
 
-#ifdef V4L2_PIX_FMT_MJPEG
-{
-   .name     = "Motion-JPEG",
-     .fourcc   = V4L2_PIX_FMT_MJPEG,
-     .depth    = 32,
-     .flags    = FORMAT_FLAGS_COMPRESSED,
-     },
-#endif /* V4L2_PIX_FMT_MJPEG */
-#ifdef V4L2_PIX_FMT_JPEG
-{
-   .name     = "JFIF JPEG",
-     .fourcc   = V4L2_PIX_FMT_JPEG,
-     .depth    = 32,
-     .flags    = FORMAT_FLAGS_COMPRESSED,
-     },
-#endif /* V4L2_PIX_FMT_JPEG */
 #ifdef V4L2_PIX_FMT_DV
 {
    .name     = "DV1394",
@@ -265,14 +273,6 @@
      .flags    = FORMAT_FLAGS_COMPRESSED,
      },
 #endif /* V4L2_PIX_FMT_DV */
-#ifdef V4L2_PIX_FMT_MPEG
-{
-   .name     = "MPEG-1/2/4 Multiplexed",
-     .fourcc   = V4L2_PIX_FMT_MPEG,
-     .depth    = 32,
-     .flags    = FORMAT_FLAGS_COMPRESSED,
-     },
-#endif /* V4L2_PIX_FMT_MPEG */
 #ifdef V4L2_PIX_FMT_H264
 {
    .name     = "H264 with start codes",
