@@ -1841,6 +1841,7 @@ static int v4l2_loopback_close(struct file *file)
 	int iswriter=0;
 	MARK();
 
+
 	opener = file->private_data;
 	dev    = v4l2loopback_getdevice(file);
 
@@ -2057,7 +2058,6 @@ static void init_vdev(struct video_device *vdev, int nr)
 
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms      = V4L2_STD_ALL;
-	vdev->current_norm = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
 
 	vdev->vfl_type     = VFL_TYPE_GRABBER;
