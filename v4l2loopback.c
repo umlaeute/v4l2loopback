@@ -625,6 +625,15 @@ static inline void unset_flags(struct v4l2l_buffer *buffer)
 	buffer->buffer.flags &= ~V4L2_BUF_FLAG_DONE;
 }
 
+static void vidioc_fill_name(char *buf, int len, int nr)
+{
+	if (card_label[nr] != NULL) {
+		snprintf(buf, len, card_label[nr]);
+	} else {
+		snprintf(buf, len, "Dummy video device (0x%04X)", nr);
+	}
+}
+
 /* V4L2 ioctl caps and params calls */
 /* returns device capabilities
  * called on VIDIOC_QUERYCAP
@@ -636,11 +645,7 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 
-	if (card_label[devnr] != NULL) {
-		snprintf(cap->card, sizeof(cap->card), card_label[devnr]);
-	} else {
-		snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)", devnr);
-	}
+	vidioc_fill_name(cap->card, sizeof(cap->card), devnr);
 
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:v4l2loopback-%03d", devnr);
 
@@ -2054,7 +2059,7 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 static void init_vdev(struct video_device *vdev, int nr)
 {
 	MARK();
-	snprintf(vdev->name, sizeof(vdev->name), "Loopback video device %X", nr);
+	vidioc_fill_name(vdev->name, sizeof(vdev->name), nr);
 
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms      = V4L2_STD_ALL;
