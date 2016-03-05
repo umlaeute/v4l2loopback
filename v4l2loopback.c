@@ -807,12 +807,8 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv, struct v4l2_format *f
  */
 static int vidioc_try_fmt_cap(struct file *file, void *priv, struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	char buf[5];
-
-	opener = file->private_data;
-	opener->type = READER;
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -907,8 +903,7 @@ static int vidioc_g_fmt_out(struct file *file, void *priv, struct v4l2_format *f
 
 	dev = v4l2loopback_getdevice(file);
 	opener = file->private_data;
-	opener->type = WRITER;
-	dev->ready_for_output = 1;
+
 	/*
 	 * LATER: this should return the currently valid format
 	 * gstreamer doesn't like it, if this returns -EINVAL, as it
@@ -927,15 +922,10 @@ static int vidioc_g_fmt_out(struct file *file, void *priv, struct v4l2_format *f
  */
 static int vidioc_try_fmt_out(struct file *file, void *priv, struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	MARK();
 
-	opener = file->private_data;
-	opener->type = WRITER;
-
 	dev = v4l2loopback_getdevice(file);
-	dev->ready_for_output = 1;
 
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow */
@@ -1306,7 +1296,7 @@ static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp
 	__u32 index = inp->index;
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	MARK();
-        if (!dev->announce_all_caps && !dev->ready_for_capture)
+	if (!dev->announce_all_caps && !dev->ready_for_capture)
 		return -ENOTTY;
 
 	if (0 != index)
@@ -1627,13 +1617,16 @@ static int vidioc_dqbuf(struct file *file, void *private_data, struct v4l2_buffe
 static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_type type)
 {
 	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_opener *opener;
 	int ret;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
+	opener = file->private_data;
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		opener->type = WRITER;
 		dev->ready_for_output = 0;
 		if (!dev->ready_for_capture) {
 			ret = allocate_buffers(dev);
@@ -1643,6 +1636,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 		}
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		opener->type = READER;
 		if (!dev->ready_for_capture)
 			return -EIO;
 		return 0;
