@@ -1294,10 +1294,7 @@ static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 static int vidioc_enum_input(struct file *file, void *fh, struct v4l2_input *inp)
 {
 	__u32 index = inp->index;
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	MARK();
-	if (!dev->announce_all_caps && !dev->ready_for_capture)
-		return -ENOTTY;
 
 	if (0 != index)
 		return -EINVAL;
