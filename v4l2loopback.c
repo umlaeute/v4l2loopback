@@ -1524,8 +1524,8 @@ static int vidioc_qbuf(struct file *file, void *private_data, struct v4l2_buffer
 
 		/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
 			https://github.com/umlaeute/v4l2loopback/issues/60 */
-		b->flags &= ~V4L2_BUF_FLAG_DONE;
-	        b->flags |= V4L2_BUF_FLAG_QUEUED;
+		buf->flags &= ~V4L2_BUF_FLAG_DONE;
+	        buf->flags |= V4L2_BUF_FLAG_QUEUED;
 
 		wake_up_all(&dev->read_event);
 		return 0;
