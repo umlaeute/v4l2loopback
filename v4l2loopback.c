@@ -1619,7 +1619,7 @@ static int vidioc_dqbuf(struct file *file, void *private_data, struct v4l2_buffe
 		*buf = dev->buffers[index].buffer;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		b = list_entry(dev->outbufs_list.next, struct v4l2l_buffer, list_head);
+		b = list_entry(dev->outbufs_list.prev, struct v4l2l_buffer, list_head);
 		list_move_tail(&b->list_head, &dev->outbufs_list);
 		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
 		unset_flags(b);
