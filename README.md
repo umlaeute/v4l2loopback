@@ -16,21 +16,20 @@ to get the main features of each new release, see the NEWS file.
 you could also have a look at the ChangeLog (which gets automatically generated and might
 only be of limited use...
 
-
 # ISSUES
 for current issues, checkout https://github.com/umlaeute/v4l2loopback/issues
 please use the issue-tracker for reporting any problems
 
 # DEPENDENCIES
-The v4l2loopback module is a *kernel module*.
-In order to build it, you *must have* the kernel headers installed that match
+the v4l2loopback module is a *kernel module*.
+in order to build it, you *must have* the kernel headers installed that match
 the linux kernel with which you want to use the module (in most this will be
 the kernel that you are currently running).
-Please note, that kernel headers and kernel image must have *exactly the same* version.
-For example, `3.18.0-trunk-rpi` is a different version that `3.18.7-v7+`, even though
+please note, that kernel headers and kernel image must have *exactly the same* version.
+for example, `3.18.0-trunk-rpi` is a different version that `3.18.7-v7+`, even though
 the first few number are the same.
-(Modules will be incompatible if the versions don't match. If you are lucky, the module will
-simply refuse to load. If you are unlucky, your computer will spit in your eye or do worse.)
+(modules will be incompatible if the versions don't match. if you are lucky, the module will
+simply refuse to load. if you are unlucky, your computer will spit in your eye or do worse.)
 
 # BUILD
 to build the kernel module run:
@@ -56,7 +55,7 @@ if your system lacks "sudo", do:
     # exit
 
 # RUN
-Load the v4l2loopback module as root :
+load the v4l2loopback module as root :
 
     # modprobe v4l2loopback
 
@@ -134,33 +133,34 @@ $ v4l2-ctl -d /dev/video0 -c timeout=3000
 $ v4l2loopback-ctl set-timeout-image service-unavailable.png /dev/video0
 this currently requires GStreamer 0.10 installed
 ~~~
+
 # KERNELs
 the original module has been developed for linux-2.6.28;
 i don't have a system with such an old kernel anymore, so i don't know whether
 it still works.
 further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
-newer kernels being continually tested as they enter debian.
+newer kernels being continually tested as they enter Debian.
 
 support:
-- <= <kbd>2.6.27</kbd>		definitely will NOT work
-- <kbd>2.6.28</kbd> - <kbd>2.6.31</kbd>	may work (seems to compile but i cannot test)
-- >= <kbd>2.6.32</kbd>		should work
-- >= <kbd>3.0.0</kbd>		should work as well
+- >= <kbd>4.0.0</kbd>		should work
+- >= <kbd>3.0.0</kbd>		might work
+- << <kbd>3.0.0</kbd>		may work (has not been tested in ages)
+- <= <kbd>2.6.27</kbd>		will definitely NOT work
 
 # DISTRIBUTIONS
 v4l2loopack is now (since 2010-10-13) available as a Debian-package.
 https://packages.debian.org/source/stable/v4l2loopback
 
-This means, that it is also part of Debian-derived distributions, including
+this means, that it is also part of Debian-derived distributions, including
 Ubuntu (starting with natty).
-The most convenient way is to install the package "v4l2loopback-dkms":
+the most convenient way is to install the package "v4l2loopback-dkms":
 
     # aptitude install v4l2loopback-dkms
 
-This should automatically build and install the module for your current kernel
+this should automatically build and install the module for your current kernel
 (provided you have the matching kernel-headers installed).
-Another option is to install the "v4l2loopback-source" package.
-In this case you should be able to simply do (as root):
+another option is to install the "v4l2loopback-source" package.
+in this case you should be able to simply do (as root):
 
     # aptitude install v4l2loopback-source module-assistant
     # module-assistant auto-install v4l2loopback-source
@@ -171,9 +171,14 @@ http://github.com/umlaeute/v4l2loopback/.
 
 # LICENSE/COPYING
 
-- Copyright (c) 2010-2015 IOhannes m zmoelnig
+- Copyright (c) 2010-2016 IOhannes m zmoelnig
+- Copyright (c) 2016 Gavin Qiu
+- Copyright (c) 2016 George Chriss
 - Copyright (c) 2014-2015 Tasos Sahanidis
 - Copyright (c) 2012-2015 Yusuke Ohshima
+- Copyright (c) 2015 Kurt Kiefer
+- Copyright (c) 2015 Michel Promonet
+- Copyright (c) 2015 Paul Brook
 - Copyright (c) 2015 Tom Zerucha
 - Copyright (c) 2013 Aidan Thornton
 - Copyright (c) 2013 Anatolij Gustschin
@@ -196,5 +201,3 @@ http://github.com/umlaeute/v4l2loopback/.
 
     You should have received a copy of the GNU General Public License
     along with this program. If not, see <http://www.gnu.org/licenses/>.
-
-
