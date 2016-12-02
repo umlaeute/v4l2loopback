@@ -1,3 +1,35 @@
+v4l2loopback (0.10.0) unstable; urgency=medium
+
+  [ Paul Brook ]
+  * Use consistent device names
+
+  [ Michel Promonet ]
+  * Initialize bytesused in buffer processing write and use it processing read
+
+  [ Kurt Kiefer ]
+  * Initialize bytesused also on output VIDIOC_QBUF.
+  * Preserve output VIDIOC_QBUF timestamp if present
+
+  [ IOhannes m zmölnig ]
+  * switch ctl-script to GStreamer-1.0
+  * move braces into #ifdef block
+  * use late_initcall() when not built as module
+  * Disable exclusive_caps by *default*
+  * Removed deprecated current_norm
+
+  [ George Chriss ]
+  * Directly set v4l2 buffer flags as v4l2 documentation (note difference vs. internal v4l2l buffers) Hopefully closes: https://github.com/umlaeute/v4l2loopback/issues/60
+  * Build typo: change b->flags to buf->flags
+
+  [ Gavin.Qiu ]
+  * Fix bug that return wrong buffer index when dequeue
+
+  [ IOhannes m zmölnig ]
+  * Added more AUTHORS
+  * Updated README (compat, copyright and cosmetics)
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Fri, 02 Dec 2016 22:00:27 +0100
+
 v4l2loopback (0.9.1) unstable; urgency=medium
 
   * Fixed module version

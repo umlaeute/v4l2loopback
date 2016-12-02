@@ -36,7 +36,7 @@
 # define kstrtoul strict_strtoul
 #endif
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 9, 1)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 10, 0)
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_AUTHOR("Vasily Levin, " \
