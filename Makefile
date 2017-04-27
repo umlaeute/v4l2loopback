@@ -45,7 +45,6 @@ v4l2loopback.ko:
 install-all: install install-utils install-man
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
-	depmod -a  $(KERNELRELEASE)
 
 install-utils: utils/v4l2loopback-ctl
 	$(INSTALL_DIR) "$(DESTDIR)$(BINDIR)"
