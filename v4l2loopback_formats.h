@@ -271,9 +271,9 @@
      .fourcc   = V4L2_PIX_FMT_MPEG,
      .depth    = 32,
      .flags    = FORMAT_FLAGS_COMPRESSED,
+     },
 #endif /* V4L2_PIX_FMT_MPEG */
 #ifdef V4L2_PIX_FMT_H264
-     },
 {
    .name     = "H264 with start codes",
      .fourcc   = V4L2_PIX_FMT_H264,

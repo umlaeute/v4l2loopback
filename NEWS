@@ -1,8 +1,17 @@
+v4l2loopback-0.10.0
+
+  * More consistent device names
+  * Disabled exclusive_caps by *default*
+  * Removed deprecated current_norm
+  * Fixed a number of bugs (esp. when working with GStreamer-1.0)
+
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Fri, 02 Dec 2016 22:00:27 +0100
+
 v4l2loopback-0.9.1
 
   - Fixed module version
 
- -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Wed, 03 Jun 2015 19:47:23 +0200
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Wed, 03 Jun 2015 19:47:23 +0200
 
 v4l2loopback-0.9.0
 
@@ -26,7 +35,7 @@ v4l2loopback-0.7.1
         fixed issues with kernel-3.11
         fixed regression with kernel<2.6.29
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Mon, 16 Sep 2013 09:55:51 +0200
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Mon, 16 Sep 2013 09:55:51 +0200
 
 v4l2loopback-0.7.0
 
@@ -34,7 +43,7 @@ v4l2loopback-0.7.0
     capabilities exclusively (support for Chromium/WebRTC)
   - disabled fake STDs (e.g. ffmpeg support)
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Fri, 07 Jun 2013 11:08:10 +0200
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Fri, 07 Jun 2013 11:08:10 +0200
 
 v4l2loopback-0.6.3
 
@@ -43,7 +52,7 @@ v4l2loopback-0.6.3
   - unique "Card Type" Names (fixes broken clients like flash)
   - create unique ID in "bus_info" field (fixes Firefox/WebRTC support)
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2013-02-05
+ -- IOhannes m zmoelnig <zmoelnig@iem.at> 2013-02-05
 
 v4l2loopback-0.6.2
 
@@ -52,20 +61,20 @@ v4l2loopback-0.6.2
 	fixed issues with kernel-3.6.1
   - distinct device names (fixes broken clients like google+)
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2012-10-23
+ -- IOhannes m zmoelnig <zmoelnig@iem.at> 2012-10-23
 
 v4l2loopback-0.6.1
 
   - Debian specific build-fixes
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2012-04-27
+ -- IOhannes m zmoelnig <zmoelnig@iem.at> 2012-04-27
 
 v4l2loopback-0.6.0
 
   - support fallback images (in case there is no live-stream)
   - utilities to interact with v4l2loopback devices
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at> 2012-04-27
+ -- IOhannes m zmoelnig <zmoelnig@iem.at> 2012-04-27
 
 v4l2loopback-0.5.0
 
@@ -84,7 +93,7 @@ v4l2loopback-0.5.0
   - more (and better) debugging output
   - fixed memleaks in the examples
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Tue, 27 Dec 2011 19:01:25 +0100
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Tue, 27 Dec 2011 19:01:25 +0100
 
 v4l2loopback-0.4.1
 
@@ -93,7 +102,7 @@ v4l2loopback-0.4.1
 		fixed issues with kernels<2.6.32
 		fixed issues with kernel-3.1
 
- -- IOhannes m zmoelnig (gpg-key at iem) <zmoelnig@iem.at>  Thu, 24 Nov 2011 18:11:01 +0100
+ -- IOhannes m zmoelnig <zmoelnig@iem.at>  Thu, 24 Nov 2011 18:11:01 +0100
 
 v4l2loopback-0.4
 

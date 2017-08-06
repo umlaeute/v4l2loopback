@@ -36,7 +36,7 @@
 # define kstrtoul strict_strtoul
 #endif
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 9, 1)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 10, 0)
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_AUTHOR("Vasily Levin, " \
@@ -188,7 +188,7 @@ static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
 MODULE_PARM_DESC(card_label, "card labels for every device");
 
-static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 1 };
+static bool exclusive_caps[MAX_DEVICES] = { [0 ... (MAX_DEVICES - 1)] = 0 };
 module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
 MODULE_PARM_DESC(exclusive_caps, "whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
@@ -456,12 +456,12 @@ static ssize_t attr_show_format(struct device *cd,
 	tpf = &dev->capture_param.timeperframe;
 
 	fourcc2str(dev->pix_format.pixelformat, buf4cc);
+        buf4cc[4]=0;
 	if (tpf->numerator == 1)
 		snprintf(buf_fps, sizeof(buf_fps), "%d", tpf->denominator);
 	else
 		snprintf(buf_fps, sizeof(buf_fps), "%d/%d",
 				tpf->denominator, tpf->numerator);
-
 	return sprintf(buf, "%4s:%dx%d@%s\n",
 		buf4cc, dev->pix_format.width, dev->pix_format.height, buf_fps);
 }
@@ -625,6 +625,15 @@ static inline void unset_flags(struct v4l2l_buffer *buffer)
 	buffer->buffer.flags &= ~V4L2_BUF_FLAG_DONE;
 }
 
+static void vidioc_fill_name(char *buf, int len, int nr)
+{
+	if (card_label[nr] != NULL) {
+		snprintf(buf, len, card_label[nr]);
+	} else {
+		snprintf(buf, len, "Dummy video device (0x%04X)", nr);
+	}
+}
+
 /* V4L2 ioctl caps and params calls */
 /* returns device capabilities
  * called on VIDIOC_QUERYCAP
@@ -636,11 +645,7 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 
-	if (card_label[devnr] != NULL) {
-		snprintf(cap->card, sizeof(cap->card), card_label[devnr]);
-	} else {
-		snprintf(cap->card, sizeof(cap->card), "Dummy video device (0x%04X)", devnr);
-	}
+	vidioc_fill_name(cap->card, sizeof(cap->card), devnr);
 
 	snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:v4l2loopback-%03d", devnr);
 
@@ -1457,6 +1462,12 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 	b->type = type;
 	b->index = index;
 	dprintkrw("buffer type: %d (of %d with size=%ld)\n", b->memory, dev->buffers_number, dev->buffer_size);
+
+	/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
+		https://github.com/umlaeute/v4l2loopback/issues/60 */
+	b->flags &= ~V4L2_BUF_FLAG_DONE;
+	b->flags |= V4L2_BUF_FLAG_QUEUED;
+
 	return 0;
 }
 
@@ -1503,9 +1514,19 @@ static int vidioc_qbuf(struct file *file, void *private_data, struct v4l2_buffer
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw("output QBUF pos: %d index: %d\n", dev->write_position, index);
-		do_gettimeofday(&b->buffer.timestamp);
+		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
+			do_gettimeofday(&b->buffer.timestamp);
+		else
+			b->buffer.timestamp = buf->timestamp;
+		b->buffer.bytesused = buf->bytesused;
 		set_done(b);
 		buffer_written(dev, b);
+
+		/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
+			https://github.com/umlaeute/v4l2loopback/issues/60 */
+		buf->flags &= ~V4L2_BUF_FLAG_DONE;
+	        buf->flags |= V4L2_BUF_FLAG_QUEUED;
+
 		wake_up_all(&dev->read_event);
 		return 0;
 	default:
@@ -1598,7 +1619,7 @@ static int vidioc_dqbuf(struct file *file, void *private_data, struct v4l2_buffe
 		*buf = dev->buffers[index].buffer;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		b = list_entry(dev->outbufs_list.next, struct v4l2l_buffer, list_head);
+		b = list_entry(dev->outbufs_list.prev, struct v4l2l_buffer, list_head);
 		list_move_tail(&b->list_head, &dev->outbufs_list);
 		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
 		unset_flags(b);
@@ -1837,6 +1858,7 @@ static int v4l2_loopback_close(struct file *file)
 	int iswriter=0;
 	MARK();
 
+
 	opener = file->private_data;
 	dev    = v4l2loopback_getdevice(file);
 
@@ -2049,11 +2071,10 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 static void init_vdev(struct video_device *vdev, int nr)
 {
 	MARK();
-	snprintf(vdev->name, sizeof(vdev->name), "Loopback video device %X", nr);
+	vidioc_fill_name(vdev->name, sizeof(vdev->name), nr);
 
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms      = V4L2_STD_ALL;
-	vdev->current_norm = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
 
 	vdev->vfl_type     = VFL_TYPE_GRABBER;
@@ -2326,7 +2347,7 @@ static void free_devices(void)
 	}
 }
 
-int __init init_module(void)
+static int __init v4l2loopback_init_module(void)
 {
 	int ret;
 	int i;
@@ -2402,13 +2423,25 @@ int __init init_module(void)
 	return 0;
 }
 
-void __exit cleanup_module(void)
+static void v4l2loopback_cleanup_module(void)
 {
 	MARK();
 	/* unregister the device -> it deletes /dev/video* */
 	free_devices();
 	dprintk("module removed\n");
 }
+
+#ifdef MODULE
+int __init init_module(void)
+{
+        return v4l2loopback_init_module();
+}
+void __exit cleanup_module(void) {
+        return v4l2loopback_cleanup_module();
+}
+#else
+late_initcall(v4l2loopback_init_module);
+#endif
 
 
 
