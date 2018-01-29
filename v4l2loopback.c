@@ -2133,13 +2133,11 @@ static void check_timers(struct v4l2_loopback_device *dev)
 }
 #ifdef HAVE_TIMER_SETUP
 static void sustain_timer_clb(struct timer_list *t)
-#else
-static void sustain_timer_clb(unsigned long nr)
-#endif
 {
-#ifdef HAVE_TIMER_SETUP
 	struct v4l2_loopback_device *dev = from_timer(dev,t,sustain_timer);
 #else
+static void sustain_timer_clb(unsigned long nr)
+{
 	struct v4l2_loopback_device *dev = devs[nr];
 #endif
 	spin_lock(&dev->lock);
@@ -2156,13 +2154,11 @@ static void sustain_timer_clb(unsigned long nr)
 }
 #ifdef HAVE_TIMER_SETUP
 static void timeout_timer_clb(struct timer_list *t)
-#else
-static void timeout_timer_clb(unsigned long nr)
-#endif
 {
-#ifdef	HAVE_TIMER_SETUP
 	struct v4l2_loopback_device *dev = from_timer(dev,t,timeout_timer);
 #else
+static void timeout_timer_clb(unsigned long nr)
+{
 	struct v4l2_loopback_device *dev = devs[nr];
 #endif
 	spin_lock(&dev->lock);
