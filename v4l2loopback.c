@@ -36,6 +36,10 @@
 # define kstrtoul strict_strtoul
 #endif
 
+#if defined(timer_setup) && defined(from_timer)
+#define HAVE_TIMER_SETUP
+#endif
+
 #define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 10, 0)
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
@@ -2127,11 +2131,17 @@ static void check_timers(struct v4l2_loopback_device *dev)
 	if (dev->sustain_framerate && !timer_pending(&dev->sustain_timer))
 		mod_timer(&dev->sustain_timer, jiffies + dev->frame_jiffies * 3 / 2);
 }
-
+#ifdef HAVE_TIMER_SETUP
+static void sustain_timer_clb(struct timer_list *t)
+#else
 static void sustain_timer_clb(unsigned long nr)
+#endif
 {
+#ifdef HAVE_TIMER_SETUP
+	struct v4l2_loopback_device *dev = from_timer(dev,t,sustain_timer);
+#else
 	struct v4l2_loopback_device *dev = devs[nr];
-
+#endif
 	spin_lock(&dev->lock);
 	if (dev->sustain_framerate) {
 		dev->reread_count++;
@@ -2144,11 +2154,17 @@ static void sustain_timer_clb(unsigned long nr)
 	}
 	spin_unlock(&dev->lock);
 }
-
+#ifdef HAVE_TIMER_SETUP
+static void timeout_timer_clb(struct timer_list *t)
+#else
 static void timeout_timer_clb(unsigned long nr)
+#endif
 {
+#ifdef	HAVE_TIMER_SETUP
+	struct v4l2_loopback_device *dev = from_timer(dev,t,timeout_timer);
+#else
 	struct v4l2_loopback_device *dev = devs[nr];
-
+#endif
 	spin_lock(&dev->lock);
 	if (dev->timeout_jiffies > 0) {
 		dev->timeout_happened = 1;
@@ -2210,9 +2226,14 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->buffer_size = 0;
 	dev->image = NULL;
 	dev->imagesize = 0;
+#ifdef HAVE_TIMER_SETUP
+	timer_setup(&dev->sustain_timer, sustain_timer_clb, 0);
+	timer_setup(&dev->timeout_timer, timeout_timer_clb, 0);
+#else
 	setup_timer(&dev->sustain_timer, sustain_timer_clb, nr);
-	dev->reread_count = 0;
 	setup_timer(&dev->timeout_timer, timeout_timer_clb, nr);
+#endif
+        dev->reread_count = 0;
 	dev->timeout_jiffies = 0;
 	dev->timeout_image = NULL;
 	dev->timeout_happened = 0;
