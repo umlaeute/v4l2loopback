@@ -45,6 +45,7 @@ all necessary permissions to install the module).
 if your system has "sudo", do:
 
     $ make && sudo make install
+    $ sudo depmod -a
 
 if your system lacks "sudo", do:
 
@@ -52,7 +53,13 @@ if your system lacks "sudo", do:
     $ su
     (enter root password)
     # make install
+    # depmod -a
     # exit
+
+
+(The `depmod -a` call will re-calculate module dependencies, in order to
+automatically load additional kernel modules required by v4l2loopback.
+The call may not be necessary on modern systems.)
 
 # RUN
 load the v4l2loopback module as root :
