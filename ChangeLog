@@ -1,3 +1,30 @@
+v4l2loopback (0.11.0) unstable; urgency=medium
+
+  [ Nick Sarnie ]
+  * Adapted to new kernel timer API
+
+  [ Attila Tőkés ]
+  * Avoid setting dev->ready_for_output and opener->type on get/try calls
+  * Allow input enumeration, even when exclusive_caps=1 and no input provided yet
+
+  [ Todor Minchev ]
+  * Makefile: remove depmod call in modules_install target
+
+  [ Michel Promonet ]
+  * Added format VP9 & HEVC
+
+  [ IOhannes m zmölnig ]
+  * Simplified HAVE_TIMER_SETUP clauses
+  * Fixed format output to sysfs
+  * Removed trailing whitespace
+  * Updated README
+    * Added `depmod -a` calls to the documentation
+    * Fixed omitted word
+  * [github] Added issue template for new reports
+    * please don't post images in the issue-tracker
+
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Tue, 06 Mar 2018 10:05:11 +0100
+
 v4l2loopback (0.10.0) unstable; urgency=medium
 
   [ Paul Brook ]

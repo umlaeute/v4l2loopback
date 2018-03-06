@@ -1,3 +1,11 @@
+v4l2loopback-0.11.0
+
+  * Adapted to new kernel timer API
+  * VP9 & HEVC support
+  * Hacks to work around issues with Google Chrome and GStreamer-0.10
+
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Tue, 06 Mar 2018 10:05:11 +0100
+
 v4l2loopback-0.10.0
 
   * More consistent device names
