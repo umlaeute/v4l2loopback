@@ -238,6 +238,14 @@
      .flags    = FORMAT_FLAGS_PLANAR,
      },
 #endif /* V4L2_PIX_FMT_Y41P */
+#ifdef V4L2_PIX_FMT_NV12
+{
+	.name     = "12 bpp Y/CbCr 4:2:0 ",
+		.fourcc   = V4L2_PIX_FMT_NV12,
+		.depth    = 12,
+		.flags    = FORMAT_FLAGS_PLANAR,
+     },
+#endif /* V4L2_PIX_FMT_NV12 */
 
  /* here come the compressed formats */
 
