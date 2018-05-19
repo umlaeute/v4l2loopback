@@ -1903,7 +1903,7 @@ static ssize_t v4l2_loopback_read(struct file *file,
 		count = b->bytesused;
 	if (copy_to_user((void *)buf, (void *)(dev->image + b->m.offset), count)) {
 		printk(KERN_ERR
-			"v4l2-loopback: failed copy_from_user() in write buf\n");
+			"v4l2-loopback: failed copy_to_user() in read buf\n");
 		return -EFAULT;
 	}
 	dprintkrw("leave v4l2_loopback_read()\n");
