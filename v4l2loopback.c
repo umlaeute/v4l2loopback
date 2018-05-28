@@ -2093,7 +2093,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 
 	/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
 	 * set to VFL_DIR_M2M for bidrectional devices */
-#ifdef VFL_DIR_M2M
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 	vdev->vfl_dir = VFL_DIR_M2M;
 #endif
 
