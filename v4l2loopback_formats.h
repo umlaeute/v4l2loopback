@@ -188,6 +188,41 @@
      },
 #endif /* V4L2_PIX_FMT_YUV565 */
 
+/* bayer formats */
+#ifdef V4L2_PIX_FMT_SRGGB8
+{
+  .name     = "Bayer RGGB 8bit",
+    .fourcc   = V4L2_PIX_FMT_SRGGB8,
+    .depth    = 8,
+    .flags    = 0,
+    },
+#endif /* V4L2_PIX_FMT_SRGGB8 */
+#ifdef V4L2_PIX_FMT_SGRBG8
+{
+  .name     = "Bayer GRBG 8bit",
+    .fourcc   = V4L2_PIX_FMT_SGRBG8,
+    .depth    = 8,
+    .flags    = 0,
+    },
+#endif /* V4L2_PIX_FMT_SGRBG8 */
+#ifdef V4L2_PIX_FMT_SGBRG8
+{
+  .name     = "Bayer GBRG 8bit",
+    .fourcc   = V4L2_PIX_FMT_SGBRG8,
+    .depth    = 8,
+    .flags    = 0,
+    },
+#endif /* V4L2_PIX_FMT_SGBRG8 */
+#ifdef V4L2_PIX_FMT_SBGGR8
+{
+  .name     = "Bayer BA81 8bit",
+    .fourcc   = V4L2_PIX_FMT_SBGGR8,
+    .depth    = 8,
+    .flags    = 0,
+    },
+#endif /* V4L2_PIX_FMT_SBGGR8 */
+
+
 
  /* here come the planar formats */
 {
@@ -246,39 +281,6 @@
 		.flags    = FORMAT_FLAGS_PLANAR,
      },
 #endif /* V4L2_PIX_FMT_NV12 */
-
-#ifdef V4L2_PIX_FMT_SRGGB8
-{
-  .name     = "Bayer RGGB 8bit",
-    .fourcc   = V4L2_PIX_FMT_SRGGB8,
-    .depth    = 8,
-    .flags    = 0,
-    },
-#endif /* V4L2_PIX_FMT_SRGGB8 */
-#ifdef V4L2_PIX_FMT_SGRBG8
-{
-  .name     = "Bayer GRBG 8bit",
-    .fourcc   = V4L2_PIX_FMT_SGRBG8,
-    .depth    = 8,
-    .flags    = 0,
-    },
-#endif /* V4L2_PIX_FMT_SGRBG8 */
-#ifdef V4L2_PIX_FMT_SGBRG8
-{
-  .name     = "Bayer GBRG 8bit",
-    .fourcc   = V4L2_PIX_FMT_SGBRG8,
-    .depth    = 8,
-    .flags    = 0,
-    },
-#endif /* V4L2_PIX_FMT_SGBRG8 */
-#ifdef V4L2_PIX_FMT_SBGGR8
-{
-  .name     = "Bayer BA81 8bit",
-    .fourcc   = V4L2_PIX_FMT_SBGGR8,
-    .depth    = 8,
-    .flags    = 0,
-    },
-#endif /* V4L2_PIX_FMT_SBGGR8 */
 
  /* here come the compressed formats */
 
