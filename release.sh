@@ -96,5 +96,5 @@ if [ "x${OK}" = "xtrue" ]; then
  echo "- please check&edit your ${NEWS}"
  echo "- please check&edit your ${AUTHORS}"
  echo "- and don't forget to git-tag the new version as v${NEWVERSION}"
- echo " git tag v${NEWVERSION} -m \"\""
+ echo " git tag v${NEWVERSION} -s -m \"Released ${NEWVERSION}\""
 fi
