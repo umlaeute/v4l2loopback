@@ -1,3 +1,11 @@
+v4l2loopback-0.12.0
+
+  * Fixed compat with kernel 4.16
+  * NV12 support
+  * 8bit Bayer support
+
+ -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Mon, 02 Jul 2018 12:27:29 +0200
+
 v4l2loopback-0.11.0
 
   * Adapted to new kernel timer API

@@ -1,3 +1,19 @@
+v4l2loopback (0.12.0) unstable; urgency=medium
+
+  [ WaleedTageldeen ]
+  * Adding support for NV12 as per umlaeute/v4l2loopback#169
+
+  [ Jon Morley ]
+  * v4l2loopback.c: Update error message in buf read to reflect actual copy call.
+
+  [ IOhannes m zmölnig ]
+  * Use kernel-version to determine whether we should set vfl_dir
+  * sign releases and add a message
+  * Support for 8bit bayer
+  * moved bayer-formats into "packed formats" section
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Mon, 02 Jul 2018 12:27:29 +0200
+
 v4l2loopback (0.11.0) unstable; urgency=medium
 
   [ Nick Sarnie ]
