@@ -97,8 +97,8 @@ int main(int argc, char**argv)
 	struct v4l2_capability vid_caps;
 	struct v4l2_format vid_format;
 
-	size_t framesize;
-	size_t linewidth;
+	size_t framesize = 0;
+	size_t linewidth = 0;
 
 	__u8*buffer;
 	__u8*check_buffer;
