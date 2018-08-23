@@ -7,7 +7,7 @@ run_writers() {
     declare -a nbufs
     nbufs=(10 9 4 5 6)
     #nbufs=(12 12 12 12 12)
-    for i in `seq 0 4`; do
+    for i in $(seq 0 4); do
         sleep 1
         gst-launch-0.10 videotestsrc horizontal-speed=1 num-buffers=90 ! v4l2sink queue-size=${nbufs[$i]} device=$device
     done

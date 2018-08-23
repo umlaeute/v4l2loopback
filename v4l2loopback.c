@@ -879,7 +879,6 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 
 		f->pixelformat = dev->pix_format.pixelformat;
 	} else {
-		__u32 format;
 		/* fill in a dummy format */
                 /* coverity[unsigned_compare] */
 		if (f->index < 0 || f->index >= FORMATS)
@@ -888,9 +887,6 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 		fmt = &formats[f->index];
 
 		f->pixelformat = fmt->fourcc;
-		format = f->pixelformat;
-
-		/* strlcpy(f->description, "dummy OUT format", sizeof(f->description)); */
 		snprintf(f->description, sizeof(f->description), "%s", fmt->name);
 
 	}
@@ -908,12 +904,9 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh, struct v4l2_fmtdesc 
 static int vidioc_g_fmt_out(struct file *file, void *priv, struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
-
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
-	opener = file->private_data;
 
 	/*
 	 * LATER: this should return the currently valid format
@@ -1638,7 +1631,6 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int ret;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
@@ -1649,7 +1641,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 		opener->type = WRITER;
 		dev->ready_for_output = 0;
 		if (!dev->ready_for_capture) {
-			ret = allocate_buffers(dev);
+			int ret = allocate_buffers(dev);
 			if (ret < 0)
 				return ret;
 			dev->ready_for_capture = 1;
@@ -1663,6 +1655,7 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
 	default:
 		return -EINVAL;
 	}
+        return -EINVAL;
 }
 
 /* stop streaming
@@ -1716,7 +1709,6 @@ static struct vm_operations_struct vm_ops = {
 
 static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	int i;
 	unsigned long addr;
 	unsigned long start;
 	unsigned long size;
@@ -1756,6 +1748,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		buffer = &dev->timeout_image_buffer;
 		addr = (unsigned long)dev->timeout_image;
 	} else {
+		int i;
 		for (i = 0; i < dev->buffers_number; ++i) {
 			buffer = &dev->buffers[i];
 			if ((buffer->buffer.m.offset >> PAGE_SHIFT) == vma->vm_pgoff)
