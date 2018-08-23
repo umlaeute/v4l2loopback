@@ -139,7 +139,7 @@ int main(int argc, char**argv)
 
 	assert(ret_code != -1);
 
-	if(debug)printf("frame: format=%d\tsize=%u\n", FRAME_FORMAT, framesize);
+	if(debug)printf("frame: format=%d\tsize=%lu\n", FRAME_FORMAT, framesize);
   print_format(&vid_format);
 
 	if(!format_properties(vid_format.fmt.pix.pixelformat,

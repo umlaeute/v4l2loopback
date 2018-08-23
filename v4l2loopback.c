@@ -1878,12 +1878,10 @@ static ssize_t v4l2_loopback_read(struct file *file,
 		char __user *buf, size_t count, loff_t *ppos)
 {
 	int read_index;
-	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	struct v4l2_buffer *b;
 	MARK();
 
-	opener = file->private_data;
 	dev    = v4l2loopback_getdevice(file);
 
 	read_index = get_capture_buffer(file);
@@ -1909,7 +1907,6 @@ static ssize_t v4l2_loopback_write(struct file *file,
 	struct v4l2_loopback_device *dev;
 	int write_index;
 	struct v4l2_buffer *b;
-	int ret;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
@@ -1918,7 +1915,7 @@ static ssize_t v4l2_loopback_write(struct file *file,
 	dev->ready_for_output = 0;
 
 	if (!dev->ready_for_capture) {
-		ret = allocate_buffers(dev);
+		int ret = allocate_buffers(dev);
 		if (ret < 0)
 			return ret;
 		dev->ready_for_capture = 1;
@@ -2357,7 +2354,6 @@ static void free_devices(void)
 
 static int __init v4l2loopback_init_module(void)
 {
-	int ret;
 	int i;
 	MARK();
 
@@ -2400,6 +2396,7 @@ static int __init v4l2loopback_init_module(void)
 
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
+		int ret;
 		dprintk("creating v4l2loopback-device #%d\n", i);
 		devs[i] = kzalloc(sizeof(*devs[i]), GFP_KERNEL);
 		if (devs[i] == NULL) {
