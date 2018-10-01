@@ -129,9 +129,9 @@ or
 
     $ echo '@100' | sudo tee /sys/devices/virtual/video4linux/video0/format
 
-# FORCING A GSTREAMER (0.10) CAPS
+# FORCING A GSTREAMER (1.0) CAPS
 
-    $ v4l2loopback-ctl set-caps "video/x-raw-yuv, width=640, height=480" /dev/video0
+    $ v4l2loopback-ctl set-caps "video/x-raw,forum=UYVY,width=640,height=480" /dev/video0
 
 # SETTING STREAM TIMEOUT
 ~~~
