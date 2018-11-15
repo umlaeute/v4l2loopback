@@ -404,15 +404,19 @@
      .flags    = FORMAT_FLAGS_COMPRESSED,
      },
 #endif /* V4L2_PIX_FMT_VP8 */
+#ifdef V4L2_PIX_FMT_VP9
 {
    .name     = "VP9",
      .fourcc   = V4L2_PIX_FMT_VP9,
      .depth    = 32,
      .flags    = FORMAT_FLAGS_COMPRESSED,
      },
+#endif /* V4L2_PIX_FMT_VP9 */
+#ifdef V4L2_PIX_FMT_HEVC
 {
    .name     = "HEVC",
      .fourcc   = V4L2_PIX_FMT_HEVC,
      .depth    = 32,
      .flags    = FORMAT_FLAGS_COMPRESSED,
      },
+#endif /* V4L2_PIX_FMT_HEVC */
