@@ -3,7 +3,7 @@
  * v4l2loopback.c  --  video4linux2 loopback driver
  *
  * Copyright (C) 2005-2009 Vasily Levin (vasaka@gmail.com)
- * Copyright (C) 2010-2018 IOhannes m zmoelnig (zmoelnig@iem.at)
+ * Copyright (C) 2010-2019 IOhannes m zmoelnig (zmoelnig@iem.at)
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  *
@@ -40,7 +40,7 @@
 #define HAVE_TIMER_SETUP
 #endif
 
-#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 12, 0)
+#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 12, 1)
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
 MODULE_AUTHOR("Vasily Levin, " \

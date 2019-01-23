@@ -1,3 +1,23 @@
+v4l2loopback (0.12.1) unstable; urgency=medium
+
+  [ IOhannes m zmölnig ]
+  * Fix permission of source code files
+  * Initialize variables
+  * Use %u to print size_t
+  * Improve coding style by removing unused variables
+  * More coding style fixes
+  * Use GStreamer-1.0 caps in the documentation
+  * Gst1.0 compat for example-script
+  * Protect VP9 and HEVC by #ifdef guards
+
+  [ Andrii Danyleiko ]
+  * Fix typo
+
+  [ Kai Kang ]
+  * Replace do_gettimeofday with v4l2_get_timestamp for linux-5 compat
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Wed, 23 Jan 2019 21:59:29 +0100
+
 v4l2loopback (0.12.0) unstable; urgency=medium
 
   [ WaleedTageldeen ]
