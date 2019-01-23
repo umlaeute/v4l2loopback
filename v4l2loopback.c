@@ -1506,7 +1506,7 @@ static int vidioc_qbuf(struct file *file, void *private_data, struct v4l2_buffer
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw("output QBUF pos: %d index: %d\n", dev->write_position, index);
 		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
-			do_gettimeofday(&b->buffer.timestamp);
+			v4l2_get_timestamp(&b->buffer.timestamp);
 		else
 			b->buffer.timestamp = buf->timestamp;
 		b->buffer.bytesused = buf->bytesused;
@@ -1933,7 +1933,7 @@ static ssize_t v4l2_loopback_write(struct file *file,
 			count);
 		return -EFAULT;
 	}
-	do_gettimeofday(&b->timestamp);
+	v4l2_get_timestamp(&b->timestamp);
 	b->bytesused = count;
 	b->sequence = dev->write_position;
 	buffer_written(dev, &dev->buffers[write_index]);
@@ -2038,7 +2038,7 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 		b->timestamp.tv_usec = 0;
 		b->type              = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-		do_gettimeofday(&b->timestamp);
+		v4l2_get_timestamp(&b->timestamp);
 	}
 	dev->timeout_image_buffer = dev->buffers[0];
 	dev->timeout_image_buffer.buffer.m.offset = MAX_BUFFERS * buffer_size;
