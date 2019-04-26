@@ -134,6 +134,20 @@ void *v4l2l_vzalloc(unsigned long size)
 # define v4l2l_vzalloc vzalloc
 #endif
 
+static inline void v4l2l_get_timestamp(struct timeval *tv) {
+	/* ktime_get_ts is considered deprecated, so use ktime_get_ts64 if possible */
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
+	struct timespec ts;
+	ktime_get_ts(&ts);
+#else
+	struct timespec64 ts;
+	ktime_get_ts64(&ts);
+#endif
+
+	tv->tv_sec = (time_t)ts.tv_sec;
+	tv->tv_usec = (suseconds_t)(ts.tv_nsec / NSEC_PER_USEC);
+}
+
 
 /* module constants
  *  can be overridden during he build process using something like
@@ -1506,7 +1520,7 @@ static int vidioc_qbuf(struct file *file, void *private_data, struct v4l2_buffer
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw("output QBUF pos: %d index: %d\n", dev->write_position, index);
 		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
-			v4l2_get_timestamp(&b->buffer.timestamp);
+			v4l2l_get_timestamp(&b->buffer.timestamp);
 		else
 			b->buffer.timestamp = buf->timestamp;
 		b->buffer.bytesused = buf->bytesused;
@@ -1933,7 +1947,7 @@ static ssize_t v4l2_loopback_write(struct file *file,
 			count);
 		return -EFAULT;
 	}
-	v4l2_get_timestamp(&b->timestamp);
+	v4l2l_get_timestamp(&b->timestamp);
 	b->bytesused = count;
 	b->sequence = dev->write_position;
 	buffer_written(dev, &dev->buffers[write_index]);
@@ -2038,7 +2052,7 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 		b->timestamp.tv_usec = 0;
 		b->type              = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-		v4l2_get_timestamp(&b->timestamp);
+		v4l2l_get_timestamp(&b->timestamp);
 	}
 	dev->timeout_image_buffer = dev->buffers[0];
 	dev->timeout_image_buffer.buffer.m.offset = MAX_BUFFERS * buffer_size;
