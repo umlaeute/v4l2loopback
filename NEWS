@@ -1,6 +1,7 @@
 v4l2loopback-0.12.1
 
   * Fixed compat with kernel 5.0
+  * Replace v4l2_get_timestamp with ktime_get_ts(64) for linux-5.1 compat
 
  -- IOhannes m zmölnig <zmoelnig@umlaeute.mur.at>  Mon, 02 Jul 2018 12:27:29 +0200
 

@@ -1,3 +1,17 @@
+v4l2loopback (0.12.2) unstable; urgency=medium
+
+  [ wuweixin ]
+  * Update README.md
+
+  [ Theodore Cipicchio ]
+  * Replace v4l2_get_timestamp with ktime_get_ts(64)
+
+  [ IOhannes m zmölnig ]
+  * Mention support for 5.0.0
+  * Fix typo
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Mon, 27 May 2019 20:32:08 +0200
+
 v4l2loopback (0.12.1) unstable; urgency=medium
 
   [ IOhannes m zmölnig ]
