@@ -149,6 +149,7 @@ further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
 newer kernels being continually tested as they enter Debian.
 
 support:
+- >= <kbd>5.0.0</kbd>		should work
 - >= <kbd>4.0.0</kbd>		should work
 - >= <kbd>3.0.0</kbd>		might work
 - << <kbd>3.0.0</kbd>		may work (has not been tested in ages)
