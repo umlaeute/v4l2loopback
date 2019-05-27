@@ -74,7 +74,7 @@ fi
 
 if dpkg --compare-versions ${OLDVERSION} ge ${NEWVERSION}
 then
- fatal "version mismatch: ${NEWVErSION} is not newer than ${OLDVERSION}"
+ fatal "version mismatch: ${NEWVERSION} is not newer than ${OLDVERSION}"
 fi
 
 echo "updating to ${NEWVERSION}"
