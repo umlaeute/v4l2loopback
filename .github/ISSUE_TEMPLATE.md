@@ -19,6 +19,14 @@ Please *remove* these instructions (and other non-relevant information) from you
 report.
 If your report looks like a copy of the template, it might get closed immediately.
 
+#### Title
+Please chose an apropriate title: "*does not work*" or "*found a bug*" are way too generic.
+Try to find a one-liner that says what is not working (e.g. "*module fails to load*").
+
+Also try not to use relative terms.
+E.g. "*fails to build with latest kernel*" is bad, because the latest kernel at the time you create the bug report
+might not be the latest kernel when the problem is being worked on.
+
 #### Accessibility
 Sometimes pictures say more.
 However, mostly they prevent the use of advanced
