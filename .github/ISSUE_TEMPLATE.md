@@ -6,6 +6,12 @@ software.
 To help us making the most of your feedback (so we can e.g. fix bugs more
 quickly), please make sure to provide the following information.
 
+#### Remove Cruft
+
+Please *remove* these instructions (and other non-relevant information) from your
+report.
+If your report looks like a copy of the template, it might get closed immediately.
+
 #### Accessibility
 Sometimes pictures say more.
 However, mostly they prevent the use of advanced
@@ -14,12 +20,6 @@ And always they prevent people who don't use graphical browser to access the
 tracker from reading your content.
 So, to make the web a better place, we ask you to post *text* rather than
 *screenshots of text* whenever feasible (pretty much always).
-
-
-#### Cruft
-
-Please exclude these instructions (and other non-relevant information) from your
-report.
 
 
 ### Step 2: Describe your environment
