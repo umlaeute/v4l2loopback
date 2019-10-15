@@ -6,6 +6,13 @@ software.
 To help us making the most of your feedback (so we can e.g. fix bugs more
 quickly), please make sure to provide the following information.
 
+Please keep in mind that the development of `v4l2loopback` is done by volunteers.
+They are spending their spare time to give you a hopfully nice product and to help you if you have troubles
+- for free.
+
+Please look through the list of issues (*open* and **closed** ones alike), to see whether you problem has been
+reported before. Probably you can find a solution to your problem without having to create a new ticket.
+
 #### Remove Cruft
 
 Please *remove* these instructions (and other non-relevant information) from your
