@@ -2089,8 +2089,13 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	vdev->device_caps  = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
-			     V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
+	vdev->device_caps  =
+		V4L2_CAP_DEVICE_CAPS |
+#ifdef V4L2_CAP_VIDEO_M2M
+		V4L2_CAP_VIDEO_M2M |
+#endif
+                V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+                V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 #endif
 	if (debug > 1)
 		#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
