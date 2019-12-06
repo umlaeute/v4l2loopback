@@ -1,3 +1,15 @@
+v4l2loopback (0.12.3) unstable; urgency=medium
+
+  [ Ricardo Ribalda Delgado ]
+  * v4l2lookback: Port to kernel 5.4+
+
+  [ IOhannes m zmölnig ]
+  * Set video_device->device_caps for linux>4.7.0
+  * Set some more device_caps
+  * Update issue templates
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Fri, 06 Dec 2019 18:27:25 +0100
+
 v4l2loopback (0.12.2) unstable; urgency=medium
 
   [ wuweixin ]
