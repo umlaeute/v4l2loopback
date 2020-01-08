@@ -1,3 +1,4 @@
+static const struct v4l2l_format formats[] = {
 #ifndef V4L2_PIX_FMT_VP9
 #define V4L2_PIX_FMT_VP9 v4l2_fourcc('V', 'P', '9', '0')
 #endif
@@ -425,3 +426,4 @@
 		.flags = FORMAT_FLAGS_COMPRESSED,
 	},
 #endif /* V4L2_PIX_FMT_HEVC */
+};
