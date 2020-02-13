@@ -45,6 +45,9 @@ v4l2loopback.ko:
 install-all: install install-utils install-man
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
+	@echo ""
+	@echo "SUCCESS (if you got 'SSL errors' above, you can safely ignore them)"
+	@echo ""
 
 install-utils: utils/v4l2loopback-ctl
 	$(INSTALL_DIR) "$(DESTDIR)$(BINDIR)"
