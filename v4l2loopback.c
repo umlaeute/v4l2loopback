@@ -144,8 +144,8 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b) {
 	ktime_get_ts64(&ts);
 #endif
 
-	b->timestamp.tv_sec = (time_t)ts.tv_sec;
-	b->timestamp.tv_usec = (suseconds_t)(ts.tv_nsec / NSEC_PER_USEC);
+	b->timestamp.tv_sec = ts.tv_sec;
+	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
 }
 
 
