@@ -18,7 +18,6 @@ $ xawtv -c /dev/video2
 if you want to use another device you need to modify the VIDEO_DEVICE define at
 the beginning of the code and recompile.
 
-
 yuv4mpeg_to_v4l2
 ----------------
 Copyright (C) 2011  Eric C. Cooper <ecc@cmu.edu>
@@ -44,3 +43,22 @@ $ ondemandcam /dev/videoX & # where X is the v4l2loopback device
 It can be viewed with:
 
 $ vlc v4l2:///dev/videoX # X is same device as above
+
+yuv420_infiniteloop
+-------------------
+
+A simple example for looping over frames of a raw yuv420 video file without 
+bothering other video players. Download and unzip an example sequence 
+akiyo_qcif.yuv from [here](http://trace.eas.asu.edu/yuv/akiyo/akiyo_qcif.7z).
+
+Usage
+$ make yuv420_infiniteloop
+$ ./yuv420_infiniteloop devicename yuvpath width height fps
+
+Example with akiyo_qcif.yuv, width 176, height 144 and fps 30:
+
+$ make yuv420_infiniteloop
+$ ./yuv420_infiniteloop /dev/video1 akiyo_qcif.yuv 176 144 30
+
+It can be viewed with:
+$ ffplay devicename

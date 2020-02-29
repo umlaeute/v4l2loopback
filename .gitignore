@@ -1,5 +1,6 @@
 .tmp_versions/
 *.cmd
+*.yuv
 Module.symvers
 modules.order
 v4l2loopback.ko
