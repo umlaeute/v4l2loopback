@@ -62,3 +62,11 @@ $ ./yuv420_infiniteloop /dev/video1 akiyo_qcif.yuv 176 144 30
 
 It can be viewed with:
 $ ffplay devicename
+
+The YUV format is for raw sequences, more samples can be obtained 
+from [here](http://trace.eas.asu.edu/yuv/). And they can be created using 
+ffmpeg like this:
+
+$ ffmpeg -i inputfile.mp4 -c:v rawvideo outputfile.yuv
+
+More details can be found in [ffmpeg wiki](https://github.com/stoyanovgeorge/ffmpeg/wiki/Encode-Raw-Video).
