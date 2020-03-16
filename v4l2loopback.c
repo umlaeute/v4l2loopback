@@ -176,7 +176,7 @@ static int debug = 0;
 module_param(debug, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
-static int max_buffers = 8;
+static int max_buffers = 2;
 module_param(max_buffers, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
 
