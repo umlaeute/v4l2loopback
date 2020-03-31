@@ -110,8 +110,11 @@ if you encounter problems detecting your device with Chrome/WebRTC you can try '
 
     # modprobe v4l2loopback exclusive_caps=1
     
-will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively (support for Chromium/WebRTC)
-[Details](https://github.com/umlaeute/v4l2loopback/issues/78#issuecomment-70320902)
+will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively.
+the newly created device will announce OUTPUT capabilities only (so ordinary webcam applications
+(including Chrome) won't see it). as soon as you have attached a producer to the device, it will
+start announcing CAPTURE capabilities only (so applications that refuse to open devices that have
+other capabilities apart from capturing can open it too.)
    
 # ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
