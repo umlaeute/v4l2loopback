@@ -106,7 +106,7 @@ will create 3 devices with the card names passed as the second parameter:
 - `/dev/video7` -> *the last one*
 
 
-if you encounter problems detecting your device with Chromium/WebRTC you can try 'exclusive_caps' mode:
+if you encounter problems detecting your device with Chrome/WebRTC you can try 'exclusive_caps' mode:
 
     # modprobe v4l2loopback exclusive_caps=1
     
