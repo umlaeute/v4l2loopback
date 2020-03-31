@@ -105,6 +105,14 @@ will create 3 devices with the card names passed as the second parameter:
 - `/dev/video4` -> *the number four*
 - `/dev/video7` -> *the last one*
 
+
+if you encounter problems detecting your device with Chromium/WebRTC you can try 'exclusive_caps' mode:
+
+    # modprobe v4l2loopback exclusive_caps=1
+    
+will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively (support for Chromium/WebRTC)
+[Details](https://github.com/umlaeute/v4l2loopback/issues/78#issuecomment-70320902)
+   
 # ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
 readable format. see `/sys/devices/virtual/video4linux/video*/`
