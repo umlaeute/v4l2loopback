@@ -91,6 +91,7 @@ option, when loading the module; e.g.
     # modprobe v4l2loopback devices=4
 
 will give you 4 loopback devices (e.g. `/dev/video1` ... `/dev/video5`)
+
 you can also specify the device IDs manually; e.g.
 
     # modprobe v4l2loopback video_nr=3,4,7
