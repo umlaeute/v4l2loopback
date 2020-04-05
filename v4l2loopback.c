@@ -40,6 +40,10 @@
 #define HAVE_TIMER_SETUP
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+# define VFL_TYPE_VIDEO VFL_TYPE_GRABBER
+#endif
+
 #define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION(0, 12, 4)
 
 MODULE_DESCRIPTION("V4L2 loopback video device");
@@ -2083,7 +2087,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->tvnorms      = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-	vdev->vfl_type     = VFL_TYPE_GRABBER;
+	vdev->vfl_type     = VFL_TYPE_VIDEO;
 	vdev->fops         = &v4l2_loopback_fops;
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
 	vdev->release      = &video_device_release;
@@ -2432,7 +2436,7 @@ static int __init v4l2loopback_init_module(void)
 			return ret;
 		}
 		/* register the device -> it creates /dev/video* */
-		if (video_register_device(devs[i]->vdev, VFL_TYPE_GRABBER, video_nr[i]) < 0) {
+		if (video_register_device(devs[i]->vdev, VFL_TYPE_VIDEO, video_nr[i]) < 0) {
 			video_device_release(devs[i]->vdev);
 			printk(KERN_ERR "v4l2loopback: failed video_register_device()\n");
 			free_devices();
