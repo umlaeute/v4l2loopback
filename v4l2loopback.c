@@ -2086,7 +2086,6 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
 	vdev->device_caps  =
-                V4L2_CAP_DEVICE_CAPS |
                 V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
                 V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 #ifdef V4L2_CAP_VIDEO_M2M
