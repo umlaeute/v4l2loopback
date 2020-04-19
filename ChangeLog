@@ -1,3 +1,15 @@
+v4l2loopback (0.12.5) unstable; urgency=medium
+
+  [ Joan Bruguera ]
+  * Fix build in Linux 5.7-rc1 due to symbol name changes
+
+  [ IOhannes m zmölnig ]
+  * Simplify set/clear of V4L2_CAP_DEVICE_CAPS in querycaps
+  * Use temp-var for capabilities
+  * Also set vdev->device_caps
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Sun, 19 Apr 2020 19:06:09 +0200
+
 v4l2loopback (0.12.4) unstable; urgency=medium
 
   [ Alex Xu (Hello71) ]
