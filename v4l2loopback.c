@@ -698,7 +698,10 @@ static int vidioc_querycap(struct file *file, void *priv, struct v4l2_capability
 		}
 	}
 
-	dev->vdev->device_caps = cap->device_caps = cap->capabilities = capabilities;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+	dev->vdev->device_caps =
+#endif /* >=linux-4.7.0 */
+	cap->device_caps = cap->capabilities = capabilities;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
@@ -2085,12 +2088,14 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
 	vdev->device_caps  =
                 V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
                 V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 #ifdef V4L2_CAP_VIDEO_M2M
 	vdev->device_caps  |= V4L2_CAP_VIDEO_M2M;
 #endif
+#endif /* >=linux-4.7.0 */
 
 	if (debug > 1)
 		#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
