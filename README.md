@@ -21,6 +21,12 @@ for current issues, checkout https://github.com/umlaeute/v4l2loopback/issues
 please use the issue-tracker for reporting any problems
 
 # DEPENDENCIES
+in order to build (compile,...) anything, you must have a *working* build-environment
+(compiler, GNU make,...).
+the kernel can be somewhat picky if you try to load a module that was compiled with
+a different compiler than was used to compile the kernel itself.
+so make sure to have the right compiler in place.
+
 the v4l2loopback module is a *kernel module*.
 in order to build it, you *must have* the kernel headers installed that match
 the linux kernel with which you want to use the module (in most cases this will
@@ -30,6 +36,12 @@ for example, `3.18.0-trunk-rpi` is a different version that `3.18.7-v7+`, even t
 the first few number are the same.
 (modules will be incompatible if the versions don't match. if you are lucky, the module will
 simply refuse to load. if you are unlucky, your computer will spit in your eye or do worse.)
+
+there are distribution-specific differences on how to get the correct kernel headers
+(or to install a compilation toolchain).
+documenting all those possibilities would go far beyond the scope of `v4l2loopback`.
+please understnd that we cannot provide support for questions regarding dependencies.
+
 
 # BUILD
 to build the kernel module run:
