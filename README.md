@@ -18,7 +18,14 @@ only be of limited use...
 
 # ISSUES
 for current issues, checkout https://github.com/umlaeute/v4l2loopback/issues
-please use the issue-tracker for reporting any problems
+please use the issue-tracker for reporting any problems.
+
+before you create a new ticket in our issue tracker, please make sure that you have read
+*this* document and followed any instructions found within.
+
+also, please search the issue-tracker *before* reporting any problems: it's much better
+to add your information to an existing ticket than to create a new ticket with essentially
+the same information.
 
 # DEPENDENCIES
 in order to build (compile,...) anything, you must have a *working* build-environment
