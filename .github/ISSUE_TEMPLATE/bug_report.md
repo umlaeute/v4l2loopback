@@ -38,6 +38,24 @@ And always they prevent people who don't use graphical browser to access the tra
 So, to make the web a better place, we ask you to post *text* rather than *screenshots of text* whenever feasible (pretty much always).
 
 
+#### Do some research first
+
+Please read the documentation carefully: while it is not very long, it does
+contain some information that might help fixing your problem.
+If you have trouble compiling the kernel module, double-read the 'DEPENDENCIES'
+section in the README.md.
+
+Also make sure to check the issue tracker.
+Maybe somebody already reported your problem? Maybe they found a workaround that
+could help you.
+If you found that somebody already reported your problem, it's *much* better to
+add additional information to that report than opening a new one.
+If your entire problem has been described and there's nothing to add for you,
+consider voting the issue up (using the :+1: emoji; please avoid posts that only
+say "me too").
+
+
+
 ### Step 2: Describe your environment
 
   * `v4l2loopback` version: _____
