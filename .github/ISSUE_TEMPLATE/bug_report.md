@@ -19,6 +19,14 @@ They are spending their spare time to give you a hopfully nice product and to he
 
 Please look through the list of issues (*open* and **closed** ones alike), to see whether you problem has been reported before. Probably you can find a solution to your problem without having to create a new ticket.
 
+#### Seeking Help? Looking for Support?
+This issue tracker is meant to track specific bugs in the code (and new features).
+However, it is ill-suited as a user support forum.
+
+If you have general questions or problems, please use the `v4l2loopback` tag on Stack Overflow instead:
+https://stackoverflow.com/questions/tagged/v4l2loopback
+
+
 #### Remove Cruft
 
 Please *remove* these instructions (and other non-relevant information) from your report.

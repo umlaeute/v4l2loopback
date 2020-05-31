@@ -27,6 +27,15 @@ also, please search the issue-tracker *before* reporting any problems: it's much
 to add your information to an existing ticket than to create a new ticket with essentially
 the same information.
 
+## SEEKING HELP
+the issue tracker is meant to track specific bugs in the code (and new features).
+however, it is ill-suited as a user support forum.
+
+if you have general questions or problems, please use the `v4l2loopback` tag
+on [Stack Overflow](https://stackoverflow.com/questions/tagged/v4l2loopback) instead:
+https://stackoverflow.com/questions/tagged/v4l2loopback
+
+
 # DEPENDENCIES
 in order to build (compile,...) anything, you must have a *working* build-environment
 (compiler, GNU make,...).
