@@ -397,8 +397,8 @@ struct v4l2_loopback_opener {
 /* this is heavily inspired by the bttv driver found in the linux kernel */
 struct v4l2l_format {
 	char *name;
-	int fourcc; /* video4linux 2	    */
-	int depth; /* bit/pixel	    */
+	int fourcc; /* video4linux 2 */
+	int depth; /* bit/pixel */
 	int flags;
 };
 /* set the v4l2l_format.flags to PLANAR for non-packed formats */

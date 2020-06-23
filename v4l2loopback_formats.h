@@ -49,7 +49,7 @@
 #endif /* V4L2_PIX_FMT_RGB555 */
 #ifdef V4L2_PIX_FMT_RGB565
 	{
-		.name = "16 bpp  RGB-5-6-5",
+		.name = "16 bpp RGB-5-6-5",
 		.fourcc = V4L2_PIX_FMT_RGB565,
 		.depth = 16,
 		.flags = 0,
