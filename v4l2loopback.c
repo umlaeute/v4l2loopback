@@ -1677,9 +1677,22 @@ static int vidioc_streamon(struct file *file, void *private_data, enum v4l2_buf_
  */
 static int vidioc_streamoff(struct file *file, void *private_data, enum v4l2_buf_type type)
 {
+	struct v4l2_loopback_device *dev;
 	MARK();
 	dprintk("%d\n", type);
-	return 0;
+
+        dev = v4l2loopback_getdevice(file);
+
+        switch (type) {
+        case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		dev->ready_for_capture = 0;
+                return 0;
+        case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+                return 0;
+        default:
+                return -EINVAL;
+        }
+        return -EINVAL;
 }
 
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
