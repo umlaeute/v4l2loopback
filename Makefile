@@ -73,3 +73,6 @@ modprobe: v4l2loopback.ko
 
 man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 	help2man -N --name "control v4l2 loopback devices" $^ > $@
+
+.clang-format:
+	curl "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.clang-format" > $@
