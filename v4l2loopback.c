@@ -629,15 +629,19 @@ static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 
 static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 {
+        MARK();
 	struct video_device *loopdev = video_devdata(f);
+        MARK();
 	struct v4l2loopback_private *ptr =
 		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
+        MARK();
 	int nr = ptr->devicenr;
 
 	if (nr < 0 || nr >= devices) {
 		printk(KERN_ERR "v4l2-loopback: illegal device %d\n", nr);
 		return NULL;
 	}
+        MARK();
 	return devs[nr];
 }
 
@@ -1903,14 +1907,17 @@ static int v4l2_loopback_open(struct file *file)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
 	MARK();
-
+        printk(KERN_ERR "getting device for %p\n", file);
 	dev = v4l2loopback_getdevice(file);
-
+        MARK();
+        printk(KERN_ERR "got device %p\n", dev);
 	if (dev->open_count.counter >= dev->max_openers)
 		return -EBUSY;
 	/* kfree on close */
 	MARK();
 	opener = kzalloc(sizeof(*opener), GFP_KERNEL);
+        MARK();
+        printk(KERN_ERR "opener %p\n", opener);
 	if (opener == NULL)
 		return -ENOMEM;
 	file->private_data = opener;
