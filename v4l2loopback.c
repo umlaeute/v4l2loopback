@@ -374,7 +374,7 @@ struct v4l2_loopback_device {
 	int max_width;
 	int max_height;
 
-        char card_label[256];
+	char card_label[256];
 
 	wait_queue_head_t read_event;
 	spinlock_t lock;
@@ -1903,9 +1903,7 @@ static int v4l2_loopback_open(struct file *file)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
 	MARK();
-
 	dev = v4l2loopback_getdevice(file);
-
 	if (dev->open_count.counter >= dev->max_openers)
 		return -EBUSY;
 	/* kfree on close */
@@ -2590,15 +2588,15 @@ static int __init v4l2loopback_init_module(void)
 	for (i = 0; i < devices; i++) {
 		int ret;
 		struct v4l2_loopback_config cfg = {
-                        .nr = i,
-                        .card_label = card_label[i],
-                        .max_width = max_width,
-                        .max_height = max_height,
-                        .announce_all_caps = (!exclusive_caps[i]),
-                        .max_buffers = max_buffers,
-                        .max_openers = max_openers,
-                        .debug = debug,
-                };
+			.nr = i,
+			.card_label = card_label[i],
+			.max_width = max_width,
+			.max_height = max_height,
+			.announce_all_caps = (!exclusive_caps[i]),
+			.max_buffers = max_buffers,
+			.max_openers = max_openers,
+			.debug = debug,
+		};
 		ret = v4l2_loopback_add(&devs[i], &cfg);
 		if (ret) {
 			free_devices();
