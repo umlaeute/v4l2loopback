@@ -2326,8 +2326,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 					 (conf->confmember)) :                 \
 				default_value)
 
-	dev->announce_all_caps =
-		(conf) ? (conf->announce_all_caps) : (!exclusive_caps[nr]);
+	dev->announce_all_caps = (conf) ? (conf->announce_all_caps) :
+					  (!exclusive_caps[nr % MAX_DEVICES]);
 
 	DEFAULT_FROM_CONF(max_width, max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH,
 			  max_width);
