@@ -2254,9 +2254,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	int err = -ENOMEM;
 	int nr = conf ? conf->nr : -1;
 
-	if (nr >= MAX_DEVICES) {
-		return -EINVAL;
-	}
 	if (idr_find(&v4l2loopback_index_idr, nr))
 		return -EEXIST;
 
