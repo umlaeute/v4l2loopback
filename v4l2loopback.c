@@ -2607,7 +2607,9 @@ static int __init v4l2loopback_init_module(void)
                         .max_openers = max_openers,
                         .debug = debug,
                 };
+                dprintk("creating device #%d @ %p", i, devs[i]);
 		ret = v4l2_loopback_add(&devs[i], &cfg);
+                dprintk("created device #%d @ %p returned %d", i, devs[i], ret);
 		if (ret) {
 			free_devices();
 			return ret;
