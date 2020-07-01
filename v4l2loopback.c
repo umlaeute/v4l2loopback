@@ -2330,9 +2330,12 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 		nr;
 
 	init_vdev(dev->vdev, nr);
+        MARK();
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
+        MARK();
 	set_timeperframe(dev, &dev->capture_param.timeperframe);
+        MARK();
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
 
@@ -2355,12 +2358,14 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	dev->used_buffers = dev->buffers_number;
 	dev->write_position = 0;
 
+        MARK();
         if (conf && conf->card_label) {
                 snprintf(dev->card_label, sizeof(dev->card_label), "%s", conf->card_label);
         } else {
                 snprintf(dev->card_label, sizeof(dev->card_label), "Dummy video device (0x%04X)", nr);
         }
 
+        MARK();
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
@@ -2406,6 +2411,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 
 	/* FIXME set buffers to 0 */
 
+        MARK();
 	/* Set initial format */
 	dev->pix_format.width = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
 	dev->pix_format.height = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
@@ -2419,7 +2425,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 		dev->pix_format.sizeimage);
 	allocate_buffers(dev);
 
+        MARK();
 	init_waitqueue_head(&dev->read_event);
+        MARK();
 
 	/* register the device -> it creates /dev/video* */
 	if (video_register_device(dev->vdev, VFL_TYPE_VIDEO, nr) < 0) {
@@ -2428,6 +2436,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 		err = -EFAULT;
 		goto out_free_device;
 	}
+        MARK();
 	v4l2loopback_create_sysfs(dev->vdev);
 
 	MARK();
