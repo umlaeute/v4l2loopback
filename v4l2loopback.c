@@ -2431,6 +2431,17 @@ out_free_dev:
 	return err;
 }
 
+static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
+{
+	free_buffers(dev);
+	v4l2loopback_remove_sysfs(dev->vdev);
+	kfree(video_get_drvdata(dev->vdev));
+	video_unregister_device(dev->vdev);
+	v4l2_device_unregister(&dev->v4l2_dev);
+	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+	kfree(dev);
+}
+
 /* LINUX KERNEL */
 static const struct v4l2_file_operations v4l2_loopback_fops = {
 	.owner = THIS_MODULE,
@@ -2510,23 +2521,17 @@ static void zero_devices(void)
 		devs[i] = NULL;
 }
 
+static int free_device_cb(int id, void *ptr, void *data)
+{
+	struct v4l2_loopback_device *dev = ptr;
+	printk(KERN_ERR "removing device %p\n", dev);
+	v4l2_loopback_remove(dev);
+	return 0;
+}
 static void free_devices(void)
 {
-	int i;
-
-	MARK();
-	for (i = 0; i < devices; i++) {
-		if (NULL != devs[i]) {
-			free_buffers(devs[i]);
-			v4l2loopback_remove_sysfs(devs[i]->vdev);
-			kfree(video_get_drvdata(devs[i]->vdev));
-			video_unregister_device(devs[i]->vdev);
-			v4l2_device_unregister(&devs[i]->v4l2_dev);
-			v4l2_ctrl_handler_free(&devs[i]->ctrl_handler);
-			kfree(devs[i]);
-			devs[i] = NULL;
-		}
-	}
+	idr_for_each(&v4l2loopback_index_idr, &free_device_cb, NULL);
+	idr_destroy(&v4l2loopback_index_idr);
 }
 
 static int __init v4l2loopback_init_module(void)
@@ -2612,7 +2617,6 @@ static int __init v4l2loopback_init_module(void)
 static void v4l2loopback_cleanup_module(void)
 {
 	MARK();
-	idr_destroy(&v4l2loopback_index_idr);
 	/* unregister the device -> it deletes /dev/video* */
 	free_devices();
 	dprintk("module removed\n");
