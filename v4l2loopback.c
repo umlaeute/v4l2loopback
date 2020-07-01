@@ -371,6 +371,9 @@ struct v4l2_loopback_device {
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
 
+	int max_width;
+	int max_height;
+
 	wait_queue_head_t read_event;
 	spinlock_t lock;
 };
@@ -757,8 +760,8 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
 		argp->stepwise.min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
 
-		argp->stepwise.max_width = max_width;
-		argp->stepwise.max_height = max_height;
+		argp->stepwise.max_width = dev->max_width;
+		argp->stepwise.max_height = dev->max_height;
 
 		argp->stepwise.step_width = 1;
 		argp->stepwise.step_height = 1;
@@ -976,10 +979,10 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 		__u32 pixfmt = fmt->fmt.pix.pixelformat;
 		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
 
-		if (w > max_width)
-			w = max_width;
-		if (h > max_height)
-			h = max_height;
+		if (w > dev->max_width)
+			w = dev->max_width;
+		if (h > dev->max_height)
+			h = dev->max_height;
 
 		dprintk("trying image %dx%d\n", w, h);
 
@@ -2250,6 +2253,8 @@ static void timeout_timer_clb(unsigned long nr)
 struct v4l2_loopback_config {
 	int nr; //
 	char *card_label;
+	int max_width;
+	int max_height;
 	bool announce_all_caps; /* !exclusive_caps */ //
 	int max_buffers; //
 	int max_openers; //
@@ -2328,6 +2333,11 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 
 	dev->announce_all_caps =
 		(conf) ? (conf->announce_all_caps) : (!exclusive_caps[nr]);
+
+	DEFAULT_FROM_CONF(max_width, max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH,
+			  max_width);
+	DEFAULT_FROM_CONF(max_height, max_height,
+			  <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
 	DEFAULT_FROM_CONF(max_openers, max_openers, <= 0, max_openers);
 	DEFAULT_FROM_CONF(buffers_number, max_buffers, <= 0, max_buffers);
 	dev->used_buffers = dev->buffers_number;
