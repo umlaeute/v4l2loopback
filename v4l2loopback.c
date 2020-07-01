@@ -53,7 +53,7 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Anton Novikov"
 	      "et al.");
 MODULE_LICENSE("GPL");
-
+static DEFINE_IDR(v4l2loopback_index_idr);
 /*
  * helpers
  */
@@ -2247,30 +2247,68 @@ static void timeout_timer_clb(unsigned long nr)
 }
 
 /* init loopback main structure */
-static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
+struct v4l2_loopback_config {
+	int nr; //
+	char *card_label;
+	bool announce_all_caps; /* !exclusive_caps */ //
+	int max_buffers; //
+	int max_openers; //
+	int debug;
+};
+static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
+			     struct v4l2_loopback_config *conf)
 {
-	int ret;
-	struct v4l2_ctrl_handler *hdl = &dev->ctrl_handler;
+	struct v4l2_loopback_device *dev;
+	struct v4l2_ctrl_handler *hdl;
+
+	int err = -ENOMEM;
+	int nr = conf ? conf->nr : -1;
+
+	if (nr >= MAX_DEVICES) {
+		return -EINVAL;
+	}
+	if (nr >= 0 && devs[nr])
+		return -EEXIST;
+
+	dprintk("creating v4l2loopback-device #%d\n", nr);
+	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	if (!dev)
+		return -ENOMEM;
+
+	/* allocate id, if @id >= 0, we're requesting that specific id */
+	if (nr >= 0) {
+		err = idr_alloc(&v4l2loopback_index_idr, dev, nr, nr + 1,
+				GFP_KERNEL);
+		if (err == -ENOSPC)
+			err = -EEXIST;
+	} else {
+		err = idr_alloc(&v4l2loopback_index_idr, dev, 0, 0, GFP_KERNEL);
+	}
+	if (err < 0)
+		goto out_free_dev;
+	nr = err;
+	err = -ENOMEM;
+
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
 		 "v4l2loopback-%03d", nr);
-	ret = v4l2_device_register(NULL, &dev->v4l2_dev);
-	if (ret)
-		return ret;
-
+	err = v4l2_device_register(NULL, &dev->v4l2_dev);
+	if (err)
+		goto out_free_idr;
 	MARK();
+
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL) {
-		ret = -ENOMEM;
-		goto error;
+		err = -ENOMEM;
+		goto out_unregister;
 	}
-
 	video_set_drvdata(dev->vdev,
 			  kzalloc(sizeof(struct v4l2loopback_private),
 				  GFP_KERNEL));
 	if (video_get_drvdata(dev->vdev) == NULL) {
-		ret = -ENOMEM;
-		goto error;
+		err = -ENOMEM;
+		goto out_unregister;
 	}
+
 	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))->devicenr =
 		nr;
 
@@ -2280,10 +2318,21 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	set_timeperframe(dev, &dev->capture_param.timeperframe);
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
-	dev->buffers_number = max_buffers;
-	dev->used_buffers = max_buffers;
-	dev->max_openers = max_openers;
+
+#define DEFAULT_FROM_CONF(member, confmember, default_condition,               \
+			  default_value)                                       \
+	dev->member = ((conf) ? ((conf->confmember default_condition) ?        \
+					 (default_value) :                     \
+					 (conf->confmember)) :                 \
+				default_value)
+
+	dev->announce_all_caps =
+		(conf) ? (conf->announce_all_caps) : (!exclusive_caps[nr]);
+	DEFAULT_FROM_CONF(max_openers, max_openers, <= 0, max_openers);
+	DEFAULT_FROM_CONF(buffers_number, max_buffers, <= 0, max_buffers);
+	dev->used_buffers = dev->buffers_number;
 	dev->write_position = 0;
+
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
@@ -2297,7 +2346,6 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	atomic_set(&dev->open_count, 0);
 	dev->ready_for_capture = 0;
 	dev->ready_for_output = 1;
-	dev->announce_all_caps = (!exclusive_caps[nr]);
 
 	dev->buffer_size = 0;
 	dev->image = NULL;
@@ -2314,16 +2362,17 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->timeout_image = NULL;
 	dev->timeout_happened = 0;
 
-	ret = v4l2_ctrl_handler_init(hdl, 1);
-	if (ret)
-		goto error;
+	hdl = &dev->ctrl_handler;
+	err = v4l2_ctrl_handler_init(hdl, 1);
+	if (err)
+		goto out_unregister;
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_keepformat, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_sustainframerate, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeout, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeoutimageio, NULL);
 	if (hdl->error) {
-		ret = hdl->error;
-		goto error;
+		err = hdl->error;
+		goto out_free_handler;
 	}
 	dev->v4l2_dev.ctrl_handler = hdl;
 
@@ -2344,15 +2393,30 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 
 	init_waitqueue_head(&dev->read_event);
 
+	/* register the device -> it creates /dev/video* */
+	if (video_register_device(dev->vdev, VFL_TYPE_VIDEO, nr) < 0) {
+		printk(KERN_ERR
+		       "v4l2loopback: failed video_register_device()\n");
+		err = -EFAULT;
+		goto out_free_device;
+	}
+	v4l2loopback_create_sysfs(dev->vdev);
+
 	MARK();
 	return 0;
 
-error:
+out_free_device:
+	video_device_release(dev->vdev);
+out_free_handler:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+out_unregister:
 	v4l2_device_unregister(&dev->v4l2_dev);
-	kfree(dev->vdev);
-	return ret;
-};
+out_free_idr:
+	idr_remove(&v4l2loopback_index_idr, nr);
+out_free_dev:
+	kfree(dev);
+	return err;
+}
 
 /* LINUX KERNEL */
 static const struct v4l2_file_operations v4l2_loopback_fops = {
@@ -2504,28 +2568,15 @@ static int __init v4l2loopback_init_module(void)
 
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
+		struct v4l2_loopback_config cfg;
 		int ret;
-		dprintk("creating v4l2loopback-device #%d\n", i);
-		devs[i] = kzalloc(sizeof(*devs[i]), GFP_KERNEL);
-		if (devs[i] == NULL) {
-			free_devices();
-			return -ENOMEM;
-		}
-		ret = v4l2_loopback_init(devs[i], i);
-		if (ret < 0) {
+		memset(&cfg, 0, sizeof(cfg));
+		cfg.nr = i;
+		ret = v4l2_loopback_add(&devs[i], &cfg);
+		if (ret) {
 			free_devices();
 			return ret;
 		}
-		/* register the device -> it creates /dev/video* */
-		if (video_register_device(devs[i]->vdev, VFL_TYPE_VIDEO,
-					  video_nr[i]) < 0) {
-			video_device_release(devs[i]->vdev);
-			printk(KERN_ERR
-			       "v4l2loopback: failed video_register_device()\n");
-			free_devices();
-			return -EFAULT;
-		}
-		v4l2loopback_create_sysfs(devs[i]->vdev);
 	}
 
 	dprintk("module installed\n");
@@ -2541,6 +2592,7 @@ static int __init v4l2loopback_init_module(void)
 static void v4l2loopback_cleanup_module(void)
 {
 	MARK();
+	idr_destroy(&v4l2loopback_index_idr);
 	/* unregister the device -> it deletes /dev/video* */
 	free_devices();
 	dprintk("module removed\n");
