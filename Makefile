@@ -76,3 +76,7 @@ man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 
 .clang-format:
 	curl "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.clang-format" > $@
+
+.PHONY: clang-format
+clang-format: .clang-format
+	clang-format -i *.c *.h
