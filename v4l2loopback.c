@@ -2539,7 +2539,7 @@ static int __init v4l2loopback_init_module(void)
 	if (devices > MAX_DEVICES) {
 		devices = MAX_DEVICES;
 		printk(KERN_INFO
-		       "v4l2loopback: number of devices is limited to: %d\n",
+		       "v4l2loopback: number of initial devices is limited to: %d\n",
 		       MAX_DEVICES);
 	}
 
