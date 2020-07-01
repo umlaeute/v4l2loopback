@@ -374,6 +374,8 @@ struct v4l2_loopback_device {
 	int max_width;
 	int max_height;
 
+        char card_label[256];
+
 	wait_queue_head_t read_event;
 	spinlock_t lock;
 };
@@ -2343,6 +2345,12 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	dev->used_buffers = dev->buffers_number;
 	dev->write_position = 0;
 
+        if (conf && conf->card_label) {
+                snprintf(dev->card_label, sizeof(dev->card_label), "%s", conf->card_label);
+        } else {
+                snprintf(dev->card_label, sizeof(dev->card_label), "Dummy video device (0x%04X)", nr);
+        }
+
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
@@ -2578,10 +2586,17 @@ static int __init v4l2loopback_init_module(void)
 
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
-		struct v4l2_loopback_config cfg;
 		int ret;
-		memset(&cfg, 0, sizeof(cfg));
-		cfg.nr = i;
+		struct v4l2_loopback_config cfg = {
+                        .nr = i,
+                        .card_label = card_label[i],
+                        .max_width = max_width,
+                        .max_height = max_height,
+                        .announce_all_caps = (!exclusive_caps[i]),
+                        .max_buffers = max_buffers,
+                        .max_openers = max_openers,
+                        .debug = debug,
+                };
 		ret = v4l2_loopback_add(&devs[i], &cfg);
 		if (ret) {
 			free_devices();
