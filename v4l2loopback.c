@@ -374,7 +374,7 @@ struct v4l2_loopback_device {
 	int max_width;
 	int max_height;
 
-	char card_label[256];
+	char card_label[32];
 
 	wait_queue_head_t read_event;
 	spinlock_t lock;
