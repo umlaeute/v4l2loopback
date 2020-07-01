@@ -51,6 +51,7 @@ parse_device() {
         die "can't parse device"
     fi
     sysfs=/sys/devices/virtual/video4linux/${device##*/}
+    sysfs_buffers=$(cat "${sysfs}/buffers")
 }
 
 check_application() {
@@ -103,7 +104,7 @@ set_caps() {
 
     v4l2-ctl -d $device -c keep_format=1 || exit 1
     v4l2-ctl -d $device -c sustain_framerate=1 || exit 1
-    gst-launch-1.0 videotestsrc num-buffers=1 ! "$nofps_caps" ! v4l2sink device=$device || die "output to $device failed"
+    gst-launch-1.0 videotestsrc num-buffers=${sysfs_buffers} ! "$nofps_caps" ! v4l2sink device=$device || die "output to $device failed"
 }
 
 set_timeout_image() {
@@ -118,7 +119,7 @@ set_timeout_image() {
 
     v4l2-ctl -d $device -c timeout_image_io=1
     if [ "$imagefile" = 'videotestsrc' ]; then
-        gst-launch-1.0 videotestsrc num-buffers=1 ! v4l2sink device=$device
+        gst-launch-1.0 videotestsrc num-buffers=${sysfs_buffers} ! v4l2sink device=$device
     else
         uri="file://$(readlink -f $imagefile)" || die "no file"
         echo "Reading from $uri"
