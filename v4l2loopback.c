@@ -232,16 +232,16 @@ MODULE_PARM_DESC(
 /* format specifications */
 #define V4L2LOOPBACK_SIZE_MIN_WIDTH 48
 #define V4L2LOOPBACK_SIZE_MIN_HEIGHT 32
-#define V4L2LOOPBACK_SIZE_MAX_WIDTH 8192
-#define V4L2LOOPBACK_SIZE_MAX_HEIGHT 8192
+#define V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH 8192
+#define V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT 8192
 
 #define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH 640
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT 480
 
-static int max_width = V4L2LOOPBACK_SIZE_MAX_WIDTH;
+static int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 module_param(max_width, int, S_IRUGO);
 MODULE_PARM_DESC(max_width, "maximum frame width");
-static int max_height = V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+static int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 module_param(max_height, int, S_IRUGO);
 MODULE_PARM_DESC(max_height, "maximum frame height");
 
@@ -2492,12 +2492,12 @@ static int __init v4l2loopback_init_module(void)
 	}
 
 	if (max_width < 1) {
-		max_width = V4L2LOOPBACK_SIZE_MAX_WIDTH;
+		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 		printk(KERN_INFO "v4l2loopback: using max_width %d\n",
 		       max_width);
 	}
 	if (max_height < 1) {
-		max_height = V4L2LOOPBACK_SIZE_MAX_HEIGHT;
+		max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 		printk(KERN_INFO "v4l2loopback: using max_height %d\n",
 		       max_height);
 	}
