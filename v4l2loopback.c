@@ -2421,6 +2421,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	v4l2loopback_create_sysfs(dev->vdev);
 
 	MARK();
+	devs[nr] = dev;
+	*devptr = dev;
 	return 0;
 
 out_free_device:
