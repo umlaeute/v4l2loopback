@@ -102,7 +102,7 @@ this will create an additional video-device, e.g. /dev/video0 (the number
 depends on whether you already had video devices on your system), which can be
 fed by various programs.
 tested feeders:
-- GStreamer-0.10: using the  "v4l2sink" element
+- GStreamer-1.0: using the  "v4l2sink" element
 - Gem(>=0.93) using the "recordV4L2" plugin
 in theory most programs capable of _writing to_ a v4l2 device should work.
 
@@ -178,7 +178,7 @@ or
 $ v4l2-ctl -d /dev/video0 -c timeout=3000
 (will output null frames by default)
 $ v4l2loopback-ctl set-timeout-image service-unavailable.png /dev/video0
-this currently requires GStreamer 0.10 installed
+this currently requires GStreamer 1.0 installed
 ~~~
 
 # KERNELs
