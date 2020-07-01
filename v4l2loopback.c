@@ -611,8 +611,6 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 }
 
 /* global module data */
-struct v4l2_loopback_device *devs[MAX_DEVICES];
-
 static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 {
 	struct video_device *loopdev = to_video_device(cd);
@@ -620,11 +618,7 @@ static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
 	int nr = ptr->devicenr;
 
-	if (nr < 0 || nr >= devices) {
-		printk(KERN_ERR "v4l2-loopback: illegal device %d\n", nr);
-		return NULL;
-	}
-	return devs[nr];
+	return idr_find(&v4l2loopback_index_idr, nr);
 }
 
 static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
@@ -634,11 +628,7 @@ static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
 	int nr = ptr->devicenr;
 
-	if (nr < 0 || nr >= devices) {
-		printk(KERN_ERR "v4l2-loopback: illegal device %d\n", nr);
-		return NULL;
-	}
-	return devs[nr];
+	return idr_find(&v4l2loopback_index_idr, nr);
 }
 
 /* forward declarations */
@@ -2204,7 +2194,8 @@ static void sustain_timer_clb(struct timer_list *t)
 #else
 static void sustain_timer_clb(unsigned long nr)
 {
-	struct v4l2_loopback_device *dev = devs[nr];
+	struct v4l2_loopback_device *dev =
+		idr_find(&v4l2loopback_index_idr, nr);
 #endif
 	spin_lock(&dev->lock);
 	if (dev->sustain_framerate) {
@@ -2228,7 +2219,8 @@ static void timeout_timer_clb(struct timer_list *t)
 #else
 static void timeout_timer_clb(unsigned long nr)
 {
-	struct v4l2_loopback_device *dev = devs[nr];
+	struct v4l2_loopback_device *dev =
+		idr_find(&v4l2loopback_index_idr, nr);
 #endif
 	spin_lock(&dev->lock);
 	if (dev->timeout_jiffies > 0) {
@@ -2262,7 +2254,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	if (nr >= MAX_DEVICES) {
 		return -EINVAL;
 	}
-	if (nr >= 0 && devs[nr])
+	if (idr_find(&v4l2loopback_index_idr, nr))
 		return -EEXIST;
 
 	dprintk("creating v4l2loopback-device #%d\n", nr);
@@ -2414,7 +2406,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	v4l2loopback_create_sysfs(dev->vdev);
 
 	MARK();
-	devs[nr] = dev;
 	*devptr = dev;
 	return 0;
 
@@ -2512,15 +2503,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #endif
 };
 
-static void zero_devices(void)
-{
-	int i;
-
-	MARK();
-	for (i = 0; i < MAX_DEVICES; i++)
-		devs[i] = NULL;
-}
-
 static int free_device_cb(int id, void *ptr, void *data)
 {
 	struct v4l2_loopback_device *dev = ptr;
@@ -2539,7 +2521,6 @@ static int __init v4l2loopback_init_module(void)
 	int i;
 	MARK();
 
-	zero_devices();
 	if (devices < 0) {
 		devices = 1;
 
@@ -2587,6 +2568,7 @@ static int __init v4l2loopback_init_module(void)
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
 		int ret;
+		struct v4l2_loopback_device *dev;
 		struct v4l2_loopback_config cfg = {
 			.nr = i,
 			.card_label = card_label[i],
@@ -2597,7 +2579,7 @@ static int __init v4l2loopback_init_module(void)
 			.max_openers = max_openers,
 			.debug = debug,
 		};
-		ret = v4l2_loopback_add(&devs[i], &cfg);
+		ret = v4l2_loopback_add(&dev, &cfg);
 		if (ret) {
 			free_devices();
 			return ret;
