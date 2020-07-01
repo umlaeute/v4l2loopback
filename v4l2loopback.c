@@ -343,7 +343,7 @@ struct v4l2_loopback_device {
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
 	int bufpos2index
 		[MAX_BUFFERS]; /* mapping of (read/write_position % used_buffers)
-					* to inner buffer index */
+                        * to inner buffer index */
 	long buffer_size;
 
 	/* sustain_framerate stuff */
@@ -363,13 +363,13 @@ struct v4l2_loopback_device {
 	atomic_t open_count;
 
 	int ready_for_capture; /* set to true when at least one writer opened
-			       * device and negotiated format */
+                                * device and negotiated format */
 	int ready_for_output; /* set to true when no writer is currently attached
 			       * this differs slightly from !ready_for_capture,
 			       * e.g. when using fallback images */
 	int announce_all_caps; /* set to false, if device caps (OUTPUT/CAPTURE)
-			       * should only be announced if the resp. "ready"
-			       * flag is set; default=TRUE */
+                                * should only be announced if the resp. "ready"
+                                * flag is set; default=TRUE */
 
 	wait_queue_head_t read_event;
 	spinlock_t lock;
@@ -1506,7 +1506,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 		  dev->buffers_number, dev->buffer_size);
 
 	/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
-		https://github.com/umlaeute/v4l2loopback/issues/60 */
+            https://github.com/umlaeute/v4l2loopback/issues/60 */
 	b->flags &= ~V4L2_BUF_FLAG_DONE;
 	b->flags |= V4L2_BUF_FLAG_QUEUED;
 
@@ -1569,7 +1569,7 @@ static int vidioc_qbuf(struct file *file, void *private_data,
 		buffer_written(dev, b);
 
 		/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
-			https://github.com/umlaeute/v4l2loopback/issues/60 */
+                    https://github.com/umlaeute/v4l2loopback/issues/60 */
 		buf->flags &= ~V4L2_BUF_FLAG_DONE;
 		buf->flags |= V4L2_BUF_FLAG_QUEUED;
 
