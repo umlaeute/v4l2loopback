@@ -2569,7 +2569,7 @@ static int __init v4l2loopback_init_module(void)
 		int ret;
 		struct v4l2_loopback_device *dev;
 		struct v4l2_loopback_config cfg = {
-			.nr = i,
+			.nr = video_nr[i],
 			.card_label = card_label[i],
 			.max_width = max_width,
 			.max_height = max_height,
