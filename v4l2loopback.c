@@ -2506,7 +2506,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 static int free_device_cb(int id, void *ptr, void *data)
 {
 	struct v4l2_loopback_device *dev = ptr;
-	printk(KERN_ERR "removing device %p\n", dev);
 	v4l2_loopback_remove(dev);
 	return 0;
 }
