@@ -2242,6 +2242,13 @@ static void timeout_timer_clb(unsigned long nr)
 }
 
 /* init loopback main structure */
+#define DEFAULT_FROM_CONF(confmember, default_condition, default_value)        \
+	((conf) ?                                                              \
+		 ((conf->confmember default_condition) ? (default_value) :     \
+							 (conf->confmember)) : \
+		 default_value)
+#define DEVICE2CONF(member, confmembmer) conf->confmember = dev->member
+
 struct v4l2_loopback_config {
 	int nr; //
 	char *card_label;
@@ -2259,7 +2266,17 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	struct v4l2_ctrl_handler *hdl;
 
 	int err = -ENOMEM;
+
 	int nr = conf ? conf->nr : -1;
+	int _max_width = DEFAULT_FROM_CONF(
+		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
+	int _max_height = DEFAULT_FROM_CONF(
+		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
+	bool _announce_all_caps = (conf) ? (conf->announce_all_caps) :
+					   V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
+
+	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
+	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
 
 	if (idr_find(&v4l2loopback_index_idr, nr))
 		return -EEXIST;
@@ -2324,23 +2341,12 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
 
-#define DEFAULT_FROM_CONF(member, confmember, default_condition,               \
-			  default_value)                                       \
-	dev->member = ((conf) ? ((conf->confmember default_condition) ?        \
-					 (default_value) :                     \
-					 (conf->confmember)) :                 \
-				default_value)
+	dev->announce_all_caps = _announce_all_caps;
+	dev->max_width = _max_width;
+	dev->max_height = _max_height;
+	dev->max_openers = _max_openers;
+	dev->buffers_number = dev->used_buffers = _max_buffers;
 
-	dev->announce_all_caps = (conf) ? (conf->announce_all_caps) :
-					  (!exclusive_caps[nr % MAX_DEVICES]);
-
-	DEFAULT_FROM_CONF(max_width, max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH,
-			  max_width);
-	DEFAULT_FROM_CONF(max_height, max_height,
-			  <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
-	DEFAULT_FROM_CONF(max_openers, max_openers, <= 0, max_openers);
-	DEFAULT_FROM_CONF(buffers_number, max_buffers, <= 0, max_buffers);
-	dev->used_buffers = dev->buffers_number;
 	dev->write_position = 0;
 
 	MARK();
