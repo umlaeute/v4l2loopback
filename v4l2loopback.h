@@ -39,7 +39,7 @@ struct v4l2_loopback_config {
          * for this device or not
          * (!exclusive_caps)
          */
-	bool announce_all_caps;
+	int announce_all_caps;
 
 	/**
          * number of buffers to allocate for the queue
