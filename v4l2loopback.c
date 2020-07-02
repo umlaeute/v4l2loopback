@@ -2465,7 +2465,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	case V4L2LOOPBACK_CTL_REMOVE:
 		dev = idr_find(&v4l2loopback_index_idr, parm);
 		if (dev) {
-			/* FIXME: check whether device is busy */
+			ret = -EBUSY;
+			if (dev->open_count.counter > 0)
+				goto done;
 			idr_remove(&v4l2loopback_index_idr, parm);
 			v4l2_loopback_remove(dev);
 			ret = 0;
