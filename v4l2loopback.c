@@ -177,6 +177,11 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 #define MAX_DEVICES 8
 #endif
 
+/* whether the default is to announce capabilities exclusively or not */
+#ifndef V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS
+#define V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS 0
+#endif
+
 /* when a producer is considered to have gone stale */
 #ifndef MAX_TIMEOUT
 #define MAX_TIMEOUT (100 * 1000) /* in msecs */
@@ -222,7 +227,9 @@ static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
 MODULE_PARM_DESC(card_label, "card labels for every device");
 
-static bool exclusive_caps[MAX_DEVICES] = { [0 ...(MAX_DEVICES - 1)] = 0 };
+static bool exclusive_caps[MAX_DEVICES] = {
+	[0 ...(MAX_DEVICES - 1)] = V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS
+};
 module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
 MODULE_PARM_DESC(
