@@ -2283,8 +2283,16 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	nr = err;
 	err = -ENOMEM;
 
+	if (conf && conf->card_label) {
+		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
+			 conf->card_label);
+	} else {
+		snprintf(dev->card_label, sizeof(dev->card_label),
+			 "Dummy video device (0x%04X)", nr);
+	}
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
 		 "v4l2loopback-%03d", nr);
+
 	err = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (err)
 		goto out_free_idr;
@@ -2304,13 +2312,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 	}
 
 	MARK();
-	if (conf && conf->card_label) {
-		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
-			 conf->card_label);
-	} else {
-		snprintf(dev->card_label, sizeof(dev->card_label),
-			 "Dummy video device (0x%04X)", nr);
-	}
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
 
 	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))->devicenr =
