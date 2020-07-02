@@ -32,6 +32,7 @@
 #include <media/v4l2-ctrls.h>
 #endif
 
+#include <linux/miscdevice.h>
 #include "v4l2loopback.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
@@ -2442,7 +2443,54 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 	kfree(dev);
 }
 
+static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
+				       unsigned long parm)
+{
+	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_config *conf = (struct v4l2_loopback_config *)parm;
+	int devnr;
+	int ret;
+
+	/* FIXXME: requires a mutex */
+
+	ret = -ENOSYS;
+	switch (cmd) {
+	case V4L2LOOPBACK_CTL_ADD:
+		ret = v4l2_loopback_add(conf, &devnr);
+
+		break;
+	case V4L2LOOPBACK_CTL_REMOVE:
+		dev = idr_find(&v4l2loopback_index_idr, parm);
+		if (dev) {
+			/* FIXME: check whether device is busy */
+			idr_remove(&v4l2loopback_index_idr, parm);
+			v4l2_loopback_remove(dev);
+			ret = 0;
+		} else
+			ret = -ENODEV;
+		break;
+	}
+	/* FIXXME: unlock the mutex */
+
+	return ret;
+}
+
 /* LINUX KERNEL */
+
+static const struct file_operations v4l2loopback_ctl_fops = {
+	.open = nonseekable_open,
+	.unlocked_ioctl = v4l2loopback_control_ioctl,
+	.compat_ioctl = v4l2loopback_control_ioctl,
+	.owner = THIS_MODULE,
+	.llseek = noop_llseek,
+};
+
+static struct miscdevice v4l2loopback_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "v4l2loopback",
+	.fops = &v4l2loopback_ctl_fops,
+};
+
 static const struct v4l2_file_operations v4l2_loopback_fops = {
 	.owner = THIS_MODULE,
 	.open = v4l2_loopback_open,
@@ -2530,6 +2578,10 @@ static int __init v4l2loopback_init_module(void)
 	int i;
 	MARK();
 
+	err = misc_register(&v4l2loopback_misc);
+	if (err < 0)
+		return err;
+
 	if (devices < 0) {
 		devices = 1;
 
@@ -2589,7 +2641,7 @@ static int __init v4l2loopback_init_module(void)
 		err = v4l2_loopback_add(&cfg, 0);
 		if (err) {
 			free_devices();
-			return err;
+			goto error;
 		}
 	}
 
@@ -2601,6 +2653,9 @@ static int __init v4l2loopback_init_module(void)
 	       (V4L2LOOPBACK_VERSION_CODE)&0xff);
 
 	return 0;
+error:
+	misc_deregister(&v4l2loopback_misc);
+	return err;
 }
 
 static void v4l2loopback_cleanup_module(void)
@@ -2608,8 +2663,13 @@ static void v4l2loopback_cleanup_module(void)
 	MARK();
 	/* unregister the device -> it deletes /dev/video* */
 	free_devices();
+	/* and get rid of /dev/v4l2loopback */
+	misc_deregister(&v4l2loopback_misc);
 	dprintk("module removed\n");
 }
+
+MODULE_ALIAS_MISCDEV(MISC_DYNAMIC_MINOR);
+MODULE_ALIAS("devname:v4l2loopback");
 
 #ifdef MODULE
 int __init init_module(void)
