@@ -2296,7 +2296,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	nr = err;
 	err = -ENOMEM;
 
-	if (conf && conf->card_label) {
+	if (conf && conf->card_label && *(conf->card_label)) {
 		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
 			 conf->card_label);
 	} else {
@@ -2635,7 +2635,6 @@ static int __init v4l2loopback_init_module(void)
 	for (i = 0; i < devices; i++) {
 		struct v4l2_loopback_config cfg = {
 			.nr = video_nr[i],
-			.card_label = card_label[i],
 			.max_width = max_width,
 			.max_height = max_height,
 			.announce_all_caps = (!exclusive_caps[i]),
@@ -2643,6 +2642,10 @@ static int __init v4l2loopback_init_module(void)
 			.max_openers = max_openers,
 			.debug = debug,
 		};
+		cfg.card_label[0] = 0;
+		if (card_label[i])
+			snprintf(cfg.card_label, sizeof(cfg.card_label), "%s",
+				 card_label[i]);
 		err = v4l2_loopback_add(&cfg, 0);
 		if (err) {
 			free_devices();

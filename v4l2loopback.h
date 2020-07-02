@@ -23,9 +23,9 @@ struct v4l2_loopback_config {
 
 	/**
          * a nice name for your device
-         * NULL will create an automatic name
+         * if (*card_label)==0, an automatic name is assigned
          */
-	const char *card_label;
+	char card_label[32];
 
 	/**
          * maximum allowed frame size
