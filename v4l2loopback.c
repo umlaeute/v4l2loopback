@@ -228,7 +228,7 @@ MODULE_PARM_DESC(video_nr,
 
 static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
-MODULE_PARM_DESC(card_label, "card labels for every device");
+MODULE_PARM_DESC(card_label, "card labels for each device");
 
 static bool exclusive_caps[MAX_DEVICES] = {
 	[0 ...(MAX_DEVICES - 1)] = V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS
