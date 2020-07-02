@@ -240,6 +240,7 @@ MODULE_PARM_DESC(
 	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
 
 static DEFINE_IDR(v4l2loopback_index_idr);
+static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
 /* format specifications */
 #define V4L2LOOPBACK_SIZE_MIN_WIDTH 48
@@ -2451,7 +2452,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	int devnr;
 	int ret;
 
-	/* FIXXME: requires a mutex */
+	ret = mutex_lock_killable(&v4l2loopback_ctl_mutex);
+	if (ret)
+		return ret;
 
 	ret = -ENOSYS;
 	switch (cmd) {
@@ -2470,8 +2473,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			ret = -ENODEV;
 		break;
 	}
-	/* FIXXME: unlock the mutex */
-
+done:
+	mutex_unlock(&v4l2loopback_ctl_mutex);
 	return ret;
 }
 
