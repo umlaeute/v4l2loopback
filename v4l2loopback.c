@@ -2260,7 +2260,7 @@ struct v4l2_loopback_config {
 	int debug;
 };
 static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
-			     struct v4l2_loopback_config *conf)
+			     struct v4l2_loopback_config *conf, int *ret_nr)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
@@ -2421,6 +2421,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 
 	MARK();
 	*devptr = dev;
+
+	if (ret_nr)
+		*ret_nr = nr;
 	return 0;
 
 out_free_device:
@@ -2592,7 +2595,7 @@ static int __init v4l2loopback_init_module(void)
 			.max_openers = max_openers,
 			.debug = debug,
 		};
-		ret = v4l2_loopback_add(&dev, &cfg);
+		ret = v4l2_loopback_add(&dev, &cfg, 0);
 		if (ret) {
 			free_devices();
 			return ret;
