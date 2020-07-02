@@ -2460,8 +2460,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	switch (cmd) {
 	case V4L2LOOPBACK_CTL_ADD:
 		ret = v4l2_loopback_add(conf, &devnr);
-                if(ret>=0)
-                        ret = devnr;
+		if (ret >= 0)
+			ret = devnr;
 		break;
 	case V4L2LOOPBACK_CTL_REMOVE:
 		dev = idr_find(&v4l2loopback_index_idr, parm);
