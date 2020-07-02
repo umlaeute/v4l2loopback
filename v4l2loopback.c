@@ -2526,6 +2526,7 @@ static void free_devices(void)
 
 static int __init v4l2loopback_init_module(void)
 {
+	int err;
 	int i;
 	MARK();
 
@@ -2575,7 +2576,6 @@ static int __init v4l2loopback_init_module(void)
 
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
-		int ret;
 		struct v4l2_loopback_config cfg = {
 			.nr = video_nr[i],
 			.card_label = card_label[i],
@@ -2586,10 +2586,10 @@ static int __init v4l2loopback_init_module(void)
 			.max_openers = max_openers,
 			.debug = debug,
 		};
-		ret = v4l2_loopback_add(&cfg, 0);
-		if (ret) {
+		err = v4l2_loopback_add(&cfg, 0);
+		if (err) {
 			free_devices();
-			return ret;
+			return err;
 		}
 	}
 
