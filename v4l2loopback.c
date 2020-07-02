@@ -2475,6 +2475,26 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		} else
 			ret = -ENODEV;
 		break;
+	case V4L2LOOPBACK_CTL_QUERY:
+		ret = -EINVAL;
+		if (conf) {
+			dev = idr_find(&v4l2loopback_index_idr, conf->nr);
+			if (dev) {
+				snprintf(conf->card_label,
+					 sizeof(conf->card_label), "%s",
+					 dev->card_label);
+				conf->max_width = dev->max_width;
+				conf->max_height = dev->max_height;
+				conf->announce_all_caps =
+					dev->announce_all_caps;
+				conf->max_buffers = dev->buffers_number;
+				conf->max_openers = dev->max_openers;
+				conf->debug = debug;
+				ret = 0;
+			} else
+				ret = -ENODEV;
+		}
+		break;
 	}
 done:
 	mutex_unlock(&v4l2loopback_ctl_mutex);

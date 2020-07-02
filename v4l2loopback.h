@@ -61,5 +61,6 @@ struct v4l2_loopback_config {
 
 #define V4L2LOOPBACK_CTL_ADD 0x4C80
 #define V4L2LOOPBACK_CTL_REMOVE 0x4C81
+#define V4L2LOOPBACK_CTL_QUERY 0x4C82
 
 #endif /* _V4L2LOOPBACK_H */
