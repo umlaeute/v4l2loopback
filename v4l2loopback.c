@@ -32,6 +32,8 @@
 #include <media/v4l2-ctrls.h>
 #endif
 
+#include "v4l2loopback.h"
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
 #define kstrtoul strict_strtoul
 #endif
@@ -2249,16 +2251,6 @@ static void timeout_timer_clb(unsigned long nr)
 		 default_value)
 #define DEVICE2CONF(member, confmembmer) conf->confmember = dev->member
 
-struct v4l2_loopback_config {
-	int nr; //
-	char *card_label;
-	int max_width;
-	int max_height;
-	bool announce_all_caps; /* !exclusive_caps */ //
-	int max_buffers; //
-	int max_openers; //
-	int debug;
-};
 static int v4l2_loopback_add(struct v4l2_loopback_device **devptr,
 			     struct v4l2_loopback_config *conf, int *ret_nr)
 {
