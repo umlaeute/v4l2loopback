@@ -239,8 +239,6 @@ MODULE_PARM_DESC(
 	exclusive_caps,
 	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
 
-static DEFINE_IDR(v4l2loopback_index_idr);
-static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
 /* format specifications */
 #define V4L2LOOPBACK_SIZE_MIN_WIDTH 48
@@ -257,6 +255,8 @@ MODULE_PARM_DESC(max_width, "maximum frame width");
 static int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 module_param(max_height, int, S_IRUGO);
 MODULE_PARM_DESC(max_height, "maximum frame height");
+static DEFINE_IDR(v4l2loopback_index_idr);
+static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
 /* control IDs */
 #ifndef HAVE__V4L2_CTRLS
