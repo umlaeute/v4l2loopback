@@ -55,7 +55,7 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Anton Novikov"
 	      "et al.");
 MODULE_LICENSE("GPL");
-static DEFINE_IDR(v4l2loopback_index_idr);
+
 /*
  * helpers
  */
@@ -237,6 +237,8 @@ module_param_array(exclusive_caps, bool, NULL, 0444);
 MODULE_PARM_DESC(
 	exclusive_caps,
 	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not");
+
+static DEFINE_IDR(v4l2loopback_index_idr);
 
 /* format specifications */
 #define V4L2LOOPBACK_SIZE_MIN_WIDTH 48
