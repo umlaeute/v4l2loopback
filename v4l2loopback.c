@@ -635,6 +635,38 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 }
 
 /* global module data */
+/* find a device based on it's device-number (e.g. '3' for /dev/video3) */
+struct v4l2loopback_lookup_cb_data {
+	int dev_nr;
+	struct v4l2_loopback_device *dev;
+};
+static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
+{
+	struct v4l2_loopback_device *dev = ptr;
+	struct v4l2loopback_lookup_cb_data *cbdata = data;
+	if (cbdata && dev && dev->vdev) {
+		if (dev->vdev->num == cbdata->dev_nr) {
+			cbdata->dev = dev;
+			cbdata->dev_nr = id;
+			return 1;
+		}
+	}
+	return 0;
+}
+static int v4l2loopback_lookup(int device_nr, struct v4l2_loopback_device **dev)
+{
+	struct v4l2loopback_lookup_cb_data data = {
+		.dev_nr = device_nr,
+		.dev = NULL,
+	};
+	int err = idr_for_each(&v4l2loopback_index_idr, &v4l2loopback_lookup_cb,
+			       &data);
+	if (1 == err) {
+		*dev = data.dev;
+		return data.dev_nr;
+	}
+	return -ENODEV;
+}
 static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 {
 	struct video_device *loopdev = to_video_device(cd);
@@ -2428,7 +2460,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	MARK();
 	if (ret_nr)
-		*ret_nr = nr;
+		*ret_nr = dev->vdev->num;
 	return 0;
 
 out_free_device:
@@ -2475,22 +2507,23 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			ret = devnr;
 		break;
 	case V4L2LOOPBACK_CTL_REMOVE:
-		dev = idr_find(&v4l2loopback_index_idr, parm);
-		if (dev) {
+		devnr = (int)parm;
+		ret = v4l2loopback_lookup(devnr, &dev);
+		if (ret >= 0 && dev) {
+			int nr = ret;
 			ret = -EBUSY;
 			if (dev->open_count.counter > 0)
 				goto done;
-			idr_remove(&v4l2loopback_index_idr, parm);
+			idr_remove(&v4l2loopback_index_idr, nr);
 			v4l2_loopback_remove(dev);
 			ret = 0;
-		} else
-			ret = -ENODEV;
+		};
 		break;
 	case V4L2LOOPBACK_CTL_QUERY:
 		ret = -EINVAL;
 		if (conf) {
-			dev = idr_find(&v4l2loopback_index_idr, conf->nr);
-			if (dev) {
+			ret = v4l2loopback_lookup(conf->nr, &dev);
+			if (ret >= 0) {
 				snprintf(conf->card_label,
 					 sizeof(conf->card_label), "%s",
 					 dev->card_label);
@@ -2502,8 +2535,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 				conf->max_openers = dev->max_openers;
 				conf->debug = debug;
 				ret = 0;
-			} else
-				ret = -ENODEV;
+			};
 		}
 		break;
 	}
