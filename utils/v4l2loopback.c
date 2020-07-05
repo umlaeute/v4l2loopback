@@ -171,7 +171,9 @@ static int query_device(int fd, const char *devicename)
 	memset(&config, 0, sizeof(config));
 	config.nr = dev;
 	err = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
-	if (!err) {
+        if(err)
+          perror("query failed");
+        else {
 		printf("%s\n", devicename);
 		print_conf(&config);
 		return 0;
