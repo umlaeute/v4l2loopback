@@ -82,7 +82,8 @@ void print_conf(struct v4l2_loopback_config *cfg)
 		return;
 	}
 	MARK();
-	printf("\tdevice#          : %d"
+	printf("\tcapture_device#  : %d"
+	       "\n\toutput_device#   : %d"
 	       "\n\tcard_label       : %s"
 	       "\n\tmax_width        : %d"
 	       "\n\tmax_height       : %d"
@@ -91,9 +92,9 @@ void print_conf(struct v4l2_loopback_config *cfg)
 	       "\n\tmax_openers      : %d"
 	       "\n\tdebug            : %d"
 	       "\n",
-	       cfg->nr, cfg->card_label, cfg->max_width, cfg->max_height,
-	       cfg->announce_all_caps, cfg->max_buffers, cfg->max_openers,
-	       cfg->debug);
+	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->max_width,
+	       cfg->max_height, cfg->announce_all_caps, cfg->max_buffers,
+	       cfg->max_openers, cfg->debug);
 	MARK();
 }
 
@@ -107,7 +108,8 @@ struct v4l2_loopback_config *make_conf(struct v4l2_loopback_config *cfg,
 	if (!label && max_width <= 0 && max_height <= 0 && exclusive_caps < 0 &&
 	    buffers <= 0 && openers <= 0 && device < 0)
 		return 0;
-	cfg->nr = device;
+	cfg->capture_nr = -1;
+	cfg->output_nr = device;
 	cfg->card_label[0] = 0;
 	if (label)
 		snprintf(cfg->card_label, 32, "%s", label);
@@ -137,7 +139,7 @@ static void add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		MARK();
 		struct v4l2_loopback_config config;
 		memset(&config, 0, sizeof(config));
-		config.nr = ret;
+		config.output_nr = config.capture_nr = ret;
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 		if (!ret)
 			perror("failed querying newly added device");
@@ -171,7 +173,7 @@ static int query_device(int fd, const char *devicename)
 	}
 
 	memset(&config, 0, sizeof(config));
-	config.nr = dev;
+	config.output_nr = config.capture_nr = dev;
 	err = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 	if (err)
 		perror("query failed");
