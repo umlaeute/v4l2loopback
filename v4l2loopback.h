@@ -18,6 +18,8 @@ struct v4l2_loopback_config {
          * V4L2LOOPBACK_CTL_ADD:
          * setting this to "-1" will allocate an available one
          * if nr>=0 and the device already exists, the ioctl will EEXIST
+         *
+         * FIXXME: this probably ought to be *two* device numbers: input and output
          */
 	int nr;
 
