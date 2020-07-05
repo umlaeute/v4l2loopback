@@ -2491,7 +2491,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 				       unsigned long parm)
 {
 	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_config *conf = (struct v4l2_loopback_config *)parm;
+	struct v4l2_loopback_config conf;
+	struct v4l2_loopback_config *confptr = &conf;
 	int devnr;
 	int ret;
 
@@ -2505,13 +2506,18 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		ret = -ENOSYS;
 		break;
 	case V4L2LOOPBACK_CTL_ADD:
-		ret = v4l2_loopback_add(conf, &devnr);
+		if (parm) {
+			if ((ret = copy_from_user(&conf, (void *)parm,
+						  sizeof(conf))) < 0)
+				break;
+		} else
+			confptr = NULL;
+		ret = v4l2_loopback_add(confptr, &devnr);
 		if (ret >= 0)
 			ret = devnr;
 		break;
 	case V4L2LOOPBACK_CTL_REMOVE:
-		devnr = (int)parm;
-		ret = v4l2loopback_lookup(devnr, &dev);
+		ret = v4l2loopback_lookup((int)parm, &dev);
 		if (ret >= 0 && dev) {
 			int nr = ret;
 			ret = -EBUSY;
@@ -2523,27 +2529,37 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		};
 		break;
 	case V4L2LOOPBACK_CTL_QUERY:
-		ret = -EINVAL;
-		if (conf) {
-			ret = v4l2loopback_lookup(conf->nr, &dev);
-			if (ret >= 0) {
-				snprintf(conf->card_label,
-					 sizeof(conf->card_label), "%s",
-					 dev->card_label);
-				conf->max_width = dev->max_width;
-				conf->max_height = dev->max_height;
-				conf->announce_all_caps =
-					dev->announce_all_caps;
-				conf->max_buffers = dev->buffers_number;
-				conf->max_openers = dev->max_openers;
-				conf->debug = debug;
-				ret = 0;
-			};
+		if (!parm)
+			break;
+		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
+		    0)
+			break;
+		if ((ret = v4l2loopback_lookup(conf.nr, &dev)) < 0)
+			break;
+
+		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
+			 dev->card_label);
+		MARK();
+		conf.max_width = dev->max_width;
+		conf.max_height = dev->max_height;
+		conf.announce_all_caps = dev->announce_all_caps;
+		conf.max_buffers = dev->buffers_number;
+		conf.max_openers = dev->max_openers;
+		conf.debug = debug;
+		MARK();
+		if (copy_to_user((void *)parm, &conf, sizeof(conf))) {
+			ret = -EFAULT;
+			break;
 		}
+		MARK();
+		ret = 0;
+		;
 		break;
 	}
 
+	MARK();
 	mutex_unlock(&v4l2loopback_ctl_mutex);
+	MARK();
 	return ret;
 }
 
