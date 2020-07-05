@@ -139,6 +139,8 @@ static void add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		memset(&config, 0, sizeof(config));
 		config.nr = ret;
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
+		if (!ret)
+			perror("failed querying newly added device");
 		MARK();
 		print_conf(&config);
 		MARK();
