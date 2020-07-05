@@ -662,7 +662,8 @@ static int v4l2loopback_lookup(int device_nr, struct v4l2_loopback_device **dev)
 	int err = idr_for_each(&v4l2loopback_index_idr, &v4l2loopback_lookup_cb,
 			       &data);
 	if (1 == err) {
-		*dev = data.dev;
+		if (dev)
+			*dev = data.dev;
 		return data.dev_nr;
 	}
 	return -ENODEV;
