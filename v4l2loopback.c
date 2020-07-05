@@ -2499,7 +2499,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	if (ret)
 		return ret;
 
-	ret = -ENOSYS;
+	ret = -EINVAL;
 	switch (cmd) {
 	default:
 		ret = -ENOSYS;
