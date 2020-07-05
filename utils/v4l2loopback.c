@@ -152,7 +152,6 @@ static int delete_device(int fd, const char *devicename)
 		dprintf(2, "ignoring illegal devicename '%s'\n", devicename);
 		return 1;
 	}
-	printf("removing device '%s'\n", devicename);
 	if (ioctl(fd, V4L2LOOPBACK_CTL_REMOVE, dev) < 0)
 		perror(devicename);
 
