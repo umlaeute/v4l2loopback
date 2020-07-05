@@ -2516,7 +2516,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			int nr = ret;
 			ret = -EBUSY;
 			if (dev->open_count.counter > 0)
-				goto done;
+				break;
 			idr_remove(&v4l2loopback_index_idr, nr);
 			v4l2_loopback_remove(dev);
 			ret = 0;
@@ -2542,7 +2542,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		}
 		break;
 	}
-done:
+
 	mutex_unlock(&v4l2loopback_ctl_mutex);
 	return ret;
 }
