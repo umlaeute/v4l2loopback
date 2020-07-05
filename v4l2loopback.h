@@ -18,10 +18,15 @@ struct v4l2_loopback_config {
          * V4L2LOOPBACK_CTL_ADD:
          * setting this to "-1" will allocate an available one
          * if nr>=0 and the device already exists, the ioctl will EEXIST
+         * if output_nr and capture_nr are the same, only a single device will be created
          *
-         * FIXXME: this probably ought to be *two* device numbers: input and output
+         * V4L2LOOPBACK_CTL_QUERY:
+         * either both output_nr and capture_nr must refer to the same loopback,
+         * or one (and only one) of them must be -1
+         *
          */
-	int nr;
+	int output_nr;
+	int capture_nr;
 
 	/**
          * a nice name for your device

@@ -2306,7 +2306,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	int err = -ENOMEM;
 
-	int nr = conf ? conf->nr : -1;
 	int _max_width = DEFAULT_FROM_CONF(
 		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
 	int _max_height = DEFAULT_FROM_CONF(
@@ -2317,6 +2316,27 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
 	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
+
+	int nr = -1;
+	if (conf) {
+		if (conf->capture_nr >= 0 &&
+		    conf->output_nr == conf->capture_nr) {
+			nr = conf->capture_nr;
+		} else if (conf->capture_nr < 0 && conf->output_nr < 0) {
+			nr = -1;
+		} else if (conf->capture_nr < 0) {
+			nr = conf->output_nr;
+		} else if (conf->output_nr < 0) {
+			nr = conf->capture_nr;
+		} else {
+			printk(KERN_ERR
+			       "split OUTPUT and CAPTURE devices not yet supported.");
+			printk(KERN_INFO
+			       "both devices must have the same number (%d != %d).",
+			       conf->output_nr, conf->capture_nr);
+			return -EINVAL;
+		}
+	}
 
 	if (idr_find(&v4l2loopback_index_idr, nr))
 		return -EEXIST;
@@ -2535,12 +2555,24 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
 		    0)
 			break;
-		if ((ret = v4l2loopback_lookup(conf.nr, &dev)) < 0)
+		devnr = (conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
+		MARK();
+		if ((ret = v4l2loopback_lookup(devnr, &dev)) < 0)
 			break;
+		MARK();
+		if ((devnr != conf.capture_nr) && (conf.capture_nr >= 0) &&
+		    (ret != v4l2loopback_lookup(conf.capture_nr, 0)))
+			break;
+		MARK();
+		if ((devnr != conf.output_nr) && (conf.output_nr >= 0) &&
+		    (ret != v4l2loopback_lookup(conf.output_nr, 0)))
+			break;
+		MARK();
 
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
 		MARK();
+		conf.output_nr = conf.capture_nr = dev->vdev->num;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
 		conf.announce_all_caps = dev->announce_all_caps;
@@ -2718,7 +2750,8 @@ static int __init v4l2loopback_init_module(void)
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
 		struct v4l2_loopback_config cfg = {
-			.nr = video_nr[i],
+			.output_nr = video_nr[i],
+			.capture_nr = video_nr[i],
 			.max_width = max_width,
 			.max_height = max_height,
 			.announce_all_caps = (!exclusive_caps[i]),
