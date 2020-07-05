@@ -66,8 +66,22 @@ struct v4l2_loopback_config {
 	int debug;
 };
 
+/* a pointer to a (struct v4l2_loopback_config) that has all values you wish to impose on the
+ * to-be-created device set.
+ * if the ptr is NULL, a new device is created with default values at the driver's discretion.
+ *
+ * returns the device_nr of the OUTPUT device (which can be used with V4L2LOOPBACK_CTL_QUERY,
+ * to get more information on the device)
+ */
 #define V4L2LOOPBACK_CTL_ADD 0x4C80
-#define V4L2LOOPBACK_CTL_REMOVE 0x4C81
+
+/* a pointer to a (struct v4l2_loopback_config) that has output_nr and/or capture_nr set
+ * (the two values must either refer to video-devices associated with the same loopback device
+ *  or one of them must be -1
+ */
 #define V4L2LOOPBACK_CTL_QUERY 0x4C82
+
+/* the device-number (either CAPTURE or OUTPUT) associated with the loopback-device */
+#define V4L2LOOPBACK_CTL_REMOVE 0x4C81
 
 #endif /* _V4L2LOOPBACK_H */
