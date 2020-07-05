@@ -1,0 +1,7 @@
+# make sure that the /dev/v4l2loopback module can be used by the 'video' group
+# note: this allows all members of 'video' to create and remove v4l2loopback
+# devices....
+KERNEL=="v4l2loopback", GROUP="video"
+
+# persistent device names for loopback devices
+KERNEL=="video*", ATTR{max_openers}=="?*", SYMLINK+="v4l/by-id/v4l2loopback-$attr{name}-video"
