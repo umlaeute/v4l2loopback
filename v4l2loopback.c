@@ -2501,6 +2501,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 
 	ret = -ENOSYS;
 	switch (cmd) {
+	default:
+		ret = -ENOSYS;
+		break;
 	case V4L2LOOPBACK_CTL_ADD:
 		ret = v4l2_loopback_add(conf, &devnr);
 		if (ret >= 0)
