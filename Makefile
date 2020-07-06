@@ -79,4 +79,4 @@ man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 
 .PHONY: clang-format
 clang-format: .clang-format
-	clang-format -i *.c *.h
+	clang-format -i *.c *.h utils/*.c
