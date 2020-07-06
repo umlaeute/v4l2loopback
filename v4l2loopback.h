@@ -10,6 +10,10 @@
 #ifndef _V4L2LOOPBACK_H
 #define _V4L2LOOPBACK_H
 
+#define V4L2LOOPBACK_VERSION_MAJOR 0
+#define V4L2LOOPBACK_VERSION_MINOR 12
+#define V4L2LOOPBACK_VERSION_BUGFIX 5
+
 /* /dev/v4l2loopback interface */
 
 struct v4l2_loopback_config {
