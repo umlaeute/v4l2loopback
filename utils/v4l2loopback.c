@@ -205,8 +205,9 @@ static int query_device(int fd, const char *devicename)
 	return err;
 }
 
-static int set_fps(int fd, const char *devicename, const char *fps)
+static int set_fps(const char *devicename, const char *fps)
 {
+	int fd = -1;
 	char sysdev[100];
 	char _fps[100];
 	int dev = parse_device(devicename);
@@ -357,7 +358,7 @@ int main(int argc, char **argv)
 	case SET_FPS:
 		if (argc != 4)
 			usage(argv[0]);
-		set_fps(fd, argv[3], argv[2]);
+		set_fps(argv[3], argv[2]);
 		break;
 	case HELP:
 		help(argv[0], 0);
