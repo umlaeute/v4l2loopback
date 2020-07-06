@@ -23,6 +23,7 @@ void usage(const char *name)
 		"usage: %s add {<args>} [<device>]"
 		"\n       %s delete <device>"
 		"\n       %s query <device>"
+		"\n       %s set-fps <fps> <device>"
 		"\n\n",
 		name, name, name, name);
 	dprintf(2,
@@ -51,6 +52,12 @@ void usage(const char *name)
 		"\n =========================="
 		"\n <device>\tcan be given one more more times (to query multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n\n");
+	dprintf(2,
+		"\n setting framerate ('set-fps')"
+		"\n ============================="
+		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')-"
+		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n\n");
 	exit(1);
 }
@@ -188,7 +195,35 @@ static int query_device(int fd, const char *devicename)
 	return err;
 }
 
-typedef enum { add, delete, query, unknown } t_command;
+static int set_fps(int fd, const char *devicename, const char *fps)
+{
+	char sysdev[100];
+	char _fps[100];
+	int dev = parse_device(devicename);
+	if (dev < 0) {
+		dprintf(2, "ignoring illegal devicename '%s'\n", devicename);
+		return 1;
+	}
+	snprintf(sysdev, sizeof(sysdev) - 1,
+		 "/sys/devices/virtual/video4linux/video%d/format", dev);
+	snprintf(_fps, sizeof(_fps) - 1, "@%s", fps);
+	sysdev[sizeof(sysdev) - 1] = 0;
+	_fps[sizeof(_fps) - 1] = 0;
+
+	fd = open(sysdev, O_WRONLY);
+	if (fd < 0) {
+		perror("unable to open /sys-device");
+		return 1;
+	}
+	if (write(fd, _fps, strnlen(_fps, sizeof(_fps))) < 0) {
+		perror("failed to set fps");
+		return 1;
+	}
+	close(fd);
+	return 0;
+}
+
+typedef enum { add, delete, query, setfps, unknown } t_command;
 static t_command get_command(const char *command)
 {
 	if (!strncmp(command, "add", 4))
@@ -197,6 +232,8 @@ static t_command get_command(const char *command)
 		return delete;
 	if (!strncmp(command, "query", 5))
 		return query;
+	if (!strncmp(command, "set-fps", 5))
+		return setfps;
 	return unknown;
 }
 
@@ -300,6 +337,11 @@ int main(int argc, char **argv)
 		for (i = 2; i < argc; i++) {
 			query_device(fd, argv[i]);
 		}
+		break;
+	case setfps:
+		if (argc != 4)
+			usage(argv[0]);
+		set_fps(fd, argv[3], argv[2]);
 		break;
 	default:
 		dprintf(2, "unknown command '%s'\n", argv[1]);
