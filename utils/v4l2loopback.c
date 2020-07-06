@@ -233,7 +233,7 @@ static int set_fps(int fd, const char *devicename, const char *fps)
 	return 0;
 }
 
-typedef enum { VERSION, HELP, ADD, DELETE, QUERY, SETFPS, _UNKNOWN } t_command;
+typedef enum { VERSION, HELP, ADD, DELETE, QUERY, SET_FPS, _UNKNOWN } t_command;
 static t_command get_command(const char *command)
 {
 	if (!strncmp(command, "-h", 2))
@@ -249,7 +249,7 @@ static t_command get_command(const char *command)
 	if (!strncmp(command, "query", 5))
 		return QUERY;
 	if (!strncmp(command, "set-fps", 7))
-		return SETFPS;
+		return SET_FPS;
 	return _UNKNOWN;
 }
 
@@ -354,7 +354,7 @@ int main(int argc, char **argv)
 			query_device(fd, argv[i]);
 		}
 		break;
-	case SETFPS:
+	case SET_FPS:
 		if (argc != 4)
 			usage(argv[0]);
 		set_fps(fd, argv[3], argv[2]);
