@@ -223,18 +223,18 @@ static int set_fps(int fd, const char *devicename, const char *fps)
 	return 0;
 }
 
-typedef enum { add, delete, query, setfps, unknown } t_command;
+typedef enum { VERSION, HELP, ADD, DELETE, QUERY, SETFPS, _UNKNOWN } t_command;
 static t_command get_command(const char *command)
 {
 	if (!strncmp(command, "add", 4))
-		return add;
+		return ADD;
 	if (!strncmp(command, "del", 3))
-		return delete;
+		return DELETE;
 	if (!strncmp(command, "query", 5))
-		return query;
-	if (!strncmp(command, "set-fps", 5))
-		return setfps;
-	return unknown;
+		return QUERY;
+	if (!strncmp(command, "set-fps", 7))
+		return SETFPS;
+	return _UNKNOWN;
 }
 
 int main(int argc, char **argv)
@@ -256,7 +256,7 @@ int main(int argc, char **argv)
 	if (argc < 2)
 		usage(argv[0]);
 	cmd = get_command(argv[1]);
-	if (unknown == cmd) {
+	if (_UNKNOWN == cmd) {
 		dprintf(2, "unknown command '%s'\n\n", argv[1]);
 		usage(argv[0]);
 	}
@@ -266,7 +266,7 @@ int main(int argc, char **argv)
 		return 1;
 	}
 	switch (cmd) {
-	case add:
+	case ADD:
 		while ((c = getopt(argc - 1, argv + 1, "vn:w:h:x:b:o:")) != -1)
 			switch (c) {
 			case 'v':
@@ -324,21 +324,21 @@ int main(int argc, char **argv)
 			}
 		} while (0);
 		break;
-	case delete:
+	case DELETE:
 		if (argc == 2)
 			usage(argv[0]);
 		for (i = 2; i < argc; i++) {
 			delete_device(fd, argv[i]);
 		}
 		break;
-	case query:
+	case QUERY:
 		if (argc == 2)
 			usage(argv[0]);
 		for (i = 2; i < argc; i++) {
 			query_device(fd, argv[i]);
 		}
 		break;
-	case setfps:
+	case SETFPS:
 		if (argc != 4)
 			usage(argv[0]);
 		set_fps(fd, argv[3], argv[2]);
