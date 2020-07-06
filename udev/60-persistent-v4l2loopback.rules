@@ -4,4 +4,4 @@
 KERNEL=="v4l2loopback", GROUP="video"
 
 # persistent device names for loopback devices
-KERNEL=="video*", ATTR{max_openers}=="?*", SYMLINK+="v4l/by-id/v4l2loopback-$attr{name}-video"
+SUBSYSTEM=="video4linux", KERNEL=="video*", DEVPATH=="*/virtual/*", SYMLINK+="v4l/by-id/v4l2loopback-$attr{name}-video"
