@@ -5,3 +5,8 @@ KERNEL=="v4l2loopback", GROUP="video"
 
 # persistent device names for loopback devices
 SUBSYSTEM=="video4linux", KERNEL=="video*", DEVPATH=="*/virtual/*", SYMLINK+="v4l/by-id/v4l2loopback-$attr{name}-video"
+
+# grant access to sysfs properties for group 'video'
+# - read access to all properties
+# - write access to 'max_openers' and 'format'
+ACTION=="add", SUBSYSTEM=="video4linux", DEVPATH=="*/virtual/*" RUN+="/usr/bin/find %S%p -maxdepth 1 -type f -exec /bin/chgrp video {} +" RUN+="/usr/bin/find %S%p -maxdepth 1 -type f ( -name max_openers -or -name format ) -exec /bin/chmod g+rw {} +"
