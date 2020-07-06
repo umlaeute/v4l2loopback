@@ -17,15 +17,21 @@
 #define MARK()
 #endif
 
-void usage(const char *name)
+void help(const char *name, int status)
 {
 	dprintf(2,
-		"usage: %s add {<args>} [<device>]"
+		"usage: %s [general commands]"
+		"\n       %s add {<args>} [<device>]"
 		"\n       %s delete <device>"
 		"\n       %s query <device>"
 		"\n       %s set-fps <fps> <device>"
 		"\n\n",
-		name, name, name, name);
+		name, name, name, name, name);
+	dprintf(2, "\n general commands"
+		   "\n ================"
+		   "\n\t-v : print version and exit"
+		   "\n\t-h : print this help and exit"
+		   "\n\n");
 	dprintf(2,
 		"\n adding devices ('add')"
 		"\n ======================"
@@ -59,7 +65,11 @@ void usage(const char *name)
 		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')-"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n\n");
-	exit(1);
+	exit(status);
+}
+void usage(const char *name)
+{
+	help(name, 1);
 }
 
 int my_atoi(const char *name, const char *s)
@@ -226,6 +236,12 @@ static int set_fps(int fd, const char *devicename, const char *fps)
 typedef enum { VERSION, HELP, ADD, DELETE, QUERY, SETFPS, _UNKNOWN } t_command;
 static t_command get_command(const char *command)
 {
+	if (!strncmp(command, "-h", 2))
+		return HELP;
+	if (!strncmp(command, "-?", 2))
+		return HELP;
+	if (!strncmp(command, "-v", 2))
+		return VERSION;
 	if (!strncmp(command, "add", 4))
 		return ADD;
 	if (!strncmp(command, "del", 3))
@@ -342,6 +358,13 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage(argv[0]);
 		set_fps(fd, argv[3], argv[2]);
+		break;
+	case HELP:
+		help(argv[0], 0);
+		break;
+	case VERSION:
+		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
+		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
 		break;
 	default:
 		dprintf(2, "unknown command '%s'\n", argv[1]);
