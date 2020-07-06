@@ -23,9 +23,11 @@ void usage(const char *name)
 		"usage: %s add {<args>} [<device>]"
 		"\n       %s delete <device>"
 		"\n       %s query <device>"
-		"\n\n"
-		"\n adding devices"
-		"\n =============="
+		"\n\n",
+		name, name, name, name);
+	dprintf(2,
+		"\n adding devices ('add')"
+		"\n ======================"
 		"\n <args>  \tany of the following arguments may be present"
 		"\n\t -n <name>           : pretty name for the device"
 		"\n\t -w <max_width>      : maximum allowed frame width"
@@ -37,18 +39,19 @@ void usage(const char *name)
 		"\n"
 		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n\n"
-		"\n deleting devices"
-		"\n ================"
+		"\n\n");
+	dprintf(2,
+		"\n deleting devices ('delete')"
+		"\n ==========================="
 		"\n <device>\tcan be given one more more times (to delete multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n\n"
-		"\n querying devices"
-		"\n ================"
+		"\n\n");
+	dprintf(2,
+		"\n querying devices ('query')"
+		"\n =========================="
 		"\n <device>\tcan be given one more more times (to query multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n\n",
-		name, name, name);
+		"\n\n");
 	exit(1);
 }
 
