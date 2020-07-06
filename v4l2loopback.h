@@ -45,6 +45,7 @@ struct v4l2_loopback_config {
          * whether to announce OUTPUT/CAPTURE capabilities exclusively
          * for this device or not
          * (!exclusive_caps)
+         * FIXXME: this ought to be removed (if superseded by output_nr vs capture_nr)
          */
 	int announce_all_caps;
 
