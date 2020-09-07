@@ -913,7 +913,10 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 		pix_format_set_size(&fmt->fmt.pix, format, w, h);
 
 		fmt->fmt.pix.pixelformat = format->fourcc;
-		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
+
+		if ((fmt->fmt.pix.colorspace == V4L2_COLORSPACE_DEFAULT) ||
+		    (fmt->fmt.pix.colorspace > V4L2_COLORSPACE_DCI_P3))
+			fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 
 		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
 			fmt->fmt.pix.field = V4L2_FIELD_NONE;
