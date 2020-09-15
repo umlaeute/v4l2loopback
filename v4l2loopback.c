@@ -21,6 +21,9 @@
 #include <linux/videodev2.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/capability.h>
+#include <linux/eventpoll.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
@@ -31,6 +34,7 @@
 #define HAVE__V4L2_CTRLS
 #include <media/v4l2-ctrls.h>
 #endif
+#include <media/v4l2-event.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
 #define kstrtoul strict_strtoul
@@ -167,6 +171,10 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
 }
 
+#if !defined(__poll_t)
+typedef unsigned __poll_t;
+#endif
+
 /* module constants
  *  can be overridden during he build process using something like
  *      make KCPPFLAGS="-DMAX_DEVICES=100"
@@ -244,6 +252,10 @@ MODULE_PARM_DESC(max_width, "maximum frame width");
 static int max_height = V4L2LOOPBACK_SIZE_MAX_HEIGHT;
 module_param(max_height, int, S_IRUGO);
 MODULE_PARM_DESC(max_height, "maximum frame height");
+
+/* frame intervals */
+#define V4L2LOOPBACK_FPS_MIN 1
+#define V4L2LOOPBACK_FPS_MAX 1000
 
 /* control IDs */
 #ifndef HAVE__V4L2_CTRLS
@@ -385,7 +397,6 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int vidioc_enum_frameintervals_calls;
 	int read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
@@ -702,10 +713,6 @@ static int vidioc_querycap(struct file *file, void *priv,
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
 #endif
 
-#ifdef V4L2_CAP_VIDEO_M2M
-	capabilities |= V4L2_CAP_VIDEO_M2M;
-#endif /* V4L2_CAP_VIDEO_M2M */
-
 	if (dev->announce_all_caps) {
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 	} else {
@@ -732,11 +739,6 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *argp)
 {
 	struct v4l2_loopback_device *dev;
-
-	/* LATER: what does the index really  mean?
-	 * if it's about enumerating formats, we can safely ignore it
-	 * (CHECK)
-	 */
 
 	/* there can be only one... */
 	if (argp->index)
@@ -775,20 +777,28 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+
+	/* there can be only one... */
+	if (argp->index)
+		return -EINVAL;
 
 	if (dev->ready_for_capture) {
-		if (opener->vidioc_enum_frameintervals_calls > 0)
+		if (argp->width != dev->pix_format.width ||
+		    argp->height != dev->pix_format.height)
 			return -EINVAL;
-		if (argp->width == dev->pix_format.width &&
-		    argp->height == dev->pix_format.height) {
-			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-			argp->discrete = dev->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
-			return 0;
-		}
-		return -EINVAL;
+
+		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+		argp->discrete = dev->capture_param.timeperframe;
+	} else {
+		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+		argp->stepwise.min.numerator = 1;
+		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
+		argp->stepwise.max.numerator = 1;
+		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+		argp->stepwise.step.numerator = 1;
+		argp->stepwise.step.denominator = 1;
 	}
+
 	return 0;
 }
 
@@ -1742,6 +1752,17 @@ static int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 }
 #endif
 
+static int vidioc_subscribe_event(struct v4l2_fh *fh,
+				  const struct v4l2_event_subscription *sub)
+{
+	switch (sub->type) {
+	case V4L2_EVENT_CTRL:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	}
+
+	return -EINVAL;
+}
+
 /* file operations */
 static void vm_open(struct vm_area_struct *vma)
 {
@@ -1851,26 +1872,43 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
+	__poll_t req_events = poll_requested_events(pts);
 	int ret_mask = 0;
 	MARK();
 
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
 
+	if (req_events & POLLPRI) {
+		if (!v4l2_event_pending(&opener->fh))
+			poll_wait(file, &opener->fh.wait, pts);
+		if (v4l2_event_pending(&opener->fh)) {
+			ret_mask |= POLLPRI;
+			if (!(req_events & DEFAULT_POLLMASK))
+				return ret_mask;
+		}
+	}
+
 	switch (opener->type) {
 	case WRITER:
-		ret_mask = POLLOUT | POLLWRNORM;
+		ret_mask |= POLLOUT | POLLWRNORM;
 		break;
 	case READER:
-		poll_wait(file, &dev->read_event, pts);
+		if (!can_read(dev, opener)) {
+			if (ret_mask)
+				return ret_mask;
+			poll_wait(file, &dev->read_event, pts);
+		}
 		if (can_read(dev, opener))
-			ret_mask = POLLIN | POLLRDNORM;
+			ret_mask |= POLLIN | POLLRDNORM;
+		if (v4l2_event_pending(&opener->fh))
+			ret_mask |= POLLPRI;
 		break;
 	default:
-		ret_mask = -POLLERR;
+		break;
 	}
-	MARK();
 
+	MARK();
 	return ret_mask;
 }
 
@@ -2148,12 +2186,9 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->release = &video_device_release;
 	vdev->minor = -1;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	vdev->device_caps = V4L2_CAP_DEVICE_CAPS |
-#ifdef V4L2_CAP_VIDEO_M2M
-			    V4L2_CAP_VIDEO_M2M |
-#endif
-			    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
-			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
+	vdev->device_caps = V4L2_CAP_DEVICE_CAPS | V4L2_CAP_VIDEO_CAPTURE |
+			    V4L2_CAP_VIDEO_OUTPUT | V4L2_CAP_READWRITE |
+			    V4L2_CAP_STREAMING;
 #endif
 	if (debug > 1)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
@@ -2413,6 +2448,10 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
 	.vidiocgmbuf = &vidiocgmbuf,
 #endif
+
+	.vidioc_subscribe_event = &vidioc_subscribe_event,
+	.vidioc_unsubscribe_event = &v4l2_event_unsubscribe,
+
 };
 
 static void zero_devices(void)
