@@ -31,6 +31,7 @@
 #define HAVE__V4L2_CTRLS
 #include <media/v4l2-ctrls.h>
 #endif
+#include <media/v4l2-event.h>
 
 #include <linux/miscdevice.h>
 #include "v4l2loopback.h"
@@ -1805,6 +1806,18 @@ static int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 }
 #endif
 
+static int vidioc_subscribe_event(struct v4l2_fh *fh,
+				  const struct v4l2_event_subscription *sub)
+{
+	switch (sub->type)
+	{
+	case V4L2_EVENT_CTRL:
+		return v4l2_ctrl_subscribe_event(fh, sub);
+	}
+
+	return -EINVAL;
+}
+
 /* file operations */
 static void vm_open(struct vm_area_struct *vma)
 {
@@ -2687,6 +2700,10 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
 	.vidiocgmbuf = &vidiocgmbuf,
 #endif
+
+	.vidioc_subscribe_event = &vidioc_subscribe_event,
+	.vidioc_unsubscribe_event = &v4l2_event_unsubscribe,
+
 };
 
 static int free_device_cb(int id, void *ptr, void *data)
