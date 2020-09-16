@@ -1664,7 +1664,7 @@ static int get_capture_buffer(struct file *file)
 		      dev->used_buffers;
 	} else {
 		opener->reread_count = 0;
-		if (dev->write_position > opener->read_position + 2)
+		if (dev->write_position > opener->read_position + dev->used_buffers)
 			opener->read_position = dev->write_position - 1;
 		pos = opener->read_position % dev->used_buffers;
 		++opener->read_position;
