@@ -62,7 +62,19 @@ void help(const char *name, int status)
 	dprintf(2,
 		"\n setting framerate ('set-fps')"
 		"\n ============================="
-		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')-"
+		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')."
+		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n\n");
+	dprintf(2,
+		"\n setting capabilities ('set-caps')"
+		"\n ================================="
+		"\n    <caps>\tformat specification."
+		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n\n");
+	dprintf(2,
+		"\n setting timeout image ('set-timeout-image')"
+		"\n ==========================================="
+		"\n  <image>\timage file"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n\n");
 	exit(status);
@@ -234,7 +246,28 @@ static int set_fps(const char *devicename, const char *fps)
 	return 0;
 }
 
-typedef enum { VERSION, HELP, ADD, DELETE, QUERY, SET_FPS, _UNKNOWN } t_command;
+static int set_caps(const char *devicename, const char *fps)
+{
+	dprintf(2, "'set-caps' not implemented yet.\n");
+	return 1;
+}
+static int set_timeoutimage(const char *devicename, const char *fps)
+{
+	dprintf(2, "'set-timeout-image' not implemented yet.\n");
+	return 1;
+}
+
+typedef enum {
+	VERSION,
+	HELP,
+	ADD,
+	DELETE,
+	QUERY,
+	SET_FPS,
+	SET_CAPS,
+	SET_TIMEOUTIMAGE,
+	_UNKNOWN
+} t_command;
 static t_command get_command(const char *command)
 {
 	if (!strncmp(command, "-h", 2))
@@ -251,6 +284,10 @@ static t_command get_command(const char *command)
 		return QUERY;
 	if (!strncmp(command, "set-fps", 7))
 		return SET_FPS;
+	if (!strncmp(command, "set-caps", 8))
+		return SET_CAPS;
+	if (!strncmp(command, "set-timeout-image", 17))
+		return SET_TIMEOUTIMAGE;
 	return _UNKNOWN;
 }
 
@@ -359,6 +396,16 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage(argv[0]);
 		set_fps(argv[3], argv[2]);
+		break;
+	case SET_CAPS:
+		if (argc != 4)
+			usage(argv[0]);
+		set_caps(argv[3], argv[2]);
+		break;
+	case SET_TIMEOUTIMAGE:
+		if (argc != 4)
+			usage(argv[0]);
+		set_timeoutimage(argv[3], argv[2]);
 		break;
 	case HELP:
 		help(argv[0], 0);
