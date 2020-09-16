@@ -1927,26 +1927,41 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
+	__poll_t req_events = poll_requested_events(pts);
 	int ret_mask = 0;
 	MARK();
 
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
 
+	if (req_events & EPOLLPRI) {
+		if (!v4l2_event_pending(&opener->fh))
+			poll_wait(file, &opener->fh.wait, pts);
+		if (v4l2_event_pending(&opener->fh)) {
+			ret_mask |= EPOLLPRI;
+			if (!(req_events & DEFAULT_POLLMASK))
+				return ret_mask;
+		}
+	}
+
 	switch (opener->type) {
 	case WRITER:
-		ret_mask = POLLOUT | POLLWRNORM;
+		ret_mask |= EPOLLOUT | EPOLLWRNORM;
 		break;
 	case READER:
-		poll_wait(file, &dev->read_event, pts);
+		if (!can_read(dev, opener)) {
+			if (ret_mask)
+				return ret_mask;
+			poll_wait(file, &dev->read_event, pts);
+		}
 		if (can_read(dev, opener))
-			ret_mask = POLLIN | POLLRDNORM;
+			ret_mask |= EPOLLIN | EPOLLRDNORM;
+		if (v4l2_event_pending(&opener->fh))
+			ret_mask |= EPOLLPRI;
 		break;
-	default:
-		ret_mask = -POLLERR;
 	}
-	MARK();
 
+	MARK();
 	return ret_mask;
 }
 
