@@ -283,7 +283,7 @@ manually calling `modprobe v4l2loopback`. note that the double quotes can only
 be used at the beginning and the end of the option's value, as opposed to when
 they are specified on the command line.
 
-When your system boots with an initial ramdisk, which is the case for most
+if your system boots with an initial ramdisk, which is the case for most
 modern distributions, you need to update this ramdisk with the settings above,
 before they take effect at boot time. on Ubuntu, this image is updated with
 `sudo update-initramfs`. the equivalent on Fedora is `sudo dracut -f`.
