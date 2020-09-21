@@ -89,6 +89,10 @@ if your system lacks "sudo", do:
 automatically load additional kernel modules required by v4l2loopback.
 The call may not be necessary on modern systems.)
 
+See below for [distribution-specific build instructions](#DISTRIBUTIONS)
+or when using frameworks like [`DKMS`](#DKMS).
+
+
 # RUN
 load the v4l2loopback module as root :
 
@@ -111,6 +115,17 @@ application.
 
 you can find a number of scenarios on the wiki at
 	http://github.com/umlaeute/v4l2loopback/wiki
+
+## Troubleshooting
+if you have a secure-boot enabled kernel, you might not be able to simply build a kernel module and insert it.
+this is actually a security feature (as it prevents malicious code to be inserted into kernel-space).
+
+if you are not allowed to insert the kernel module (running `modprobe`, or `insmod`), you have a few options
+(consult your distribution's documentation on how to perform any of these steps)_
+- disable secure-boot and reboot
+- sign the module binary with a whitelisted key (this probably only applies if you are creating a distribution)
+
+you could also just try building the module [via `DKMS`](#DKMS), and hope that it does all the magic for you.
 
 # OPTIONS
 if you need several independent loopback devices, you can pass the "devices"
@@ -212,6 +227,35 @@ in this case you should be able to simply do (as root):
 
     # aptitude install v4l2loopback-source module-assistant
     # module-assistant auto-install v4l2loopback-source
+
+# DKMS
+the *Dynamic Kernel Module Support framework* (DKMS) is designed to allow
+individual kernel modules to be upgraded without changing the whole kernel.
+it is also very easy to rebuild modules as you upgrade kernels.
+
+if your distribution doesn't provide `v4l2loopback`-packages (or they are too old)
+and you are experiencing troubles with code-signing, you probably should try this.
+
+e.g. to build the v4l2loopback-v0.12.5 (but check the webpage for newer releases first!),
+use something like the following (you might need to run the `dkms` commands as superuser/root):
+
+~~~
+mkdir -p ~/src/
+cd ~/src/
+version=0.12.5
+# download and extract the tarball
+curl -L https://github.com/umlaeute/v4l2loopback/archive/v${version}.tar.gz | tar xvz
+# build and install the DKMS-module (requires superuser privileges)
+dkms add -m v4l2loopback -v ${version}
+dkms build -m v4l2loopback -v ${version}
+dkm install -m v4l2loopback -v ${version}
+~~~~
+
+| distribution       | dependencies          |
+|--------------------|-----------------------|
+| Fedora,...         | gcc kernel-devel dmks |
+| Debian, Ubuntu,... | dkms                  |
+
 
 # DOWNLOAD
 the most up-to-date version of this module can be found at
