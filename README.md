@@ -257,6 +257,38 @@ dkm install -m v4l2loopback -v ${version}
 | Debian, Ubuntu,... | dkms                  |
 
 
+# LOAD THE MODULE AT BOOT
+
+One can avoid manually loading the module by letting systemd load the module
+at boot, by creating a file `/etc/modules-load.d/v4l2loopback.conf` with just
+the name of the module:
+
+~~~
+v4l2loopback
+~~~
+
+This is especially convenient when `v4l2loopback` is installed with DKMS or with
+a package provided by your Linux distribution.
+
+If needed, one can specify default module options by creating
+`/etc/modprobe.d/v4l2loopback.conf` in the following form:
+
+~~~
+options v4l2loopback video_nr=3,4,7
+options v4l2loopback card_label="device number 3,the number four,the last one"
+~~~
+
+One can only add one option per line. These options also become the defaults when
+manually calling `modprobe v4l2loopback`. Note that the double quotes can only
+be used at the beginning and the end of the option's value, as opposed to when
+they are specified on the command line.
+
+When your system boots with an initial ramdisk, which is the case for most
+modern distributions, you need to update this ramdisk with the settings above,
+before they take effect at boot time. On Ubuntu, this image is updated with
+`sudo update-initramfs`. The equivalent on Fedora is `sudo dracut -f`.
+
+
 # DOWNLOAD
 the most up-to-date version of this module can be found at
 http://github.com/umlaeute/v4l2loopback/.
