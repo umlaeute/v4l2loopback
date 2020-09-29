@@ -256,12 +256,12 @@ curl -L https://github.com/umlaeute/v4l2loopback/archive/v${version}.tar.gz | ta
 # build and install the DKMS-module (requires superuser privileges)
 dkms add -m v4l2loopback -v ${version}
 dkms build -m v4l2loopback -v ${version}
-dkm install -m v4l2loopback -v ${version}
+dkms install -m v4l2loopback -v ${version}
 ~~~~
 
 | distribution       | dependencies          |
 |--------------------|-----------------------|
-| Fedora,...         | gcc kernel-devel dmks |
+| Fedora,...         | gcc kernel-devel dkms |
 | Debian, Ubuntu,... | dkms                  |
 
 
