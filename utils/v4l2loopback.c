@@ -23,7 +23,7 @@ static void help_shortcmdline(const char *program, const char *argstring)
 }
 static void help(const char *name, int status)
 {
-	dprintf(2, "usage: %s [general commands]");
+	dprintf(2, "usage: %s [general commands]", name);
 	help_shortcmdline(name, "add {<args>} [<device>]");
 	help_shortcmdline(name, "delete <device>");
 	help_shortcmdline(name, "query <device>");
