@@ -28,7 +28,9 @@ void help(const char *name, int status)
 	help_shortcmdline(name, "delete <device>");
 	help_shortcmdline(name, "query <device>");
 	help_shortcmdline(name, "set-fps <fps> <device>");
+	help_shortcmdline(name, "get-fps <device>");
 	help_shortcmdline(name, "set-caps <caps> <device>");
+	help_shortcmdline(name, "get-caps <device>");
 	help_shortcmdline(name, "set-timeout-image <image> <device>");
 	dprintf(2, "\n\n");
 	dprintf(2, "\n general commands"
@@ -276,7 +278,9 @@ typedef enum {
 	DELETE,
 	QUERY,
 	SET_FPS,
+	GET_FPS,
 	SET_CAPS,
+	GET_CAPS,
 	SET_TIMEOUTIMAGE,
 	_UNKNOWN
 } t_command;
@@ -296,8 +300,12 @@ static t_command get_command(const char *command)
 		return QUERY;
 	if (!strncmp(command, "set-fps", 7))
 		return SET_FPS;
+	if (!strncmp(command, "get-fps", 7))
+		return GET_FPS;
 	if (!strncmp(command, "set-caps", 8))
 		return SET_CAPS;
+	if (!strncmp(command, "get-caps", 8))
+		return GET_CAPS;
 	if (!strncmp(command, "set-timeout-image", 17))
 		return SET_TIMEOUTIMAGE;
 	return _UNKNOWN;
