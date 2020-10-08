@@ -332,6 +332,25 @@ static int set_caps(const char *devicename, const char *fps)
 	dprintf(2, "'set-caps' not implemented yet.\n");
 	return 1;
 }
+static int get_caps(const char *devicename)
+{
+	int format = 0;
+	t_caps caps;
+	if (read_caps(devicename, &caps))
+		return 1;
+	switch (format) {
+	default:
+		printf("%.4s:%dx%d@%d/%d\n", caps.fourcc, caps.width,
+		       caps.height, caps.fps_num, caps.fps_denom);
+		break;
+	case 1: /* GStreamer-1.0 */
+		printf("video/x-raw,format=%.4s,width=%d,height=%d,framerate=%d/%d\n",
+		       caps.fourcc, caps.width, caps.height, caps.fps_num,
+		       caps.fps_denom);
+		break;
+	}
+	return 0;
+}
 static int set_timeoutimage(const char *devicename, const char *fps)
 {
 	dprintf(2, "'set-timeout-image' not implemented yet.\n");
@@ -494,6 +513,11 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage(argv[0]);
 		set_caps(argv[3], argv[2]);
+		break;
+	case GET_CAPS:
+		if (argc != 3)
+			usage(argv[0]);
+		get_caps(argv[2]);
 		break;
 	case SET_TIMEOUTIMAGE:
 		if (argc != 4)
