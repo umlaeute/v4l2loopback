@@ -274,11 +274,26 @@ done:
 	return result;
 }
 
+static char *fourcc2str(unsigned int fourcc, char buf[4])
+{
+	buf[0] = (fourcc >> 0) & 0xFF;
+	buf[1] = (fourcc >> 8) & 0xFF;
+	buf[2] = (fourcc >> 16) & 0xFF;
+	buf[3] = (fourcc >> 24) & 0xFF;
+
+	return buf;
+}
+unsigned int str2fourcc(char buf[4])
+{
+	return (buf[0]) + (buf[1] << 8) + (buf[2] << 16) + (buf[3] << 24);
+}
+
 typedef struct _caps {
-	char fourcc[4];
+	unsigned int fourcc;
 	int width, height;
 	int fps_num, fps_denom;
 } t_caps;
+
 static void print_caps(t_caps *caps)
 {
 	if (!caps) {
@@ -310,7 +325,7 @@ static int read_caps(const char *devicename, t_caps *caps)
 		if (sscanf(_caps, "%4c:%dx%d@%d/%d", &_fourcc, &caps->width,
 			   &caps->height, &caps->fps_num,
 			   &caps->fps_denom) > 0) {
-			memcpy(caps->fourcc, _fourcc, 4);
+			caps->fourcc = str2fourcc(_fourcc);
 		}
 	}
 	result = 0;
@@ -336,17 +351,28 @@ static int get_caps(const char *devicename)
 {
 	int format = 0;
 	t_caps caps;
+	char fourcc[4];
 	if (read_caps(devicename, &caps))
 		return 1;
 	switch (format) {
 	default:
-		printf("%.4s:%dx%d@%d/%d\n", caps.fourcc, caps.width,
-		       caps.height, caps.fps_num, caps.fps_denom);
+		printf("%.4s:%dx%d@%d/%d\n", fourcc2str(caps.fourcc, fourcc),
+		       caps.width, caps.height, caps.fps_num, caps.fps_denom);
 		break;
 	case 1: /* GStreamer-1.0 */
+
+		/* FOURCC is different everywhere... */
+		switch (caps.fourcc) {
+		default:
+			break;
+		case 0x56595559: /* YUYV */
+			caps.fourcc = str2fourcc("YUY2");
+			break;
+		}
+
 		printf("video/x-raw,format=%.4s,width=%d,height=%d,framerate=%d/%d\n",
-		       caps.fourcc, caps.width, caps.height, caps.fps_num,
-		       caps.fps_denom);
+		       fourcc2str(caps.fourcc, fourcc), caps.width, caps.height,
+		       caps.fps_num, caps.fps_denom);
 		break;
 	}
 	return 0;
