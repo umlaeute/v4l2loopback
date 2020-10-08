@@ -21,7 +21,7 @@ static void help_shortcmdline(const char *program, const char *argstring)
 {
 	dprintf(2, "\n       %s %s", program, argstring);
 }
-void help(const char *name, int status)
+static void help(const char *name, int status)
 {
 	dprintf(2, "usage: %s [general commands]");
 	help_shortcmdline(name, "add {<args>} [<device>]");
@@ -85,12 +85,12 @@ void help(const char *name, int status)
 		"\n\n");
 	exit(status);
 }
-void usage(const char *name)
+static void usage(const char *name)
 {
 	help(name, 1);
 }
 
-int my_atoi(const char *name, const char *s)
+static int my_atoi(const char *name, const char *s)
 {
 	char *endptr = 0;
 	int n = strtol(s, &endptr, 10);
@@ -112,7 +112,7 @@ static int parse_device(const char *devicename)
 	return dev;
 }
 
-void print_conf(struct v4l2_loopback_config *cfg)
+static void print_conf(struct v4l2_loopback_config *cfg)
 {
 	MARK();
 	if (!cfg) {
@@ -136,10 +136,11 @@ void print_conf(struct v4l2_loopback_config *cfg)
 	MARK();
 }
 
-struct v4l2_loopback_config *make_conf(struct v4l2_loopback_config *cfg,
-				       const char *label, int max_width,
-				       int max_height, int exclusive_caps,
-				       int buffers, int openers, int device)
+static struct v4l2_loopback_config *make_conf(struct v4l2_loopback_config *cfg,
+					      const char *label, int max_width,
+					      int max_height,
+					      int exclusive_caps, int buffers,
+					      int openers, int device)
 {
 	if (!cfg)
 		return 0;
