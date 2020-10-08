@@ -273,11 +273,60 @@ done:
 	close(fd);
 	return result;
 }
-		return 1;
+
+typedef struct _caps {
+	char fourcc[4];
+	int width, height;
+	int fps_num, fps_denom;
+} t_caps;
+static void print_caps(t_caps *caps)
+{
+	if (!caps) {
+		dprintf(2, "no caps\n");
+		return;
 	}
+	dprintf(2, "FOURCC : %.4s\n", caps->fourcc);
+	dprintf(2, "dimen  : %dx%d\n", caps->width, caps->height);
+	dprintf(2, "fps    : %d/%d\n", caps->fps_num, caps->fps_denom);
+}
+static int read_caps(const char *devicename, t_caps *caps)
+{
+	int result = 1;
+	char _caps[100];
+	int fd = get_sysfs_file(devicename, "format", O_RDONLY);
+	if (fd < 0)
+		return 1;
+
+	if (read(fd, _caps, 100) < 0) {
+		perror("failed to read fps");
+		goto done;
+	}
+	_caps[100 - 1] = 0;
+	//dprintf(2, "fps: %s\n", _caps);
+	if (caps) {
+		char _fourcc[5];
+		memset(caps, 0, sizeof(*caps));
+
+		if (sscanf(_caps, "%4c:%dx%d@%d/%d", &_fourcc, &caps->width,
+			   &caps->height, &caps->fps_num,
+			   &caps->fps_denom) > 0) {
+			memcpy(caps->fourcc, _fourcc, 4);
+		}
+	}
+	result = 0;
+done:
 	close(fd);
+	return result;
 }
 
+static int get_fps(const char *devicename)
+{
+	t_caps caps;
+	if (read_caps(devicename, &caps))
+		return 1;
+	printf("%d/%d\n", caps.fps_num, caps.fps_denom);
+	return 0;
+}
 static int set_caps(const char *devicename, const char *fps)
 {
 	dprintf(2, "'set-caps' not implemented yet.\n");
@@ -435,6 +484,11 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage(argv[0]);
 		set_fps(argv[3], argv[2]);
+		break;
+	case GET_FPS:
+		if (argc != 3)
+			usage(argv[0]);
+		get_fps(argv[2]);
 		break;
 	case SET_CAPS:
 		if (argc != 4)
