@@ -232,27 +232,35 @@ static int get_controldevice()
 	}
 }
 
-static int set_fps(const char *devicename, const char *fps)
+static int get_sysfs_file(const char *devicename, const char *filename)
 {
 	int fd = -1;
 	char sysdev[100];
-	char _fps[100];
 	int dev = parse_device(devicename);
 	if (dev < 0) {
 		dprintf(2, "ignoring illegal devicename '%s'\n", devicename);
-		return 1;
+		return -1;
 	}
 	snprintf(sysdev, sizeof(sysdev) - 1,
-		 "/sys/devices/virtual/video4linux/video%d/format", dev);
-	snprintf(_fps, sizeof(_fps) - 1, "@%s", fps);
+		 "/sys/devices/virtual/video4linux/video%d/%s", dev, filename);
 	sysdev[sizeof(sysdev) - 1] = 0;
-	_fps[sizeof(_fps) - 1] = 0;
-
 	fd = open(sysdev, O_WRONLY);
 	if (fd < 0) {
 		perror("unable to open /sys-device");
-		return 1;
+		return -1;
 	}
+	return fd;
+}
+
+static int set_fps(const char *devicename, const char *fps)
+{
+	char _fps[100];
+	int fd = get_sysfs_file(devicename, "format");
+	if (fd < 0)
+		return 1;
+	snprintf(_fps, sizeof(_fps) - 1, "@%s", fps);
+	_fps[sizeof(_fps) - 1] = 0;
+
 	if (write(fd, _fps, strnlen(_fps, sizeof(_fps))) < 0) {
 		perror("failed to set fps");
 		return 1;
