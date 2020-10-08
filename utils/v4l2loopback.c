@@ -490,12 +490,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile)
 	args[1] = imagearg;
 	args[14] = devicearg;
 
-	for (i = 0; args[i]; i++) {
-		printf("arg[%d] '%s'\n", i, args[i]);
-	}
-
 	i = execv("gst-launch-1.0", args);
-	dprintf(2, "exec returned '%d' %d\n", i, errno);
 
 	/* finally check the timeout */
 	if (!timeout) {
