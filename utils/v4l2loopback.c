@@ -232,7 +232,8 @@ static int get_controldevice()
 	}
 }
 
-static int get_sysfs_file(const char *devicename, const char *filename)
+static int get_sysfs_file(const char *devicename, const char *filename,
+			  int flags)
 {
 	int fd = -1;
 	char sysdev[100];
@@ -244,7 +245,7 @@ static int get_sysfs_file(const char *devicename, const char *filename)
 	snprintf(sysdev, sizeof(sysdev) - 1,
 		 "/sys/devices/virtual/video4linux/video%d/%s", dev, filename);
 	sysdev[sizeof(sysdev) - 1] = 0;
-	fd = open(sysdev, O_WRONLY);
+	fd = open(sysdev, flags);
 	if (fd < 0) {
 		perror("unable to open /sys-device");
 		return -1;
@@ -254,8 +255,9 @@ static int get_sysfs_file(const char *devicename, const char *filename)
 
 static int set_fps(const char *devicename, const char *fps)
 {
+	int result = 1;
 	char _fps[100];
-	int fd = get_sysfs_file(devicename, "format");
+	int fd = get_sysfs_file(devicename, "format", O_WRONLY);
 	if (fd < 0)
 		return 1;
 	snprintf(_fps, sizeof(_fps) - 1, "@%s", fps);
