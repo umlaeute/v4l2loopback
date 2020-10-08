@@ -9,6 +9,8 @@
 #include <sys/ioctl.h>
 #include <linux/videodev2.h>
 
+#include <errno.h>
+
 #include "v4l2loopback.h"
 
 #define CONTROLDEVICE "/dev/v4l2loopback"
@@ -459,10 +461,49 @@ static int get_caps(const char *devicename)
 	}
 	return 0;
 }
-static int set_timeoutimage(const char *devicename, const char *fps)
+static int set_timeoutimage(const char *devicename, const char *imagefile)
 {
-	dprintf(2, "'set-timeout-image' not implemented yet.\n");
-	return 1;
+	int timeout = 0;
+	char imagearg[1024], devicearg[1024];
+
+	int i;
+	char *args[] = { "uridecodebin",
+			 0,
+			 "!",
+			 "videoconvert",
+			 "!",
+			 "videoscale",
+			 "!",
+			 "imagefreeze",
+			 "!",
+			 "identity",
+			 "error-after=2",
+			 "!",
+			 "v4l2sink",
+			 "show-preroll-frame=false",
+			 0,
+			 0 };
+	snprintf(imagearg, 1024, "uri=file://%s", imagefile);
+	snprintf(devicearg, 1024, "device=%s", devicename);
+	imagearg[1024] = devicearg[1023] = 0;
+
+	args[1] = imagearg;
+	args[14] = devicearg;
+
+	for (i = 0; args[i]; i++) {
+		printf("arg[%d] '%s'\n", i, args[i]);
+	}
+
+	i = execv("gst-launch-1.0", args);
+	dprintf(2, "exec returned '%d' %d\n", i, errno);
+
+	/* finally check the timeout */
+	if (!timeout) {
+		dprintf(2,
+			"Timeout is currently disabled; you can set it to some positive value, e.g.:\n");
+		dprintf(2, "    $  v4l2-ctl -d %s -c timeout=3000\n",
+			devicename);
+	}
 }
 
 typedef enum {
