@@ -72,20 +72,20 @@ static void help(const char *name, int status)
 	dprintf(2,
 		"\n setting framerate ('set-fps')"
 		"\n ============================="
-		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')."
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')."
 		"\n\n");
 	dprintf(2,
 		"\n setting capabilities ('set-caps')"
 		"\n ================================="
-		"\n    <caps>\tformat specification."
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1"
 		"\n\n");
 	dprintf(2,
 		"\n setting timeout image ('set-timeout-image')"
 		"\n ==========================================="
-		"\n  <image>\timage file"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n  <image>\timage file"
 		"\n\n");
 	exit(status);
 }
