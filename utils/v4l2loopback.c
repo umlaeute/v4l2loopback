@@ -17,7 +17,8 @@
 #define MARK()
 #endif
 
-static void help_shortcmdline(const char*program, const char*argstring) {
+static void help_shortcmdline(const char *program, const char *argstring)
+{
 	dprintf(2, "\n       %s %s", program, argstring);
 }
 void help(const char *name, int status)
