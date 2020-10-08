@@ -223,7 +223,7 @@ static int query_device(int fd, const char *devicename)
 	}
 	return err;
 }
-static int get_controldevice()
+static int open_controldevice()
 {
 	int fd = open(CONTROLDEVICE, 0);
 	if (fd < 0) {
@@ -232,8 +232,8 @@ static int get_controldevice()
 	}
 }
 
-static int get_sysfs_file(const char *devicename, const char *filename,
-			  int flags)
+static int open_sysfs_file(const char *devicename, const char *filename,
+			   int flags)
 {
 	int fd = -1;
 	char sysdev[100];
@@ -257,7 +257,7 @@ static int set_fps(const char *devicename, const char *fps)
 {
 	int result = 1;
 	char _fps[100];
-	int fd = get_sysfs_file(devicename, "format", O_WRONLY);
+	int fd = open_sysfs_file(devicename, "format", O_WRONLY);
 	if (fd < 0)
 		return 1;
 	snprintf(_fps, sizeof(_fps) - 1, "@%s", fps);
@@ -308,7 +308,7 @@ static int read_caps(const char *devicename, t_caps *caps)
 {
 	int result = 1;
 	char _caps[100];
-	int fd = get_sysfs_file(devicename, "format", O_RDONLY);
+	int fd = open_sysfs_file(devicename, "format", O_RDONLY);
 	if (fd < 0)
 		return 1;
 
@@ -482,7 +482,7 @@ int main(int argc, char **argv)
 				usage(argv[0]);
 				return 1;
 			}
-		fd = get_controldevice();
+		fd = open_controldevice();
 		do {
 			struct v4l2_loopback_config cfg;
 			if ((optind + 1) == argc)
@@ -512,7 +512,7 @@ int main(int argc, char **argv)
 	case DELETE:
 		if (argc == 2)
 			usage(argv[0]);
-		fd = get_controldevice();
+		fd = open_controldevice();
 		for (i = 2; i < argc; i++) {
 			delete_device(fd, argv[i]);
 		}
@@ -520,7 +520,7 @@ int main(int argc, char **argv)
 	case QUERY:
 		if (argc == 2)
 			usage(argv[0]);
-		fd = get_controldevice();
+		fd = open_controldevice();
 		for (i = 2; i < argc; i++) {
 			query_device(fd, argv[i]);
 		}
