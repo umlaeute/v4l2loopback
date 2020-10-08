@@ -371,8 +371,7 @@ static int set_caps(const char *devicename, const char *capsstring)
 		dprintf(2, "unable to parse format '%s'\n", capsstring);
 		return 1;
 	}
-	print_caps(&caps);
-
+	//print_caps(&caps);
 	memset(&vid_format, 0, sizeof(vid_format));
 
 	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -411,7 +410,6 @@ static int set_caps(const char *devicename, const char *capsstring)
 	if (caps.fps_num && caps.fps_denom) {
 		char fps[100];
 		snprintf(fps, 100, "%d/%d", caps.fps_num, caps.fps_denom);
-		dprintf(2, "now setting fps to '%s'\n", fps);
 		close(fd);
 		fd = -1;
 		return set_fps(devicename, fps);
