@@ -425,7 +425,7 @@ int main(int argc, char **argv)
 		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
 		break;
 	default:
-		dprintf(2, "unknown command '%s'\n", argv[1]);
+		dprintf(2, "not implemented '%s'\n", argv[1]);
 		break;
 	}
 
