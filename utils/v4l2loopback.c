@@ -296,11 +296,12 @@ typedef struct _caps {
 
 static void print_caps(t_caps *caps)
 {
+	char fourcc[4];
 	if (!caps) {
 		dprintf(2, "no caps\n");
 		return;
 	}
-	dprintf(2, "FOURCC : %.4s\n", caps->fourcc);
+	dprintf(2, "FOURCC : %.4s\n", fourcc2str(caps->fourcc, fourcc));
 	dprintf(2, "dimen  : %dx%d\n", caps->width, caps->height);
 	dprintf(2, "fps    : %d/%d\n", caps->fps_num, caps->fps_denom);
 }
