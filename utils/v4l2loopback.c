@@ -7,6 +7,8 @@
 #include <string.h>
 
 #include <sys/ioctl.h>
+#include <linux/videodev2.h>
+
 #include "v4l2loopback.h"
 
 #define CONTROLDEVICE "/dev/v4l2loopback"
@@ -358,10 +360,67 @@ static int get_fps(const char *devicename)
 	printf("%d/%d\n", caps.fps_num, caps.fps_denom);
 	return 0;
 }
-static int set_caps(const char *devicename, const char *fps)
+static int set_caps(const char *devicename, const char *capsstring)
 {
-	dprintf(2, "'set-caps' not implemented yet.\n");
-	return 1;
+	int result = 1;
+	int fd = -1;
+	struct v4l2_format vid_format;
+	struct v4l2_capability vid_caps;
+	t_caps caps;
+	if (parse_caps(capsstring, &caps)) {
+		dprintf(2, "unable to parse format '%s'\n", capsstring);
+		return 1;
+	}
+	print_caps(&caps);
+
+	memset(&vid_format, 0, sizeof(vid_format));
+
+	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	vid_format.fmt.pix.width = caps.width;
+	vid_format.fmt.pix.height = caps.height;
+	vid_format.fmt.pix.pixelformat = caps.fourcc;
+	//vid_format.fmt.pix.sizeimage = w * h * m_image.csize;
+	vid_format.fmt.pix.field = V4L2_FIELD_NONE;
+	//vid_format.fmt.pix.bytesperline = w * m_image.csize;
+	//vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
+	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
+
+	fd = open(devicename, O_RDWR);
+	if (fd < 0) {
+		int devnr = parse_device(devicename);
+		if (devnr >= 0) {
+			char devname[100];
+			snprintf(devname, 99, "/dev/video%d", devnr);
+			devname[99] = 0;
+			fd = open(devname, O_RDWR);
+		}
+	}
+
+	if (fd < 0)
+		goto done;
+
+	if (ioctl(fd, VIDIOC_QUERYCAP, &vid_caps) == -1) {
+		perror("VIDIOC_QUERYCAP");
+	}
+
+	if (ioctl(fd, VIDIOC_S_FMT, &vid_format) == -1) {
+		perror("unable to set requested format");
+		goto done;
+	}
+
+	if (caps.fps_num && caps.fps_denom) {
+		char fps[100];
+		snprintf(fps, 100, "%d/%d", caps.fps_num, caps.fps_denom);
+		dprintf(2, "now setting fps to '%s'\n", fps);
+		close(fd);
+		fd = -1;
+		return set_fps(devicename, fps);
+	}
+
+	result = 0;
+done:
+	close(fd);
+	return result;
 }
 static int get_caps(const char *devicename)
 {
