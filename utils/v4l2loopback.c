@@ -220,6 +220,14 @@ static int query_device(int fd, const char *devicename)
 	}
 	return err;
 }
+static int get_controldevice()
+{
+	int fd = open(CONTROLDEVICE, 0);
+	if (fd < 0) {
+		perror("unable to open control device '" CONTROLDEVICE "'");
+		exit(1);
+	}
+}
 
 static int set_fps(const char *devicename, const char *fps)
 {
@@ -298,7 +306,7 @@ static t_command get_command(const char *command)
 int main(int argc, char **argv)
 {
 	int i;
-	int fd = 0;
+	int fd = -1;
 	int verbose = 0;
 	t_command cmd;
 
@@ -313,17 +321,15 @@ int main(int argc, char **argv)
 
 	if (argc < 2)
 		usage(argv[0]);
-	cmd = get_command(argv[1]);
-	if (_UNKNOWN == cmd) {
+
+	switch (get_command(argv[1])) {
+	case _UNKNOWN:
 		dprintf(2, "unknown command '%s'\n\n", argv[1]);
 		usage(argv[0]);
-	}
-	fd = open(CONTROLDEVICE, 0);
-	if (fd < 0) {
-		perror("unable to open control device '" CONTROLDEVICE "'");
-		return 1;
-	}
-	switch (cmd) {
+		break;
+	case HELP:
+		help(argv[0], 0);
+		break;
 	case ADD:
 		while ((c = getopt(argc - 1, argv + 1, "vn:w:h:x:b:o:")) != -1)
 			switch (c) {
@@ -356,6 +362,7 @@ int main(int argc, char **argv)
 				usage(argv[0]);
 				return 1;
 			}
+		fd = get_controldevice();
 		do {
 			struct v4l2_loopback_config cfg;
 			if ((optind + 1) == argc)
@@ -385,6 +392,7 @@ int main(int argc, char **argv)
 	case DELETE:
 		if (argc == 2)
 			usage(argv[0]);
+		fd = get_controldevice();
 		for (i = 2; i < argc; i++) {
 			delete_device(fd, argv[i]);
 		}
@@ -392,6 +400,7 @@ int main(int argc, char **argv)
 	case QUERY:
 		if (argc == 2)
 			usage(argv[0]);
+		fd = get_controldevice();
 		for (i = 2; i < argc; i++) {
 			query_device(fd, argv[i]);
 		}
@@ -411,9 +420,6 @@ int main(int argc, char **argv)
 			usage(argv[0]);
 		set_timeoutimage(argv[3], argv[2]);
 		break;
-	case HELP:
-		help(argv[0], 0);
-		break;
 	case VERSION:
 		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
 		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
@@ -423,6 +429,8 @@ int main(int argc, char **argv)
 		break;
 	}
 
-	close(fd);
+	if (fd >= 0)
+		close(fd);
+
 	return 0;
 }
