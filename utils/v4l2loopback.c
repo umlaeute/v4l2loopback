@@ -29,11 +29,11 @@ static void help(const char *name, int status)
 	help_shortcmdline(name, "add {<args>} [<device>]");
 	help_shortcmdline(name, "delete <device>");
 	help_shortcmdline(name, "query <device>");
-	help_shortcmdline(name, "set-fps <fps> <device>");
+	help_shortcmdline(name, "set-fps <device> <fps>");
 	help_shortcmdline(name, "get-fps <device>");
-	help_shortcmdline(name, "set-caps <caps> <device>");
+	help_shortcmdline(name, "set-caps <device> <caps>");
 	help_shortcmdline(name, "get-caps <device>");
-	help_shortcmdline(name, "set-timeout-image <image> <device>");
+	help_shortcmdline(name, "set-timeout-image <device> <image>");
 	dprintf(2, "\n\n");
 	dprintf(2, "\n general commands"
 		   "\n ================"
@@ -610,7 +610,7 @@ int main(int argc, char **argv)
 	case SET_FPS:
 		if (argc != 4)
 			usage(argv[0]);
-		set_fps(argv[3], argv[2]);
+		set_fps(argv[2], argv[3]);
 		break;
 	case GET_FPS:
 		if (argc != 3)
@@ -620,7 +620,7 @@ int main(int argc, char **argv)
 	case SET_CAPS:
 		if (argc != 4)
 			usage(argv[0]);
-		set_caps(argv[3], argv[2]);
+		set_caps(argv[2], argv[3]);
 		break;
 	case GET_CAPS:
 		if (argc != 3)
@@ -630,7 +630,7 @@ int main(int argc, char **argv)
 	case SET_TIMEOUTIMAGE:
 		if (argc != 4)
 			usage(argv[0]);
-		set_timeoutimage(argv[3], argv[2]);
+		set_timeoutimage(argv[2], argv[3]);
 		break;
 	case VERSION:
 		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
