@@ -265,10 +265,17 @@ static int set_fps(const char *devicename, const char *fps)
 
 	if (write(fd, _fps, strnlen(_fps, sizeof(_fps))) < 0) {
 		perror("failed to set fps");
+		goto done;
+	}
+
+	result = 0;
+done:
+	close(fd);
+	return result;
+}
 		return 1;
 	}
 	close(fd);
-	return 0;
 }
 
 static int set_caps(const char *devicename, const char *fps)
