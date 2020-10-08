@@ -27,6 +27,8 @@ void help(const char *name, int status)
 	help_shortcmdline(name, "delete <device>");
 	help_shortcmdline(name, "query <device>");
 	help_shortcmdline(name, "set-fps <fps> <device>");
+	help_shortcmdline(name, "set-caps <caps> <device>");
+	help_shortcmdline(name, "set-timeout-image <image> <device>");
 	dprintf(2, "\n\n");
 	dprintf(2, "\n general commands"
 		   "\n ================"
