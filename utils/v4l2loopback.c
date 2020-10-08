@@ -17,16 +17,17 @@
 #define MARK()
 #endif
 
+static void help_shortcmdline(const char*program, const char*argstring) {
+	dprintf(2, "\n       %s %s", program, argstring);
+}
 void help(const char *name, int status)
 {
-	dprintf(2,
-		"usage: %s [general commands]"
-		"\n       %s add {<args>} [<device>]"
-		"\n       %s delete <device>"
-		"\n       %s query <device>"
-		"\n       %s set-fps <fps> <device>"
-		"\n\n",
-		name, name, name, name, name);
+	dprintf(2, "usage: %s [general commands]");
+	help_shortcmdline(name, "add {<args>} [<device>]");
+	help_shortcmdline(name, "delete <device>");
+	help_shortcmdline(name, "query <device>");
+	help_shortcmdline(name, "set-fps <fps> <device>");
+	dprintf(2, "\n\n");
 	dprintf(2, "\n general commands"
 		   "\n ================"
 		   "\n\t-v : print version and exit"
