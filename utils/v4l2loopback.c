@@ -252,6 +252,7 @@ static int open_sysfs_file(const char *devicename, const char *filename,
 		perror("unable to open /sys-device");
 		return -1;
 	}
+	//dprintf(2, "%s\n", sysdev);
 	return fd;
 }
 
@@ -372,18 +373,8 @@ static int set_caps(const char *devicename, const char *capsstring)
 		return 1;
 	}
 	//print_caps(&caps);
-	memset(&vid_format, 0, sizeof(vid_format));
 
-	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	vid_format.fmt.pix.width = caps.width;
-	vid_format.fmt.pix.height = caps.height;
-	vid_format.fmt.pix.pixelformat = caps.fourcc;
-	//vid_format.fmt.pix.sizeimage = w * h * m_image.csize;
-	vid_format.fmt.pix.field = V4L2_FIELD_NONE;
-	//vid_format.fmt.pix.bytesperline = w * m_image.csize;
-	//vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_JPEG;
-	vid_format.fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
-
+	/* now open up the device */
 	fd = open(devicename, O_RDWR);
 	if (fd < 0) {
 		int devnr = parse_device(devicename);
@@ -394,19 +385,37 @@ static int set_caps(const char *devicename, const char *capsstring)
 			fd = open(devname, O_RDWR);
 		}
 	}
-
 	if (fd < 0)
 		goto done;
 
+	/* check whther this is actually a video-device */
 	if (ioctl(fd, VIDIOC_QUERYCAP, &vid_caps) == -1) {
 		perror("VIDIOC_QUERYCAP");
+		goto done;
 	}
+
+	/* try to get the default values for the format first */
+	memset(&vid_format, 0, sizeof(vid_format));
+
+	vid_format.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	if (ioctl(fd, VIDIOC_G_FMT, &vid_format) == -1) {
+		perror("VIDIOC_G_FMT");
+	}
+
+	/* and set those caps that we have */
+	if (caps.width)
+		vid_format.fmt.pix.width = caps.width;
+	if (caps.height)
+		vid_format.fmt.pix.height = caps.height;
+	if (caps.fourcc)
+		vid_format.fmt.pix.pixelformat = caps.fourcc;
 
 	if (ioctl(fd, VIDIOC_S_FMT, &vid_format) == -1) {
 		perror("unable to set requested format");
 		goto done;
 	}
 
+	/* finally, try setting the fps */
 	if (caps.fps_num && caps.fps_denom) {
 		char fps[100];
 		snprintf(fps, 100, "%d/%d", caps.fps_num, caps.fps_denom);
