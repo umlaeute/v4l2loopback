@@ -305,6 +305,25 @@ static void print_caps(t_caps *caps)
 	dprintf(2, "dimen  : %dx%d\n", caps->width, caps->height);
 	dprintf(2, "fps    : %d/%d\n", caps->fps_num, caps->fps_denom);
 }
+static int parse_caps(const char *buffer, t_caps *caps)
+{
+	char fourcc[5];
+	memset(caps, 0, sizeof(*caps));
+	memset(fourcc, 0, sizeof(*fourcc));
+
+	if (!(buffer && *buffer))
+		return 1;
+
+	if (sscanf(buffer, "%4c:%dx%d@%d/%d", &fourcc, &caps->width,
+		   &caps->height, &caps->fps_num, &caps->fps_denom) <= 0) {
+		if (sscanf(buffer, "%4c:%dx%d", &fourcc, &caps->width,
+			   &caps->height, &caps->fps_num) <= 0) {
+			dprintf(2, "oops...%s\n", buffer);
+		}
+	}
+	caps->fourcc = str2fourcc(fourcc);
+	return (0 == caps->fourcc);
+}
 static int read_caps(const char *devicename, t_caps *caps)
 {
 	int result = 1;
@@ -320,13 +339,9 @@ static int read_caps(const char *devicename, t_caps *caps)
 	_caps[100 - 1] = 0;
 	//dprintf(2, "fps: %s\n", _caps);
 	if (caps) {
-		char _fourcc[5];
-		memset(caps, 0, sizeof(*caps));
-
-		if (sscanf(_caps, "%4c:%dx%d@%d/%d", &_fourcc, &caps->width,
-			   &caps->height, &caps->fps_num,
-			   &caps->fps_denom) > 0) {
-			caps->fourcc = str2fourcc(_fourcc);
+		if (parse_caps(_caps, caps)) {
+			dprintf(2, "unable to parse format '%s'\n", _caps);
+			goto done;
 		}
 	}
 	result = 0;
