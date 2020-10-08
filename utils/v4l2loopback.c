@@ -21,6 +21,34 @@
 #define MARK()
 #endif
 
+
+static char*which(char*outbuf, size_t bufsize, const char*filename) {
+  struct stat statbuf;
+  char*paths, *saveptr=NULL;
+  if (filename && '/' == *filename) {
+    /* an absolute filename */
+    int err = stat(filename, &statbuf);
+    printf("State(%s) -> %d\n", filename, err);
+    if (!err) {
+      snprintf(outbuf, bufsize, "%s", filename);
+      return outbuf;
+    }
+    return NULL;
+  }
+  for (paths = getenv("PATH"); ; paths = NULL) {
+    char*path = strtok_r(paths, ":", &saveptr);
+    int err;
+    if (path == NULL)
+      return NULL;
+    snprintf(outbuf, bufsize, "%s/%s", path, filename);
+    err = stat(outbuf, &statbuf);
+    printf("state(%s) -> %d\n", outbuf, err);
+    if (!err)
+      return outbuf;
+  }
+  return NULL;
+}
+
 static void help_shortcmdline(const char *program, const char *argstring)
 {
 	dprintf(2, "\n       %s %s", program, argstring);
@@ -465,6 +493,11 @@ static int set_timeoutimage(const char *devicename, const char *imagefile)
 {
 	int timeout = 0;
 	char imagearg[1024], devicearg[1024];
+        char exe[1024];
+        if (!which(exe, 1024, "gst-launch-1.0")) {
+		dprintf(2, "cannot find gst-launch-1.0 - is it installed???\n");
+                return 1;
+        }
 
 	int i;
 	char *args[] = { "uridecodebin",
@@ -490,7 +523,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile)
 	args[1] = imagearg;
 	args[14] = devicearg;
 
-	i = execv("gst-launch-1.0", args);
+	i = execv(exe, args);
 
 	/* finally check the timeout */
 	if (!timeout) {
