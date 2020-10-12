@@ -329,7 +329,7 @@ static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeoutimageio = {
 
 /* module structures */
 struct v4l2loopback_private {
-	int devicenr;
+	int device_nr;
 };
 
 /* TODO(vasaka) use typenames which are common to kernel, but first find out if
@@ -639,34 +639,35 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 /* global module data */
 /* find a device based on it's device-number (e.g. '3' for /dev/video3) */
 struct v4l2loopback_lookup_cb_data {
-	int dev_nr;
-	struct v4l2_loopback_device *dev;
+	int device_nr;
+	struct v4l2_loopback_device *device;
 };
 static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
 {
-	struct v4l2_loopback_device *dev = ptr;
+	struct v4l2_loopback_device *device = ptr;
 	struct v4l2loopback_lookup_cb_data *cbdata = data;
-	if (cbdata && dev && dev->vdev) {
-		if (dev->vdev->num == cbdata->dev_nr) {
-			cbdata->dev = dev;
-			cbdata->dev_nr = id;
+	if (cbdata && device && device->vdev) {
+		if (device->vdev->num == cbdata->device_nr) {
+			cbdata->device = device;
+			cbdata->device_nr = id;
 			return 1;
 		}
 	}
 	return 0;
 }
-static int v4l2loopback_lookup(int device_nr, struct v4l2_loopback_device **dev)
+static int v4l2loopback_lookup(int device_nr,
+			       struct v4l2_loopback_device **device)
 {
 	struct v4l2loopback_lookup_cb_data data = {
-		.dev_nr = device_nr,
-		.dev = NULL,
+		.device_nr = device_nr,
+		.device = NULL,
 	};
 	int err = idr_for_each(&v4l2loopback_index_idr, &v4l2loopback_lookup_cb,
 			       &data);
 	if (1 == err) {
-		if (dev)
-			*dev = data.dev;
-		return data.dev_nr;
+		if (device)
+			*device = data.device;
+		return data.device_nr;
 	}
 	return -ENODEV;
 }
@@ -675,7 +676,7 @@ static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 	struct video_device *loopdev = to_video_device(cd);
 	struct v4l2loopback_private *ptr =
 		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
-	int nr = ptr->devicenr;
+	int nr = ptr->device_nr;
 
 	return idr_find(&v4l2loopback_index_idr, nr);
 }
@@ -685,7 +686,7 @@ static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 	struct video_device *loopdev = video_devdata(f);
 	struct v4l2loopback_private *ptr =
 		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
-	int nr = ptr->devicenr;
+	int nr = ptr->device_nr;
 
 	return idr_find(&v4l2loopback_index_idr, nr);
 }
@@ -731,15 +732,15 @@ static int vidioc_querycap(struct file *file, void *priv,
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 			       sizeof(cap->card) :
 			       sizeof(dev->card_label);
-	int devnr =
+	int device_nr =
 		((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
-			->devicenr;
+			->device_nr;
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
-		 "platform:v4l2loopback-%03d", devnr);
+		 "platform:v4l2loopback-%03d", device_nr);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
 	/* since 3.1.0, the v4l2-core system is supposed to set the version */
@@ -2393,8 +2394,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	MARK();
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
 
-	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))->devicenr =
-		nr;
+	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
+		->device_nr = nr;
 
 	init_vdev(dev->vdev, nr);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
@@ -2516,7 +2517,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_config conf;
 	struct v4l2_loopback_config *confptr = &conf;
-	int devnr;
+	int device_nr;
 	int ret;
 
 	ret = mutex_lock_killable(&v4l2loopback_ctl_mutex);
@@ -2536,9 +2537,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 				break;
 		} else
 			confptr = NULL;
-		ret = v4l2_loopback_add(confptr, &devnr);
+		ret = v4l2_loopback_add(confptr, &device_nr);
 		if (ret >= 0)
-			ret = devnr;
+			ret = device_nr;
 		break;
 		/* remove a v4l2loopback device (both capture and output) */
 	case V4L2LOOPBACK_CTL_REMOVE:
@@ -2562,23 +2563,24 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
 		    0)
 			break;
-		devnr = (conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
+		device_nr =
+			(conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
 		MARK();
 		/* get the device from either capture_nr or output_nr (whatever is valid) */
-		if ((ret = v4l2loopback_lookup(devnr, &dev)) < 0)
+		if ((ret = v4l2loopback_lookup(device_nr, &dev)) < 0)
 			break;
 		MARK();
 		/* if we got the device from output_nr and there is a valid capture_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
-		if ((devnr != conf.capture_nr) && (conf.capture_nr >= 0) &&
+		if ((device_nr != conf.capture_nr) && (conf.capture_nr >= 0) &&
 		    (ret != v4l2loopback_lookup(conf.capture_nr, 0)))
 			break;
 		MARK();
 		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
-		if ((devnr != conf.output_nr) && (conf.output_nr >= 0) &&
+		if ((device_nr != conf.output_nr) && (conf.output_nr >= 0) &&
 		    (ret != v4l2loopback_lookup(conf.output_nr, 0)))
 			break;
 		MARK();
