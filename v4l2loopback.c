@@ -1118,7 +1118,7 @@ static int vidioc_s_fmt_overlay(struct file *file, void *priv,
 static int vidioc_g_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
-	/* do not care about type of opener, hope this enums would always be
+	/* do not care about type of opener, hope these enums would always be
 	 * compatible */
 	struct v4l2_loopback_device *dev;
 	MARK();
@@ -2038,7 +2038,7 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 
 	dev = v4l2loopback_getdevice(file);
 
-	/* there's at least one writer, so don'stop announcing output capabilities */
+	/* there's at least one writer, so don't stop announcing output capabilities */
 	dev->ready_for_output = 0;
 
 	if (!dev->ready_for_capture) {
@@ -2219,7 +2219,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 #endif
 
 		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
-	 * set to VFL_DIR_M2M for bidrectional devices */
+	 * set to VFL_DIR_M2M for bidirectional devices */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 	vdev->vfl_dir = VFL_DIR_M2M;
 #endif
@@ -2300,7 +2300,6 @@ static void timeout_timer_clb(unsigned long nr)
 		 ((conf->confmember default_condition) ? (default_value) :     \
 							 (conf->confmember)) : \
 		 default_value)
-#define DEVICE2CONF(member, confmembmer) conf->confmember = dev->member
 
 static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
