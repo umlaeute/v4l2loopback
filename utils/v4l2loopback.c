@@ -56,7 +56,7 @@ static void help_shortcmdline(const char *program, const char *argstring)
 static void help(const char *name, int status)
 {
 	dprintf(2, "usage: %s [general commands]", name);
-	help_shortcmdline(name, "add {<args>} [<device>]");
+	help_shortcmdline(name, "add {<args>} [<device> [<outputdevice>]]");
 	help_shortcmdline(name, "delete <device>");
 	help_shortcmdline(name, "query <device>");
 	help_shortcmdline(name, "set-fps <device> <fps>");
@@ -84,6 +84,7 @@ static void help(const char *name, int status)
 		"\n"
 		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same)."
 		"\n\n");
 	dprintf(2,
 		"\n deleting devices ('delete')"
@@ -168,19 +169,19 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 	MARK();
 }
 
-static struct v4l2_loopback_config *make_conf(struct v4l2_loopback_config *cfg,
-					      const char *label, int max_width,
-					      int max_height,
-					      int exclusive_caps, int buffers,
-					      int openers, int device)
+static struct v4l2_loopback_config *
+make_conf(struct v4l2_loopback_config *cfg, const char *label, int max_width,
+	  int max_height, int exclusive_caps, int buffers, int openers,
+	  int capture_device, int output_device)
 {
 	if (!cfg)
 		return 0;
 	if (!label && max_width <= 0 && max_height <= 0 && exclusive_caps < 0 &&
-	    buffers <= 0 && openers <= 0 && device < 0)
+	    buffers <= 0 && openers <= 0 && capture_device < 0 &&
+	    output_device < 0)
 		return 0;
-	cfg->capture_nr = -1;
-	cfg->output_nr = device;
+	cfg->capture_nr = capture_device;
+	cfg->output_nr = output_device;
 	cfg->card_label[0] = 0;
 	if (label)
 		snprintf(cfg->card_label, 32, "%s", label);
@@ -193,14 +194,14 @@ static struct v4l2_loopback_config *make_conf(struct v4l2_loopback_config *cfg,
 	return cfg;
 }
 
-static void add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
+static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 {
 	MARK();
 	int ret = ioctl(fd, V4L2LOOPBACK_CTL_ADD, cfg);
 	MARK();
 	if (ret < 0) {
 		perror("failed to create device");
-		return;
+		return 1;
 	}
 	MARK();
 
@@ -218,6 +219,7 @@ static void add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		print_conf(&config);
 		MARK();
 	}
+	return (!ret);
 }
 
 static int delete_device(int fd, const char *devicename)
@@ -636,28 +638,26 @@ int main(int argc, char **argv)
 		fd = open_controldevice();
 		do {
 			struct v4l2_loopback_config cfg;
-			if ((optind + 1) == argc)
-				add_device(fd,
-					   make_conf(&cfg, label, max_width,
-						     max_height, exclusive_caps,
-						     buffers, openers, -1),
-					   verbose);
-			for (i = optind + 1; i < argc; i++) {
-				int dev = parse_device(argv[i]);
-				if (dev < 0) {
-					dprintf(2,
-						"skipping creation of illegal device '%s'\n",
-						argv[1]);
-				} else
-					add_device(fd,
-						   make_conf(&cfg, label,
-							     max_width,
-							     max_height,
-							     exclusive_caps,
-							     buffers, openers,
-							     dev),
-						   verbose);
+			int capture_nr = -1, output_nr = -1;
+			if ((optind + 1) == argc) {
+				/* no device given: pick some */
+			} else if ((optind + 2) == argc) {
+				/* single device given: use it for both input and output */
+				capture_nr = output_nr =
+					parse_device(argv[optind + 1]);
+			} else if ((optind + 3) == argc) {
+				/* two devices given: capture_device and output_device */
+				capture_nr = parse_device(argv[optind + 1]);
+				output_nr = parse_device(argv[optind + 2]);
+			} else {
+				usage(argv[0]);
 			}
+			return add_device(fd,
+					  make_conf(&cfg, label, max_width,
+						    max_height, exclusive_caps,
+						    buffers, openers,
+						    capture_nr, output_nr),
+					  verbose);
 		} while (0);
 		break;
 	case DELETE:
