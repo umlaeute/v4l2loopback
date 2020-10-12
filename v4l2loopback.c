@@ -2529,6 +2529,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	default:
 		ret = -ENOSYS;
 		break;
+		/* add a v4l2loopback device (pair), based on the user-provided specs */
 	case V4L2LOOPBACK_CTL_ADD:
 		if (parm) {
 			if ((ret = copy_from_user(&conf, (void *)parm,
@@ -2540,6 +2541,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		if (ret >= 0)
 			ret = devnr;
 		break;
+		/* remove a v4l2loopback device (both capture and output) */
 	case V4L2LOOPBACK_CTL_REMOVE:
 		ret = v4l2loopback_lookup((int)parm, &dev);
 		if (ret >= 0 && dev) {
@@ -2552,6 +2554,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			ret = 0;
 		};
 		break;
+		/* get information for a loopback device.
+                 * this is mostly about limits (which cannot be queried directly with  VIDIOC_G_FMT and friends
+                 */
 	case V4L2LOOPBACK_CTL_QUERY:
 		if (!parm)
 			break;
@@ -2560,18 +2565,26 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			break;
 		devnr = (conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
 		MARK();
+		/* get the device from either capture_nr or output_nr (whatever is valid) */
 		if ((ret = v4l2loopback_lookup(devnr, &dev)) < 0)
 			break;
 		MARK();
+		/* if we got the device from output_nr and there is a valid capture_nr,
+                 * make sure that both refer to the same device (or bail out)
+                 */
 		if ((devnr != conf.capture_nr) && (conf.capture_nr >= 0) &&
 		    (ret != v4l2loopback_lookup(conf.capture_nr, 0)))
 			break;
 		MARK();
+		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
+                 * make sure that both refer to the same device (or bail out)
+                 */
 		if ((devnr != conf.output_nr) && (conf.output_nr >= 0) &&
 		    (ret != v4l2loopback_lookup(conf.output_nr, 0)))
 			break;
 		MARK();
 
+		/* v4l2_loopback_config identified a single device, so fetch the data */
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
 		MARK();

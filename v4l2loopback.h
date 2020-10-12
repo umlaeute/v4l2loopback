@@ -20,7 +20,7 @@ struct v4l2_loopback_config {
 	/** 
          * the device-number (/dev/video<nr>)
          * V4L2LOOPBACK_CTL_ADD:
-         * setting this to "-1" will allocate an available one
+         * setting this to a value<0, will allocate an available one
          * if nr>=0 and the device already exists, the ioctl will EEXIST
          * if output_nr and capture_nr are the same, only a single device will be created
          *
@@ -82,7 +82,7 @@ struct v4l2_loopback_config {
 
 /* a pointer to a (struct v4l2_loopback_config) that has output_nr and/or capture_nr set
  * (the two values must either refer to video-devices associated with the same loopback device
- *  or one of them must be -1
+ *  or exactly one of them must be <0
  */
 #define V4L2LOOPBACK_CTL_QUERY 0x4C82
 
