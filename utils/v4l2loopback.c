@@ -48,10 +48,26 @@ static char *which(char *outbuf, size_t bufsize, const char *filename)
 	return NULL;
 }
 
+static pid_t pid;
+void exec_cleanup(int signal)
+{
+	if (pid) {
+		switch (signal) {
+		default:
+			break;
+		case SIGINT:
+			kill(pid, SIGTERM);
+			break;
+		}
+	}
+
+	while (waitpid((pid_t)(-1), 0, WNOHANG) > 0) {
+	}
+}
 static int my_execv(char *const *cmdline)
 {
 	char exe[1024];
-	pid_t pid;
+	//pid_t pid;
 	int res = 0;
 	char *const *argp = cmdline;
 	if (!which(exe, 1024, cmdline[0])) {
@@ -82,7 +98,10 @@ static int my_execv(char *const *cmdline)
 	} else if (pid > 0) { // pid>0, parent, wait for child
 		int status = 0;
 		int waitoptions = 0;
+		signal(SIGCHLD, exec_cleanup);
+		signal(SIGINT, exec_cleanup);
 		waitpid(pid, &status, waitoptions);
+		pid = 0;
 		if (WIFEXITED(status))
 			return WEXITSTATUS(status);
 		return 0;
