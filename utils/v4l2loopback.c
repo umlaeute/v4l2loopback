@@ -1,5 +1,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -45,6 +46,51 @@ static char *which(char *outbuf, size_t bufsize, const char *filename)
 			return outbuf;
 	}
 	return NULL;
+}
+
+static int my_execv(char *const *cmdline)
+{
+	char exe[1024];
+	pid_t pid;
+	int res = 0;
+	char *const *argp = cmdline;
+	if (!which(exe, 1024, cmdline[0])) {
+		dprintf(2, "cannot find %s - is it installed???\n", cmdline[0]);
+		return 1;
+	}
+#if 0
+	dprintf(2, "%s:", exe);
+	while (*argp) {
+		dprintf(2, " %s", *argp++);
+	};
+	dprintf(2, "\n");
+#endif
+
+	pid = fork();
+	if (pid == 0) {
+		res = execv(exe, cmdline);
+		if (res < 0) {
+			dprintf(2, "ERROR running helper program (%d, %d)", res,
+				errno);
+			dprintf(2, "failed program was:\n\t");
+			while (*cmdline)
+				dprintf(2, " %s", *cmdline++);
+			dprintf(2, "\n");
+			exit(0);
+		}
+		exit(0);
+	} else if (pid > 0) { // pid>0, parent, wait for child
+		int status = 0;
+		int waitoptions = 0;
+		waitpid(pid, &status, waitoptions);
+		if (WIFEXITED(status))
+			return WEXITSTATUS(status);
+		return 0;
+	} else { //pid < 0, error
+		dprintf(2, "ERROR: child fork failed\n");
+		exit(1);
+	}
+	return 0;
 }
 
 static void help_shortcmdline(const char *program, const char *argstring)
@@ -493,14 +539,8 @@ static int set_timeoutimage(const char *devicename, const char *imagefile)
 {
 	int timeout = 0;
 	char imagearg[1024], devicearg[1024];
-	char exe[1024];
-	if (!which(exe, 1024, "gst-launch-1.0")) {
-		dprintf(2, "cannot find gst-launch-1.0 - is it installed???\n");
-		return 1;
-	}
-
-	int i;
-	char *args[] = { "uridecodebin",
+	char *args[] = { "gst-launch-1.0",
+			 "uridecodebin",
 			 0,
 			 "!",
 			 "videoconvert",
@@ -516,14 +556,18 @@ static int set_timeoutimage(const char *devicename, const char *imagefile)
 			 "show-preroll-frame=false",
 			 0,
 			 0 };
+
 	snprintf(imagearg, 1024, "uri=file://%s", imagefile);
 	snprintf(devicearg, 1024, "device=%s", devicename);
 	imagearg[1024] = devicearg[1023] = 0;
 
-	args[1] = imagearg;
-	args[14] = devicearg;
+	args[2] = imagearg;
+	args[15] = devicearg;
 
-	i = execv(exe, args);
+	if (my_execv(args)) {
+		dprintf(2, "ERROR: setting time-out image failed\n");
+		return 1;
+	}
 
 	/* finally check the timeout */
 	if (!timeout) {
