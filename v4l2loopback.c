@@ -1961,6 +1961,8 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 		if (v4l2_event_pending(&opener->fh))
 			ret_mask |= EPOLLPRI;
 		break;
+	default:
+		break;
 	}
 
 	MARK();
