@@ -1811,8 +1811,7 @@ static int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
 				  const struct v4l2_event_subscription *sub)
 {
-	switch (sub->type)
-	{
+	switch (sub->type) {
 	case V4L2_EVENT_CTRL:
 		return v4l2_ctrl_subscribe_event(fh, sub);
 	}
