@@ -618,6 +618,7 @@ static int get_caps(const char *devicename)
 }
 static int set_timeoutimage(const char *devicename, const char *imagefile)
 {
+	int fd = -1;
 	int timeout = 0;
 	char imagearg[1024], devicearg[1024];
 	char *args[] = { "gst-launch-1.0",
@@ -645,17 +646,37 @@ static int set_timeoutimage(const char *devicename, const char *imagefile)
 	args[2] = imagearg;
 	args[15] = devicearg;
 
-	if (my_execv(args)) {
-		dprintf(2, "ERROR: setting time-out image failed\n");
-		return 1;
+	fd = open(devicename, O_RDWR);
+	if (fd >= 0) {
+		set_control_i(fd, "timeout_image_io", 1);
 	}
 
-	/* finally check the timeout */
-	if (!timeout) {
-		dprintf(2,
-			"Timeout is currently disabled; you can set it to some positive value, e.g.:\n");
-		dprintf(2, "    $  v4l2-ctl -d %s -c timeout=3000\n",
-			devicename);
+	dprintf(2,
+		"v======================================================================v\n");
+	if (my_execv(args)) {
+		/*
+          dprintf(2, "ERROR: setting time-out image failed\n");
+          return 1;
+          */
+	}
+	dprintf(2,
+		"^======================================================================^\n");
+
+	if (fd >= 0) {
+		/* finally check the timeout */
+		if (timeout < 0) {
+			timeout = get_control_i(fd, "timeout");
+		} else {
+			timeout = set_control_i(fd, "timeout", timeout);
+		}
+		if (timeout <= 0) {
+			dprintf(2,
+				"Timeout is currently disabled; you can set it to some positive value, e.g.:\n");
+			dprintf(2, "    $  v4l2-ctl -d %s -c timeout=3000\n",
+				devicename);
+		}
+
+		close(fd);
 	}
 }
 
