@@ -144,6 +144,61 @@ unsigned int str2fourcc(char buf[4])
 /* helper functions */
 /********************/
 
+static unsigned int _get_control_id(int fd, const char *control)
+{
+	const size_t length = strnlen(control, 1024);
+	const unsigned next = V4L2_CTRL_FLAG_NEXT_CTRL;
+	struct v4l2_query_ext_ctrl qctrl;
+	memset(&qctrl, 0, sizeof(qctrl));
+	while (ioctl(fd, VIDIOC_QUERY_EXT_CTRL, &qctrl) == 0) {
+		if (!strncmp(qctrl.name, control, length))
+			return qctrl.id;
+		qctrl.id |= next;
+	}
+	for (int id = V4L2_CID_USER_BASE; id < V4L2_CID_LASTP1; id++) {
+		qctrl.id = id;
+		if (ioctl(fd, VIDIOC_QUERY_EXT_CTRL, &qctrl) == 0) {
+			if (!strncmp(qctrl.name, control, length))
+				return qctrl.id;
+		}
+	}
+	for (qctrl.id = V4L2_CID_PRIVATE_BASE;
+	     ioctl(fd, VIDIOC_QUERY_EXT_CTRL, &qctrl) == 0; qctrl.id++) {
+		if (!strncmp(qctrl.name, control, length)) {
+			unsigned int id = qctrl.id;
+			return id;
+		}
+	}
+	return 0;
+}
+
+static int set_control_i(int fd, const char *control, int value)
+{
+	struct v4l2_control ctrl;
+	memset(&ctrl, 0, sizeof(ctrl));
+	ctrl.id = _get_control_id(fd, control);
+	ctrl.value = value;
+	if (ctrl.id && ioctl(fd, VIDIOC_S_CTRL, &ctrl) == 0) {
+		int value = ctrl.value;
+		return value;
+	}
+	return 0;
+}
+static int get_control_i(int fd, const char *control)
+{
+	struct v4l2_control ctrl;
+	memset(&ctrl, 0, sizeof(ctrl));
+	ctrl.id = _get_control_id(fd, control);
+
+	if (ctrl.id && ioctl(fd, VIDIOC_G_CTRL, &ctrl) == 0) {
+		int value = ctrl.value;
+		return value;
+	}
+	return 0;
+}
+
+/********************/
+/* main logic       */
 static void help_shortcmdline(const char *program, const char *argstring)
 {
 	dprintf(2, "\n       %s %s", program, argstring);
