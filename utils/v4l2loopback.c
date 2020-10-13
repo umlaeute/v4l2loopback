@@ -632,7 +632,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "imagefreeze",
 			 "!",
 			 "identity",
-			 "error-after=2",
+			 "error-after=3",
 			 "!",
 			 "v4l2sink",
 			 "show-preroll-frame=false",
@@ -642,7 +642,6 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 	snprintf(imagearg, 1024, "uri=file://%s", imagefile);
 	snprintf(devicearg, 1024, "device=%s", devicename);
 	imagearg[1024] = devicearg[1023] = 0;
-
 	args[2] = imagearg;
 	args[15] = devicearg;
 
