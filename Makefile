@@ -34,9 +34,10 @@ MODULE_OPTIONS = devices=2
 
 # we don't control the .ko file dependencies, as it is done by kernel
 # makefiles. therefore v4l2loopback.ko is a phony target actually
-.PHONY: v4l2loopback.ko
+.PHONY: v4l2loopback.ko utils
 
-all: v4l2loopback.ko
+all: v4l2loopback.ko utils
+
 v4l2loopback: v4l2loopback.ko
 v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
@@ -73,6 +74,10 @@ modprobe: v4l2loopback.ko
 
 man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 	help2man -N --name "control v4l2 loopback devices" $^ > $@
+
+utils: utils/v4l2loopback
+utils/v4l2loopback: utils/v4l2loopback.c
+	$(MAKE) -C utils
 
 .clang-format:
 	curl "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.clang-format" > $@
