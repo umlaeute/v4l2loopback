@@ -616,10 +616,10 @@ static int get_caps(const char *devicename)
 	}
 	return 0;
 }
-static int set_timeoutimage(const char *devicename, const char *imagefile)
+static int set_timeoutimage(const char *devicename, const char *imagefile,
+			    int timeout)
 {
 	int fd = -1;
-	int timeout = 0;
 	char imagearg[1024], devicearg[1024];
 	char *args[] = { "gst-launch-1.0",
 			 "uridecodebin",
@@ -864,14 +864,14 @@ int main(int argc, char **argv)
 		get_caps(argv[2]);
 		break;
 	case SET_TIMEOUTIMAGE:
-          /* TODO: add a "-t" flag for setting the timeout directly */
+		/* TODO: add a "-t" flag for setting the timeout directly */
 		if (argc != 4)
 			usage(argv[0]);
 		if (called_deprecated(argv[2], argv[3], argv[0],
 				      "set-timeout-image", "image")) {
-			set_timeoutimage(argv[3], argv[2]);
+			set_timeoutimage(argv[3], argv[2], -1);
 		} else {
-			set_timeoutimage(argv[2], argv[3]);
+			set_timeoutimage(argv[2], argv[3], -1);
 		}
 		break;
 	case VERSION:
