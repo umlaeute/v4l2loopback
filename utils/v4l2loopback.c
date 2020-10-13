@@ -535,33 +535,33 @@ static int get_fps(const char *devicename)
 static int set_caps(const char *devicename, const char *capsstring)
 {
 	int result = 1;
-	int fd = -1;
+	int fd = open_videodevice(devicename, O_RDWR);
 	struct v4l2_format vid_format;
 	struct v4l2_capability vid_caps;
 	t_caps caps;
-	if (parse_caps(capsstring, &caps)) {
-		dprintf(2, "unable to parse format '%s'\n", capsstring);
-		return 1;
-	}
-	//print_caps(&caps);
 
 	/* now open up the device */
-	fd = open(devicename, O_RDWR);
-	if (fd < 0) {
-		int devnr = parse_device(devicename);
-		if (devnr >= 0) {
-			char devname[100];
-			snprintf(devname, 99, "/dev/video%d", devnr);
-			devname[99] = 0;
-			fd = open(devname, O_RDWR);
-		}
-	}
 	if (fd < 0)
 		goto done;
 
-	/* check whther this is actually a video-device */
+	if (!strncmp("any", capsstring, 4)) {
+		/* skip caps-parsing */
+	} else if (parse_caps(capsstring, &caps)) {
+		dprintf(2, "unable to parse format '%s'\n", capsstring);
+		goto done;
+	}
+	//print_caps(&caps);
+
+	/* check whether this is actually a video-device */
 	if (ioctl(fd, VIDIOC_QUERYCAP, &vid_caps) == -1) {
 		perror("VIDIOC_QUERYCAP");
+		goto done;
+	}
+
+	if (!strncmp("any", capsstring, 4)) {
+		set_control_i(fd, "keep_format", 0);
+		//set_control_i(fd, "sustain_framerate", 0);
+		result = 0;
 		goto done;
 	}
 
@@ -586,18 +586,26 @@ static int set_caps(const char *devicename, const char *capsstring)
 		goto done;
 	}
 
+	set_control_i(fd, "keep_format", 1);
+
 	/* finally, try setting the fps */
 	if (caps.fps_num && caps.fps_denom) {
 		char fps[100];
+		int didit;
 		snprintf(fps, 100, "%d/%d", caps.fps_num, caps.fps_denom);
+		didit = set_fps(devicename, fps);
+		if (!didit) {
+			set_control_i(fd, "sustain_framerate", 1);
+		}
 		close(fd);
 		fd = -1;
-		return set_fps(devicename, fps);
+		return didit;
 	}
 
 	result = 0;
 done:
-	close(fd);
+	if (fd >= 0)
+		close(fd);
 	return result;
 }
 static int get_caps(const char *devicename)
