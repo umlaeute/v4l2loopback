@@ -396,6 +396,20 @@ static int query_device(int fd, const char *devicename)
 	}
 	return err;
 }
+static int open_videodevice(const char *devicename, int mode)
+{
+	int fd = open(devicename, mode);
+	if (fd < 0) {
+		int devnr = parse_device(devicename);
+		if (devnr >= 0) {
+			char devname[100];
+			snprintf(devname, 99, "/dev/video%d", devnr);
+			devname[99] = 0;
+			fd = open(devname, mode);
+		}
+	}
+	return fd;
+}
 static int open_controldevice()
 {
 	int fd = open(CONTROLDEVICE, 0);
@@ -645,7 +659,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 	args[2] = imagearg;
 	args[15] = devicearg;
 
-	fd = open(devicename, O_RDWR);
+	fd = open_videodevice(devicename, O_RDWR);
 	if (fd >= 0) {
 		set_control_i(fd, "timeout_image_io", 1);
 	}
