@@ -574,6 +574,20 @@ static t_command get_command(const char *command)
 	return _UNKNOWN;
 }
 
+static int called_deprecated(const char *device, const char *argument,
+			     const char *programname, const char *cmdname,
+			     const char *argname)
+{
+	if (parse_device(device) < 0 && parse_device(argument) >= 0) {
+		dprintf(2, "WARNING: '%s %s <%s> <image>' is deprecated!\n",
+			programname, cmdname, argname);
+		dprintf(2, "WARNING: use '%s %s <device> <%s>' instead.\n",
+			programname, cmdname, argname);
+		return 1;
+	}
+	return 0;
+}
+
 int main(int argc, char **argv)
 {
 	int i;
@@ -677,7 +691,11 @@ int main(int argc, char **argv)
 	case SET_FPS:
 		if (argc != 4)
 			usage(argv[0]);
-		set_fps(argv[2], argv[3]);
+		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
+				      "fps")) {
+			set_fps(argv[3], argv[2]);
+		} else
+			set_fps(argv[2], argv[3]);
 		break;
 	case GET_FPS:
 		if (argc != 3)
@@ -687,7 +705,12 @@ int main(int argc, char **argv)
 	case SET_CAPS:
 		if (argc != 4)
 			usage(argv[0]);
-		set_caps(argv[2], argv[3]);
+		if (called_deprecated(argv[2], argv[3], argv[0], "set-caps",
+				      "caps")) {
+			set_caps(argv[3], argv[2]);
+		} else {
+			set_caps(argv[2], argv[3]);
+		}
 		break;
 	case GET_CAPS:
 		if (argc != 3)
@@ -697,7 +720,12 @@ int main(int argc, char **argv)
 	case SET_TIMEOUTIMAGE:
 		if (argc != 4)
 			usage(argv[0]);
-		set_timeoutimage(argv[2], argv[3]);
+		if (called_deprecated(argv[2], argv[3], argv[0],
+				      "set-timeout-image", "image")) {
+			set_timeoutimage(argv[3], argv[2]);
+		} else {
+			set_timeoutimage(argv[2], argv[3]);
+		}
 		break;
 	case VERSION:
 		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
