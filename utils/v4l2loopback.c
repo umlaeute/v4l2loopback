@@ -28,7 +28,6 @@ static char *which(char *outbuf, size_t bufsize, const char *filename)
 	if (filename && '/' == *filename) {
 		/* an absolute filename */
 		int err = stat(filename, &statbuf);
-		printf("State(%s) -> %d\n", filename, err);
 		if (!err) {
 			snprintf(outbuf, bufsize, "%s", filename);
 			return outbuf;
@@ -42,7 +41,6 @@ static char *which(char *outbuf, size_t bufsize, const char *filename)
 			return NULL;
 		snprintf(outbuf, bufsize, "%s/%s", path, filename);
 		err = stat(outbuf, &statbuf);
-		printf("state(%s) -> %d\n", outbuf, err);
 		if (!err)
 			return outbuf;
 	}
