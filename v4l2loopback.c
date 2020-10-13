@@ -389,8 +389,8 @@ struct v4l2_loopback_device {
 	/* sync stuff */
 	atomic_t open_count;
 
-	int ready_for_capture; /* set to true when at least one writer opened
-                                * device and negotiated format */
+	int ready_for_capture; /* set to the number of writers that opened the
+                                * device and negotiated format. */
 	int ready_for_output; /* set to true when no writer is currently attached
 			       * this differs slightly from !ready_for_capture,
 			       * e.g. when using fallback images */
@@ -1755,8 +1755,8 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 			int ret = allocate_buffers(dev);
 			if (ret < 0)
 				return ret;
-			dev->ready_for_capture = 1;
 		}
+		dev->ready_for_capture++;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		opener->type = READER;
@@ -1783,7 +1783,8 @@ static int vidioc_streamoff(struct file *file, void *fh,
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dev->ready_for_capture = 0;
+		if (dev->ready_for_capture > 0)
+			dev->ready_for_capture--;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		return 0;
