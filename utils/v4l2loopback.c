@@ -660,7 +660,8 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "show-preroll-frame=false",
 			 0,
 			 0 };
-	snprintf(imagearg, 4096, "uri=file://%s", realpath(imagefile, imagefile2));
+	snprintf(imagearg, 4096, "uri=file://%s",
+		 realpath(imagefile, imagefile2));
 	snprintf(devicearg, 4096, "device=%s", devicename);
 	imagearg[4095] = devicearg[4095] = 0;
 	args[2] = imagearg;
