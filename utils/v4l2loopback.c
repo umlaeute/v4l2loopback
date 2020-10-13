@@ -788,6 +788,7 @@ int main(int argc, char **argv)
 		get_caps(argv[2]);
 		break;
 	case SET_TIMEOUTIMAGE:
+          /* TODO: add a "-t" flag for setting the timeout directly */
 		if (argc != 4)
 			usage(argv[0]);
 		if (called_deprecated(argv[2], argv[3], argv[0],
