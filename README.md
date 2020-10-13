@@ -66,6 +66,14 @@ to build the kernel module run:
 
 this should give you a file named "v4l2loopback.ko", which is the kernel module
 
+## BUILD AGAIN
+you cannot load a module built for a specific version of the kernel into another version of the kernel.
+so, if you have successfully built the module previously and have updated your kernel (and the matching headers)
+in the meantime, you really must clean the build before re-compiling the module.
+So run this *before* starting the build again:
+
+    $ make clean
+
 # INSTALL
 to install the module run "make install" (you might have to be 'root' to have
 all necessary permissions to install the module).
@@ -89,6 +97,10 @@ if your system lacks "sudo", do:
 automatically load additional kernel modules required by v4l2loopback.
 The call may not be necessary on modern systems.)
 
+See below for [distribution-specific build instructions](#DISTRIBUTIONS)
+or when using frameworks like [`DKMS`](#DKMS).
+
+
 # RUN
 load the v4l2loopback module as root :
 
@@ -111,6 +123,17 @@ application.
 
 you can find a number of scenarios on the wiki at
 	http://github.com/umlaeute/v4l2loopback/wiki
+
+## Troubleshooting
+if you have a secure-boot enabled kernel, you might not be able to simply build a kernel module and insert it.
+this is actually a security feature (as it prevents malicious code to be inserted into kernel-space).
+
+if you are not allowed to insert the kernel module (running `modprobe`, or `insmod`), you have a few options
+(consult your distribution's documentation on how to perform any of these steps)_
+- disable secure-boot and reboot
+- sign the module binary with a whitelisted key (this probably only applies if you are creating a distribution)
+
+you could also just try building the module [via `DKMS`](#DKMS), and hope that it does all the magic for you.
 
 # OPTIONS
 if you need several independent loopback devices, you can pass the "devices"
@@ -137,13 +160,13 @@ will create 3 devices with the card names passed as the second parameter:
 if you encounter problems detecting your device with Chrome/WebRTC you can try 'exclusive_caps' mode:
 
     # modprobe v4l2loopback exclusive_caps=1
-    
+
 will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively.
 the newly created device will announce OUTPUT capabilities only (so ordinary webcam applications
 (including Chrome) won't see it). as soon as you have attached a producer to the device, it will
 start announcing CAPTURE capabilities only (so applications that refuse to open devices that have
 other capabilities apart from capturing can open it too.)
-   
+
 # ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
 readable format. see `/sys/devices/virtual/video4linux/video*/`
@@ -212,6 +235,67 @@ in this case you should be able to simply do (as root):
 
     # aptitude install v4l2loopback-source module-assistant
     # module-assistant auto-install v4l2loopback-source
+
+# DKMS
+the *Dynamic Kernel Module Support framework* (DKMS) is designed to allow
+individual kernel modules to be upgraded without changing the whole kernel.
+it is also very easy to rebuild modules as you upgrade kernels.
+
+if your distribution doesn't provide `v4l2loopback`-packages (or they are too old)
+and you are experiencing troubles with code-signing, you probably should try this.
+
+e.g. to build the v4l2loopback-v0.12.5 (but check the webpage for newer releases first!),
+use something like the following (you might need to run the `dkms` commands as superuser/root):
+
+~~~
+mkdir -p ~/src/
+cd ~/src/
+version=0.12.5
+# download and extract the tarball
+curl -L https://github.com/umlaeute/v4l2loopback/archive/v${version}.tar.gz | tar xvz
+# build and install the DKMS-module (requires superuser privileges)
+dkms add -m v4l2loopback -v ${version}
+dkms build -m v4l2loopback -v ${version}
+dkms install -m v4l2loopback -v ${version}
+~~~~
+
+| distribution       | dependencies          |
+|--------------------|-----------------------|
+| Fedora,...         | gcc kernel-devel dkms |
+| Debian, Ubuntu,... | dkms                  |
+
+
+# LOAD THE MODULE AT BOOT
+
+one can avoid manually loading the module by letting systemd load the module
+at boot, by creating a file `/etc/modules-load.d/v4l2loopback.conf` with just
+the name of the module:
+
+~~~
+v4l2loopback
+~~~
+
+this is especially convenient when `v4l2loopback` is installed with DKMS or with
+a package provided by your Linux distribution.
+
+if needed, one can specify default module options by creating
+`/etc/modprobe.d/v4l2loopback.conf` in the following form:
+
+~~~
+options v4l2loopback video_nr=3,4,7
+options v4l2loopback card_label="device number 3,the number four,the last one"
+~~~
+
+one can only add one option per line. these options also become the defaults when
+manually calling `modprobe v4l2loopback`. note that the double quotes can only
+be used at the beginning and the end of the option's value, as opposed to when
+they are specified on the command line.
+
+if your system boots with an initial ramdisk, which is the case for most
+modern distributions, you need to update this ramdisk with the settings above,
+before they take effect at boot time. on Ubuntu, this image is updated with
+`sudo update-initramfs`. the equivalent on Fedora is `sudo dracut -f`.
+
 
 # DOWNLOAD
 the most up-to-date version of this module can be found at
