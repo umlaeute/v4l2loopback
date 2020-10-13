@@ -22,6 +22,10 @@
 #define MARK()
 #endif
 
+/********************/
+/* helper functions */
+
+/* running externals programs */
 static char *which(char *outbuf, size_t bufsize, const char *filename)
 {
 	struct stat statbuf;
@@ -112,6 +116,34 @@ static int my_execv(char *const *cmdline)
 	return 0;
 }
 
+/* misc */
+static int my_atoi(const char *name, const char *s)
+{
+	char *endptr = 0;
+	int n = strtol(s, &endptr, 10);
+	if (*endptr) {
+		dprintf(2, "%s must be a number (got: '%s')\n", name, s);
+		exit(1);
+	}
+	return n;
+}
+static char *fourcc2str(unsigned int fourcc, char buf[4])
+{
+	buf[0] = (fourcc >> 0) & 0xFF;
+	buf[1] = (fourcc >> 8) & 0xFF;
+	buf[2] = (fourcc >> 16) & 0xFF;
+	buf[3] = (fourcc >> 24) & 0xFF;
+
+	return buf;
+}
+unsigned int str2fourcc(char buf[4])
+{
+	return (buf[0]) + (buf[1] << 8) + (buf[2] << 16) + (buf[3] << 24);
+}
+
+/* helper functions */
+/********************/
+
 static void help_shortcmdline(const char *program, const char *argstring)
 {
 	dprintf(2, "\n       %s %s", program, argstring);
@@ -184,17 +216,6 @@ static void help(const char *name, int status)
 static void usage(const char *name)
 {
 	help(name, 1);
-}
-
-static int my_atoi(const char *name, const char *s)
-{
-	char *endptr = 0;
-	int n = strtol(s, &endptr, 10);
-	if (*endptr) {
-		dprintf(2, "%s must be a number (got: '%s')\n", name, s);
-		exit(1);
-	}
-	return n;
 }
 
 static int parse_device(const char *devicename)
@@ -370,20 +391,6 @@ static int set_fps(const char *devicename, const char *fps)
 done:
 	close(fd);
 	return result;
-}
-
-static char *fourcc2str(unsigned int fourcc, char buf[4])
-{
-	buf[0] = (fourcc >> 0) & 0xFF;
-	buf[1] = (fourcc >> 8) & 0xFF;
-	buf[2] = (fourcc >> 16) & 0xFF;
-	buf[3] = (fourcc >> 24) & 0xFF;
-
-	return buf;
-}
-unsigned int str2fourcc(char buf[4])
-{
-	return (buf[0]) + (buf[1] << 8) + (buf[2] << 16) + (buf[3] << 24);
 }
 
 typedef struct _caps {
