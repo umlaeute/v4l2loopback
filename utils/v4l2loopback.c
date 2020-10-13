@@ -670,6 +670,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 	fd = open_videodevice(devicename, O_RDWR);
 	if (fd >= 0) {
 		set_control_i(fd, "timeout_image_io", 1);
+		close(fd);
 	}
 
 	dprintf(2,
@@ -683,6 +684,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 	dprintf(2,
 		"^======================================================================^\n");
 
+	fd = open_videodevice(devicename, O_RDWR);
 	if (fd >= 0) {
 		/* finally check the timeout */
 		if (timeout < 0) {
