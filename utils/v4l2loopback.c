@@ -642,7 +642,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			    int timeout)
 {
 	int fd = -1;
-	char imagearg[1024], devicearg[1024];
+	char imagearg[4096], imagefile2[4096], devicearg[4096];
 	char *args[] = { "gst-launch-1.0",
 			 "uridecodebin",
 			 0,
@@ -660,10 +660,9 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "show-preroll-frame=false",
 			 0,
 			 0 };
-
-	snprintf(imagearg, 1024, "uri=file://%s", imagefile);
-	snprintf(devicearg, 1024, "device=%s", devicename);
-	imagearg[1024] = devicearg[1023] = 0;
+	snprintf(imagearg, 4096, "uri=file://%s", realpath(imagefile, imagefile2));
+	snprintf(devicearg, 4096, "device=%s", devicename);
+	imagearg[4095] = devicearg[4095] = 0;
 	args[2] = imagearg;
 	args[15] = devicearg;
 
