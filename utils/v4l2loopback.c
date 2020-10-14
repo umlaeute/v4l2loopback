@@ -149,13 +149,15 @@ static unsigned int _get_control_id(int fd, const char *control)
 	const size_t length = strnlen(control, 1024);
 	const unsigned next = V4L2_CTRL_FLAG_NEXT_CTRL;
 	struct v4l2_queryctrl qctrl;
+	int id;
+
 	memset(&qctrl, 0, sizeof(qctrl));
 	while (ioctl(fd, VIDIOC_QUERYCTRL, &qctrl) == 0) {
 		if (!strncmp(qctrl.name, control, length))
 			return qctrl.id;
 		qctrl.id |= next;
 	}
-	for (int id = V4L2_CID_USER_BASE; id < V4L2_CID_LASTP1; id++) {
+	for (id = V4L2_CID_USER_BASE; id < V4L2_CID_LASTP1; id++) {
 		qctrl.id = id;
 		if (ioctl(fd, VIDIOC_QUERYCTRL, &qctrl) == 0) {
 			if (!strncmp(qctrl.name, control, length))
