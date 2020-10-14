@@ -288,44 +288,52 @@ static const struct v4l2_ctrl_ops v4l2loopback_ctrl_ops = {
 	.s_ctrl = v4l2loopback_s_ctrl,
 };
 static const struct v4l2_ctrl_config v4l2loopback_ctrl_keepformat = {
-	.ops = &v4l2loopback_ctrl_ops,
-	.id = CID_KEEP_FORMAT,
-	.name = "keep_format",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.min = 0,
-	.max = 1,
-	.step = 1,
-	.def = 0,
+	// clang-format off
+	.ops	= &v4l2loopback_ctrl_ops,
+	.id	= CID_KEEP_FORMAT,
+	.name	= "keep_format",
+	.type	= V4L2_CTRL_TYPE_BOOLEAN,
+	.min	= 0,
+	.max	= 1,
+	.step	= 1,
+	.def	= 0,
+	// clang-format on
 };
 static const struct v4l2_ctrl_config v4l2loopback_ctrl_sustainframerate = {
-	.ops = &v4l2loopback_ctrl_ops,
-	.id = CID_SUSTAIN_FRAMERATE,
-	.name = "sustain_framerate",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.min = 0,
-	.max = 1,
-	.step = 1,
-	.def = 0,
+	// clang-format off
+	.ops	= &v4l2loopback_ctrl_ops,
+	.id	= CID_SUSTAIN_FRAMERATE,
+	.name	= "sustain_framerate",
+	.type	= V4L2_CTRL_TYPE_BOOLEAN,
+	.min	= 0,
+	.max	= 1,
+	.step	= 1,
+	.def	= 0,
+	// clang-format on
 };
 static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeout = {
-	.ops = &v4l2loopback_ctrl_ops,
-	.id = CID_TIMEOUT,
-	.name = "timeout",
-	.type = V4L2_CTRL_TYPE_INTEGER,
-	.min = 0,
-	.max = MAX_TIMEOUT,
-	.step = 1,
-	.def = 0,
+	// clang-format off
+	.ops	= &v4l2loopback_ctrl_ops,
+	.id	= CID_TIMEOUT,
+	.name	= "timeout",
+	.type	= V4L2_CTRL_TYPE_INTEGER,
+	.min	= 0,
+	.max	= MAX_TIMEOUT,
+	.step	= 1,
+	.def	= 0,
+	// clang-format on
 };
 static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeoutimageio = {
-	.ops = &v4l2loopback_ctrl_ops,
-	.id = CID_TIMEOUT_IMAGE_IO,
-	.name = "timeout_image_io",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.min = 0,
-	.max = 1,
-	.step = 1,
-	.def = 0,
+	// clang-format off
+	.ops	= &v4l2loopback_ctrl_ops,
+	.id	= CID_TIMEOUT_IMAGE_IO,
+	.name	= "timeout_image_io",
+	.type	= V4L2_CTRL_TYPE_BOOLEAN,
+	.min	= 0,
+	.max	= 1,
+	.step	= 1,
+	.def	= 0,
+	// clang-format on
 };
 
 /* module structures */
@@ -409,9 +417,11 @@ struct v4l2_loopback_device {
 
 /* types of opener shows what opener wants to do with loopback */
 enum opener_type {
-	UNNEGOTIATED = 0,
-	READER = 1,
-	WRITER = 2,
+	// clang-format off
+	UNNEGOTIATED	= 0,
+	READER		= 1,
+	WRITER		= 2,
+	// clang-format on
 };
 
 /* struct keeping state and type of opener */
@@ -2652,90 +2662,97 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 /* LINUX KERNEL */
 
 static const struct file_operations v4l2loopback_ctl_fops = {
-	.open = nonseekable_open,
-	.unlocked_ioctl = v4l2loopback_control_ioctl,
-	.compat_ioctl = v4l2loopback_control_ioctl,
-	.owner = THIS_MODULE,
-	.llseek = noop_llseek,
+	// clang-format off
+	.open		= nonseekable_open,
+	.unlocked_ioctl	= v4l2loopback_control_ioctl,
+	.compat_ioctl	= v4l2loopback_control_ioctl,
+	.owner		= THIS_MODULE,
+	.llseek		= noop_llseek,
+	// clang-format on
 };
 
 static struct miscdevice v4l2loopback_misc = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "v4l2loopback",
-	.fops = &v4l2loopback_ctl_fops,
+	// clang-format off
+	.minor		= MISC_DYNAMIC_MINOR,
+	.name		= "v4l2loopback",
+	.fops		= &v4l2loopback_ctl_fops,
+	// clang-format on
 };
 
 static const struct v4l2_file_operations v4l2_loopback_fops = {
-	.owner = THIS_MODULE,
-	.open = v4l2_loopback_open,
-	.release = v4l2_loopback_close,
-	.read = v4l2_loopback_read,
-	.write = v4l2_loopback_write,
-	.poll = v4l2_loopback_poll,
-	.mmap = v4l2_loopback_mmap,
-	.unlocked_ioctl = video_ioctl2,
+	// clang-format off
+	.owner		= THIS_MODULE,
+	.open		= v4l2_loopback_open,
+	.release	= v4l2_loopback_close,
+	.read		= v4l2_loopback_read,
+	.write		= v4l2_loopback_write,
+	.poll		= v4l2_loopback_poll,
+	.mmap		= v4l2_loopback_mmap,
+	.unlocked_ioctl	= video_ioctl2,
+	// clang-format on
 };
 
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
-	.vidioc_querycap = &vidioc_querycap,
+	// clang-format off
+	.vidioc_querycap		= &vidioc_querycap,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
-	.vidioc_enum_framesizes = &vidioc_enum_framesizes,
-	.vidioc_enum_frameintervals = &vidioc_enum_frameintervals,
+	.vidioc_enum_framesizes		= &vidioc_enum_framesizes,
+	.vidioc_enum_frameintervals	= &vidioc_enum_frameintervals,
 #endif
 
 #ifndef HAVE__V4L2_CTRLS
-	.vidioc_queryctrl = &vidioc_queryctrl,
-	.vidioc_g_ctrl = &vidioc_g_ctrl,
-	.vidioc_s_ctrl = &vidioc_s_ctrl,
+	.vidioc_queryctrl		= &vidioc_queryctrl,
+	.vidioc_g_ctrl			= &vidioc_g_ctrl,
+	.vidioc_s_ctrl			= &vidioc_s_ctrl,
 #endif /* HAVE__V4L2_CTRLS */
 
-	.vidioc_enum_output = &vidioc_enum_output,
-	.vidioc_g_output = &vidioc_g_output,
-	.vidioc_s_output = &vidioc_s_output,
+	.vidioc_enum_output		= &vidioc_enum_output,
+	.vidioc_g_output		= &vidioc_g_output,
+	.vidioc_s_output		= &vidioc_s_output,
 
-	.vidioc_enum_input = &vidioc_enum_input,
-	.vidioc_g_input = &vidioc_g_input,
-	.vidioc_s_input = &vidioc_s_input,
+	.vidioc_enum_input		= &vidioc_enum_input,
+	.vidioc_g_input			= &vidioc_g_input,
+	.vidioc_s_input			= &vidioc_s_input,
 
-	.vidioc_enum_fmt_vid_cap = &vidioc_enum_fmt_cap,
-	.vidioc_g_fmt_vid_cap = &vidioc_g_fmt_cap,
-	.vidioc_s_fmt_vid_cap = &vidioc_s_fmt_cap,
-	.vidioc_try_fmt_vid_cap = &vidioc_try_fmt_cap,
+	.vidioc_enum_fmt_vid_cap	= &vidioc_enum_fmt_cap,
+	.vidioc_g_fmt_vid_cap		= &vidioc_g_fmt_cap,
+	.vidioc_s_fmt_vid_cap		= &vidioc_s_fmt_cap,
+	.vidioc_try_fmt_vid_cap		= &vidioc_try_fmt_cap,
 
-	.vidioc_enum_fmt_vid_out = &vidioc_enum_fmt_out,
-	.vidioc_s_fmt_vid_out = &vidioc_s_fmt_out,
-	.vidioc_g_fmt_vid_out = &vidioc_g_fmt_out,
-	.vidioc_try_fmt_vid_out = &vidioc_try_fmt_out,
+	.vidioc_enum_fmt_vid_out	= &vidioc_enum_fmt_out,
+	.vidioc_s_fmt_vid_out		= &vidioc_s_fmt_out,
+	.vidioc_g_fmt_vid_out		= &vidioc_g_fmt_out,
+	.vidioc_try_fmt_vid_out		= &vidioc_try_fmt_out,
 
 #ifdef V4L2L_OVERLAY
-	.vidioc_s_fmt_vid_overlay = &vidioc_s_fmt_overlay,
-	.vidioc_g_fmt_vid_overlay = &vidioc_g_fmt_overlay,
+	.vidioc_s_fmt_vid_overlay	= &vidioc_s_fmt_overlay,
+	.vidioc_g_fmt_vid_overlay	= &vidioc_g_fmt_overlay,
 #endif
 
 #ifdef V4L2LOOPBACK_WITH_STD
-	.vidioc_s_std = &vidioc_s_std,
-	.vidioc_g_std = &vidioc_g_std,
-	.vidioc_querystd = &vidioc_querystd,
+	.vidioc_s_std			= &vidioc_s_std,
+	.vidioc_g_std			= &vidioc_g_std,
+	.vidioc_querystd		= &vidioc_querystd,
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-	.vidioc_g_parm = &vidioc_g_parm,
-	.vidioc_s_parm = &vidioc_s_parm,
+	.vidioc_g_parm			= &vidioc_g_parm,
+	.vidioc_s_parm			= &vidioc_s_parm,
 
-	.vidioc_reqbufs = &vidioc_reqbufs,
-	.vidioc_querybuf = &vidioc_querybuf,
-	.vidioc_qbuf = &vidioc_qbuf,
-	.vidioc_dqbuf = &vidioc_dqbuf,
+	.vidioc_reqbufs			= &vidioc_reqbufs,
+	.vidioc_querybuf		= &vidioc_querybuf,
+	.vidioc_qbuf			= &vidioc_qbuf,
+	.vidioc_dqbuf			= &vidioc_dqbuf,
 
-	.vidioc_streamon = &vidioc_streamon,
-	.vidioc_streamoff = &vidioc_streamoff,
+	.vidioc_streamon		= &vidioc_streamon,
+	.vidioc_streamoff		= &vidioc_streamoff,
 
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
-	.vidiocgmbuf = &vidiocgmbuf,
+	.vidiocgmbuf			= &vidiocgmbuf,
 #endif
 
-	.vidioc_subscribe_event = &vidioc_subscribe_event,
-	.vidioc_unsubscribe_event = &v4l2_event_unsubscribe,
-
+	.vidioc_subscribe_event		= &vidioc_subscribe_event,
+	.vidioc_unsubscribe_event	= &v4l2_event_unsubscribe,
+	// clang-format on
 };
 
 static int free_device_cb(int id, void *ptr, void *data)
@@ -2807,14 +2824,16 @@ static int __init v4l2loopback_init_module(void)
 	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
 		struct v4l2_loopback_config cfg = {
-			.output_nr = video_nr[i],
-			.capture_nr = video_nr[i],
-			.max_width = max_width,
-			.max_height = max_height,
-			.announce_all_caps = (!exclusive_caps[i]),
-			.max_buffers = max_buffers,
-			.max_openers = max_openers,
-			.debug = debug,
+			// clang-format off
+			.output_nr		= video_nr[i],
+			.capture_nr		= video_nr[i],
+			.max_width		= max_width,
+			.max_height		= max_height,
+			.announce_all_caps	= (!exclusive_caps[i]),
+			.max_buffers		= max_buffers,
+			.max_openers		= max_openers,
+			.debug			= debug,
+			// clang-format on
 		};
 		cfg.card_label[0] = 0;
 		if (card_label[i])
@@ -2830,9 +2849,11 @@ static int __init v4l2loopback_init_module(void)
 	dprintk("module installed\n");
 
 	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
+	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
-	       (V4L2LOOPBACK_VERSION_CODE >> 8) & 0xff,
-	       (V4L2LOOPBACK_VERSION_CODE)&0xff);
+	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
+	       (V4L2LOOPBACK_VERSION_CODE      ) & 0xff);
+	// clang-format on
 
 	return 0;
 error:
