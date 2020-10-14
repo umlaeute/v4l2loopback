@@ -199,31 +199,39 @@ static int get_control_i(int fd, const char *control)
 
 /********************/
 /* main logic       */
-static void help_shortcmdline(const char *program, const char *argstring)
+typedef enum {
+	VERSION,
+	HELP,
+	ADD,
+	DELETE,
+	QUERY,
+	SET_FPS,
+	GET_FPS,
+	SET_CAPS,
+	GET_CAPS,
+	SET_TIMEOUTIMAGE,
+	_UNKNOWN
+} t_command;
+
+static int help_shortcmdline(int brief, const char *program,
+			     const char *argstring)
 {
-	dprintf(2, "\n       %s %s", program, argstring);
+	dprintf(2, "\n");
+	//if(!brief)dprintf(2, "  -->");
+	dprintf(2, "\t");
+	dprintf(2, "%s %s", program, argstring);
+	return brief;
 }
-static void help(const char *name, int status)
+static void help_add(const char *program, int brief)
 {
-	dprintf(2, "usage: %s [general commands]", name);
-	help_shortcmdline(name, "add {<args>} [<device> [<outputdevice>]]");
-	help_shortcmdline(name, "delete <device>");
-	help_shortcmdline(name, "query <device>");
-	help_shortcmdline(name, "set-fps <device> <fps>");
-	help_shortcmdline(name, "get-fps <device>");
-	help_shortcmdline(name, "set-caps <device> <caps>");
-	help_shortcmdline(name, "get-caps <device>");
-	help_shortcmdline(name, "set-timeout-image <device> <image>");
-	dprintf(2, "\n\n");
-	dprintf(2, "\n general commands"
-		   "\n ================"
-		   "\n\t-v : print version and exit"
-		   "\n\t-h : print this help and exit"
-		   "\n\n");
+	if (!brief)
+		dprintf(2, "\n adding devices ('add')"
+			   "\n ======================");
+	if (help_shortcmdline(brief, program,
+			      "add {<flags>} [<device> [<outputdevice>]]"))
+		return;
 	dprintf(2,
-		"\n adding devices ('add')"
-		"\n ======================"
-		"\n <args>  \tany of the following arguments may be present"
+		"\n <flags>  \tany of the following flags may be present"
 		"\n\t -n <name>           : pretty name for the device"
 		"\n\t -w <max_width>      : maximum allowed frame width"
 		"\n\t -h <max_height>     : maximum allowed frame height"
@@ -234,43 +242,144 @@ static void help(const char *name, int status)
 		"\n"
 		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same)."
-		"\n\n");
+		"\n <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same).");
+}
+static void help_delete(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n deleting devices ('delete')"
+			   "\n ===========================");
+	if (help_shortcmdline(brief, program, "delete <device>"))
+		return;
 	dprintf(2,
-		"\n deleting devices ('delete')"
-		"\n ==========================="
 		"\n <device>\tcan be given one more more times (to delete multiple devices at once)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n\n");
+		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
+}
+static void help_query(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n querying devices ('query')"
+			   "\n ==========================");
+	if (help_shortcmdline(brief, program, "query <device>"))
+		return;
 	dprintf(2,
-		"\n querying devices ('query')"
-		"\n =========================="
 		"\n <device>\tcan be given one more more times (to query multiple devices at once)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n\n");
+		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
+}
+static void help_setfps(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n setting framerate ('set-fps')"
+			   "\n =============================");
+	if (help_shortcmdline(brief, program, "set-fps <device> <fps>"))
+		return;
 	dprintf(2,
-		"\n setting framerate ('set-fps')"
-		"\n ============================="
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2')."
-		"\n\n");
+		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
+}
+static void help_getfps(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n getting framerate ('get-fps')"
+			   "\n =============================");
+	if (help_shortcmdline(brief, program, "get-fps <device>"))
+		return;
+}
+static void help_setcaps(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n setting capabilities ('set-caps')"
+			   "\n =================================");
+	if (help_shortcmdline(brief, program, "set-caps <device> <caps>"))
+		return;
 	dprintf(2,
-		"\n setting capabilities ('set-caps')"
-		"\n ================================="
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1"
-		"\n\n");
+		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1");
+}
+static void help_getcaps(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n getting capabilities ('get-caps')"
+			   "\n =================================");
+	if (help_shortcmdline(brief, program, "get-caps <device>"))
+		return;
+}
+static void help_settimeoutimage(const char *program, int brief)
+{
+	if (!brief)
+		dprintf(2, "\n setting timeout image ('set-timeout-image')"
+			   "\n ===========================================");
+	if (help_shortcmdline(brief, program,
+			      "set-timeout-image <device> <image>"))
+		return;
 	dprintf(2,
-		"\n setting timeout image ('set-timeout-image')"
-		"\n ==========================================="
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n  <image>\timage file"
-		"\n\n");
+		"\n  <image>\timage file");
+}
+static void help_none(const char *program, int brief)
+{
+}
+typedef void (*t_help)(const char *, int);
+static t_help get_help(t_command cmd)
+{
+	switch (cmd) {
+	default:
+		break;
+	case ADD:
+		return help_add;
+	case DELETE:
+		return help_delete;
+	case QUERY:
+		return help_query;
+	case SET_FPS:
+		return help_setfps;
+	case GET_FPS:
+		return help_getfps;
+	case SET_CAPS:
+		return help_setcaps;
+	case GET_CAPS:
+		return help_getcaps;
+	case SET_TIMEOUTIMAGE:
+		return help_settimeoutimage;
+	}
+	return help_none;
+}
+
+static void help(const char *name, int status)
+{
+	t_command cmd;
+	dprintf(2, "usage: %s [general commands]", name);
+	dprintf(2, "\n\n");
+	dprintf(2, "\n general commands"
+		   "\n ================"
+		   "\n\t-v : print version and exit"
+		   "\n\t-h : print this help and exit");
+	/* brief helps */
+	for (cmd = ADD; cmd < _UNKNOWN; cmd++)
+		get_help(cmd)("", 1);
+	dprintf(2, "\n\n");
+
+	/* long helps */
+	for (cmd = ADD; cmd < _UNKNOWN; cmd++) {
+		get_help(cmd)(name, 0);
+		dprintf(2, "\n\n");
+	}
+
 	exit(status);
 }
 static void usage(const char *name)
 {
 	help(name, 1);
+}
+static void usage_topic(const char *name, t_command cmd)
+{
+	t_help hlp = get_help(cmd);
+	if (help_none == hlp)
+		usage(name);
+	else
+		hlp(name, 0);
+	dprintf(2, "\n");
+	exit(1);
 }
 
 static const char *my_realpath(const char *path, char *resolved_path)
@@ -712,19 +821,6 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 	}
 }
 
-typedef enum {
-	VERSION,
-	HELP,
-	ADD,
-	DELETE,
-	QUERY,
-	SET_FPS,
-	GET_FPS,
-	SET_CAPS,
-	GET_CAPS,
-	SET_TIMEOUTIMAGE,
-	_UNKNOWN
-} t_command;
 static t_command get_command(const char *command)
 {
 	if (!strncmp(command, "-h", 2))
@@ -784,8 +880,8 @@ int main(int argc, char **argv)
 
 	if (argc < 2)
 		usage(argv[0]);
-
-	switch (get_command(argv[1])) {
+	cmd = get_command(argv[1]);
+	switch (cmd) {
 	case _UNKNOWN:
 		dprintf(2, "unknown command '%s'\n\n", argv[1]);
 		usage(argv[0]);
@@ -818,11 +914,8 @@ int main(int argc, char **argv)
 			case 'o':
 				openers = my_atoi("openers", optarg);
 				break;
-			case '?':
-				usage(argv[0]);
-				return 1;
 			default:
-				usage(argv[0]);
+				usage_topic(argv[0], cmd);
 				return 1;
 			}
 		fd = open_controldevice();
@@ -840,7 +933,7 @@ int main(int argc, char **argv)
 				capture_nr = parse_device(argv[optind + 1]);
 				output_nr = parse_device(argv[optind + 2]);
 			} else {
-				usage(argv[0]);
+				usage_topic(argv[0], cmd);
 			}
 			return add_device(fd,
 					  make_conf(&cfg, label, max_width,
@@ -852,7 +945,7 @@ int main(int argc, char **argv)
 		break;
 	case DELETE:
 		if (argc == 2)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		fd = open_controldevice();
 		for (i = 2; i < argc; i++) {
 			delete_device(fd, argv[i]);
@@ -860,7 +953,7 @@ int main(int argc, char **argv)
 		break;
 	case QUERY:
 		if (argc == 2)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		fd = open_controldevice();
 		for (i = 2; i < argc; i++) {
 			query_device(fd, argv[i]);
@@ -868,7 +961,7 @@ int main(int argc, char **argv)
 		break;
 	case SET_FPS:
 		if (argc != 4)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
 				      "fps")) {
 			set_fps(argv[3], argv[2]);
@@ -877,12 +970,12 @@ int main(int argc, char **argv)
 		break;
 	case GET_FPS:
 		if (argc != 3)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		get_fps(argv[2]);
 		break;
 	case SET_CAPS:
 		if (argc != 4)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-caps",
 				      "caps")) {
 			set_caps(argv[3], argv[2]);
@@ -892,13 +985,13 @@ int main(int argc, char **argv)
 		break;
 	case GET_CAPS:
 		if (argc != 3)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		get_caps(argv[2]);
 		break;
 	case SET_TIMEOUTIMAGE:
 		/* TODO: add a "-t" flag for setting the timeout directly */
 		if (argc != 4)
-			usage(argv[0]);
+			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0],
 				      "set-timeout-image", "image")) {
 			set_timeoutimage(argv[3], argv[2], -1);
