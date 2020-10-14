@@ -21,6 +21,9 @@
 #include <linux/videodev2.h>
 #include <linux/sched.h>
 #include <linux/slab.h>
+#include <linux/fs.h>
+#include <linux/capability.h>
+#include <linux/eventpoll.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
@@ -172,6 +175,10 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 	b->timestamp.tv_sec = ts.tv_sec;
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
 }
+
+#if !defined(__poll_t)
+typedef unsigned __poll_t;
+#endif
 
 /* module constants
  *  can be overridden during he build process using something like
@@ -1939,11 +1946,11 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
 
-	if (req_events & EPOLLPRI) {
+	if (req_events & POLLPRI) {
 		if (!v4l2_event_pending(&opener->fh))
 			poll_wait(file, &opener->fh.wait, pts);
 		if (v4l2_event_pending(&opener->fh)) {
-			ret_mask |= EPOLLPRI;
+			ret_mask |= POLLPRI;
 			if (!(req_events & DEFAULT_POLLMASK))
 				return ret_mask;
 		}
@@ -1951,7 +1958,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 
 	switch (opener->type) {
 	case WRITER:
-		ret_mask |= EPOLLOUT | EPOLLWRNORM;
+		ret_mask |= POLLOUT | POLLWRNORM;
 		break;
 	case READER:
 		if (!can_read(dev, opener)) {
@@ -1960,9 +1967,9 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 			poll_wait(file, &dev->read_event, pts);
 		}
 		if (can_read(dev, opener))
-			ret_mask |= EPOLLIN | EPOLLRDNORM;
+			ret_mask |= POLLIN | POLLRDNORM;
 		if (v4l2_event_pending(&opener->fh))
-			ret_mask |= EPOLLPRI;
+			ret_mask |= POLLPRI;
 		break;
 	default:
 		break;
