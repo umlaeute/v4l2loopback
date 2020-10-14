@@ -273,15 +273,24 @@ static void usage(const char *name)
 	help(name, 1);
 }
 
-static int parse_device(const char *devicename)
+static const char *my_realpath(const char *path, char *resolved_path)
 {
+	char *str = realpath(path, resolved_path);
+	return str ? str : path;
+}
+static int parse_device(const char *devicename_)
+{
+	char devicenamebuf[4096];
+	const char *devicename = my_realpath(devicename_, devicenamebuf);
 	int ret = strncmp(devicename, "/dev/video", 10);
 	const char *device = (ret) ? devicename : (devicename + 10);
 	char *endptr = 0;
 	int dev = strtol(device, &endptr, 10);
-	if (*endptr)
-		return -1;
-	return dev;
+	dprintf(2, "parsed '%s' into %d\n", devicename_, dev);
+	if (!*endptr)
+		return dev;
+
+	return -1;
 }
 
 static void print_conf(struct v4l2_loopback_config *cfg)
