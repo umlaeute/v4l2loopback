@@ -310,9 +310,12 @@ static void help_settimeoutimage(const char *program, int brief)
 		dprintf(2, "\n setting timeout image ('set-timeout-image')"
 			   "\n ===========================================");
 	if (help_shortcmdline(brief, program,
-			      "set-timeout-image <device> <image>"))
+			      "set-timeout-image {<flags>} <device> <image>"))
 		return;
 	dprintf(2,
+		"\n  <flags>\tany of the following flags may be present"
+		"\n\t -t <timeout>           : timeout (in ms)"
+		"\n"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n  <image>\timage file");
 }
@@ -989,14 +992,24 @@ int main(int argc, char **argv)
 		get_caps(argv[2]);
 		break;
 	case SET_TIMEOUTIMAGE:
-		/* TODO: add a "-t" flag for setting the timeout directly */
-		if (argc != 4)
-			usage_topic(argv[0], cmd);
-		if (called_deprecated(argv[2], argv[3], argv[0],
-				      "set-timeout-image", "image")) {
+		if ((4 == argc) && (strncmp("-t", argv[2], 4)) &&
+		    (called_deprecated(argv[2], argv[3], argv[0],
+				       "set-timeout-image", "image"))) {
 			set_timeoutimage(argv[3], argv[2], -1);
 		} else {
-			set_timeoutimage(argv[2], argv[3], -1);
+			int timeout = -1;
+			while ((c = getopt(argc - 1, argv + 1, "t:")) != -1)
+				switch (c) {
+				case 't':
+					timeout = my_atoi("timeout", optarg);
+					break;
+				default:
+					usage_topic(argv[0], cmd);
+				}
+			if (optind + 3 != argc)
+				usage_topic(argv[0], cmd);
+			set_timeoutimage(argv[1 + optind], argv[2 + optind],
+					 timeout);
 		}
 		break;
 	case VERSION:
