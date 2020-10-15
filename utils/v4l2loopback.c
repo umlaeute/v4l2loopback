@@ -642,12 +642,15 @@ static int read_caps(const char *devicename, t_caps *caps)
 {
 	int result = 1;
 	char _caps[100];
+	int len;
 	int fd = open_sysfs_file(devicename, "format", O_RDONLY);
 	if (fd < 0)
 		return 1;
 
-	if (read(fd, _caps, 100) < 0) {
-		perror("failed to read fps");
+	len = read(fd, _caps, 100);
+	if (len <= 0) {
+		if (len)
+			perror("failed to read fps");
 		goto done;
 	}
 	_caps[100 - 1] = 0;
