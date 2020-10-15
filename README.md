@@ -174,6 +174,8 @@ In order to change these options, you must first unload the module with `rmmod`
 (which will only work if no application is any longer accessing one of the loopback devices)
 and then load it again (with the new options).
 
+See also the section about [DYNAMIC DEVICE MANAGEMENT](#dynamic-device-management).
+
 # ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
 readable format. See `/sys/devices/virtual/video4linux/video*/`
@@ -220,6 +222,23 @@ if the producer doesn't send any new frames for a given period:
 ~~~
 $ v4l2loopback-ctl set-timeout-image -t 3000 /dev/video0 service-unavailable.png
 (this currently requires GStreamer 1.0 installed)
+~~~
+
+# DYNAMIC DEVICE MANAGEMENT
+You can create (and delete) loopback devices on the fly, using the `add` (resp. `delete`) commands of the `v4l2loopback-ctl` utility.
+
+When creating a new device, module options might be ignored. So you must specify them explicitely.
+
+To create a new device `/dev/video7` that has a label "loopy doopy", use:
+
+~~~
+$ sudo sudo v4l2loopback-ctl add -n "loopy doopy" /dev/video7
+~~~
+
+Deleting devices is as simple as:
+
+~~~
+$ sudo v4l2loopback-ctl delete /dev/video7
 ~~~
 
 # KERNELs
