@@ -195,7 +195,8 @@ also there are some V4L2 controls that you can list with
 - `timeout_image_io(0/1)`: if set to 1, the next opener will write to timeout frame
                        buffer
 
-# FORCING FPS
+# CHANGING THE RUNTIME BEHAVIOUR
+## FORCING FPS
 
     $ v4l2loopback-ctl set-fps /dev/video0 25
 
@@ -203,13 +204,13 @@ or
 
     $ echo '@100' | sudo tee /sys/devices/virtual/video4linux/video0/format
 
-# FORCING FORMAT
+## FORCING FORMAT
 
     $ v4l2loopback-ctl set-caps /dev/video0 "UYVY:640x480"
 
 Please note that *GStreamer-style caps* (e.g. `video/x-raw,format=UYVY,width=640,height=480`) or no longer supported!
 
-# SETTING STREAM TIMEOUT
+## SETTING STREAM TIMEOUT
 
 You can define a timeout (in milliseconds), after which the loopback device will start outputting NULL frames,
 if the producer suddenly stopped.
@@ -226,7 +227,7 @@ $ v4l2loopback-ctl set-timeout-image -t 3000 /dev/video0 service-unavailable.png
 (this currently requires GStreamer 1.0 installed)
 ~~~
 
-# DYNAMIC DEVICE MANAGEMENT
+## DYNAMIC DEVICE MANAGEMENT
 You can create (and delete) loopback devices on the fly, using the `add` (resp. `delete`) commands of the `v4l2loopback-ctl` utility.
 
 When creating a new device, module options might be ignored. So you must specify them explicitely.
