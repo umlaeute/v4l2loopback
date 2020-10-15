@@ -284,6 +284,45 @@ MODULE_PARM_DESC(max_height,
 static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
+static int idr_alloc1(struct idr *idr, void *ptr, int *nr)
+{
+	int err;
+
+	/* allocate id, if @id >= 0, we're requesting that specific id */
+	if (*nr >= 0) {
+		err = idr_alloc(&v4l2loopback_index_idr, ptr, *nr, *nr + 1,
+				GFP_KERNEL);
+		if (err == -ENOSPC)
+			err = -EEXIST;
+	} else {
+		err = idr_alloc(&v4l2loopback_index_idr, ptr, 0, 0, GFP_KERNEL);
+	}
+
+	if (err < 0)
+		return err;
+
+	*nr = err;
+	return 0;
+}
+
+static int idr_alloc2(struct idr *idr, void *ptr, int *nr1, int *nr2)
+{
+	int nr1_copy = *nr1;
+	int err;
+
+	err = idr_alloc1(idr, ptr, &nr1_copy);
+	if (err)
+		return err;
+
+	err = idr_alloc1(idr, ptr, nr2);
+	if (err)
+		idr_remove(idr, nr1_copy);
+	else
+		*nr1 = nr1_copy;
+
+	return err;
+}
+
 /* control IDs */
 #ifndef HAVE__V4L2_CTRLS
 #define V4L2LOOPBACK_CID_BASE (V4L2_CID_PRIVATE_BASE)
@@ -366,6 +405,7 @@ struct v4l2l_buffer {
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
+	int output_nr;
 	struct video_device *vdev;
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
@@ -667,7 +707,8 @@ static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
 	struct v4l2_loopback_device *device = ptr;
 	struct v4l2loopback_lookup_cb_data *cbdata = data;
 	if (cbdata && device && device->vdev) {
-		if (device->vdev->num == cbdata->device_nr) {
+		if (device->output_nr == cbdata->device_nr ||
+		    device->vdev->num == cbdata->device_nr) {
 			cbdata->device = device;
 			cbdata->device_nr = id;
 			return 1;
@@ -2241,7 +2282,7 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 }
 
 /* fills and register video device */
-static void init_vdev(struct video_device *vdev, int nr)
+static void init_vdev(struct video_device *vdev)
 {
 	MARK();
 
@@ -2371,18 +2412,10 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
 	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
 
-	int nr = -1;
+	int output_nr = -1, capture_nr = -1;
 	if (conf) {
-		if (conf->capture_nr >= 0 &&
+		if (conf->output_nr >= 0 && conf->capture_nr >= 0 &&
 		    conf->output_nr == conf->capture_nr) {
-			nr = conf->capture_nr;
-		} else if (conf->capture_nr < 0 && conf->output_nr < 0) {
-			nr = -1;
-		} else if (conf->capture_nr < 0) {
-			nr = conf->output_nr;
-		} else if (conf->output_nr < 0) {
-			nr = conf->capture_nr;
-		} else {
 			printk(KERN_ERR
 			       "split OUTPUT and CAPTURE devices not yet supported.");
 			printk(KERN_INFO
@@ -2390,39 +2423,33 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 			       conf->output_nr, conf->capture_nr);
 			return -EINVAL;
 		}
+
+		output_nr = conf->output_nr;
+		capture_nr = conf->capture_nr;
 	}
 
-	if (idr_find(&v4l2loopback_index_idr, nr))
-		return -EEXIST;
-
-	dprintk("creating v4l2loopback-device #%d\n", nr);
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
 
-	/* allocate id, if @id >= 0, we're requesting that specific id */
-	if (nr >= 0) {
-		err = idr_alloc(&v4l2loopback_index_idr, dev, nr, nr + 1,
-				GFP_KERNEL);
-		if (err == -ENOSPC)
-			err = -EEXIST;
-	} else {
-		err = idr_alloc(&v4l2loopback_index_idr, dev, 0, 0, GFP_KERNEL);
-	}
-	if (err < 0)
+	err = idr_alloc2(&v4l2loopback_index_idr, dev, &output_nr, &capture_nr);
+	if (err)
 		goto out_free_dev;
-	nr = err;
-	err = -ENOMEM;
+
+	dprintk("creating v4l2loopback-device %d:%d\n", output_nr, capture_nr);
+
+	/* Save output_nr somewhere before spliting device is supported. */
+	dev->output_nr = output_nr;
 
 	if (conf && conf->card_label && *(conf->card_label)) {
 		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
 			 conf->card_label);
 	} else {
 		snprintf(dev->card_label, sizeof(dev->card_label),
-			 "Dummy video device (0x%04X)", nr);
+			 "Dummy video device (0x%04X)", capture_nr);
 	}
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-		 "v4l2loopback-%03d", nr);
+		 "v4l2loopback-%03d", capture_nr);
 
 	err = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (err)
@@ -2446,9 +2473,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
 
 	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
-		->device_nr = nr;
+		->device_nr = capture_nr;
 
-	init_vdev(dev->vdev, nr);
+	init_vdev(dev->vdev);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
 	set_timeperframe(dev, &dev->capture_param.timeperframe);
@@ -2485,8 +2512,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	timer_setup(&dev->sustain_timer, sustain_timer_clb, 0);
 	timer_setup(&dev->timeout_timer, timeout_timer_clb, 0);
 #else
-	setup_timer(&dev->sustain_timer, sustain_timer_clb, nr);
-	setup_timer(&dev->timeout_timer, timeout_timer_clb, nr);
+	setup_timer(&dev->sustain_timer, sustain_timer_clb, capture_nr);
+	setup_timer(&dev->timeout_timer, timeout_timer_clb, capture_nr);
 #endif
 	dev->reread_count = 0;
 	dev->timeout_jiffies = 0;
@@ -2527,7 +2554,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	init_waitqueue_head(&dev->read_event);
 
 	/* register the device -> it creates /dev/video* */
-	if (video_register_device(dev->vdev, VFL_TYPE_VIDEO, nr) < 0) {
+	if (video_register_device(dev->vdev, VFL_TYPE_VIDEO, capture_nr) < 0) {
 		printk(KERN_ERR
 		       "v4l2loopback: failed video_register_device()\n");
 		err = -EFAULT;
@@ -2547,7 +2574,8 @@ out_free_handler:
 out_unregister:
 	v4l2_device_unregister(&dev->v4l2_dev);
 out_free_idr:
-	idr_remove(&v4l2loopback_index_idr, nr);
+	idr_remove(&v4l2loopback_index_idr, output_nr);
+	idr_remove(&v4l2loopback_index_idr, capture_nr);
 out_free_dev:
 	kfree(dev);
 	return err;
@@ -2598,11 +2626,12 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	case V4L2LOOPBACK_CTL_REMOVE:
 		ret = v4l2loopback_lookup((int)parm, &dev);
 		if (ret >= 0 && dev) {
-			int nr = ret;
-			ret = -EBUSY;
-			if (dev->open_count.counter > 0)
+			if (dev->open_count.counter > 0) {
+				ret = -EBUSY;
 				break;
-			idr_remove(&v4l2loopback_index_idr, nr);
+			}
+			idr_remove(&v4l2loopback_index_idr, dev->output_nr);
+			idr_remove(&v4l2loopback_index_idr, dev->vdev->num);
 			v4l2_loopback_remove(dev);
 			ret = 0;
 		};
@@ -2642,7 +2671,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
 		MARK();
-		conf.output_nr = conf.capture_nr = dev->vdev->num;
+		conf.output_nr = dev->output_nr;
+		conf.capture_nr = dev->vdev->num;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
 		conf.announce_all_caps = dev->announce_all_caps;
@@ -2765,7 +2795,14 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 static int free_device_cb(int id, void *ptr, void *data)
 {
 	struct v4l2_loopback_device *dev = ptr;
-	v4l2_loopback_remove(dev);
+
+	/* Half-configured device instances are freed in v4l2_loopback_add(),
+	 * so here we only have to deal with fully instanciated devices. In
+	 * order to avoid double free, free only when id matches its output_nr.
+	 */
+	if (id == dev->output_nr)
+		v4l2_loopback_remove(dev);
+
 	return 0;
 }
 static void free_devices(void)
