@@ -400,7 +400,6 @@ static int parse_device(const char *devicename_)
 	const char *device = (ret) ? devicename : (devicename + 10);
 	char *endptr = 0;
 	int dev = strtol(device, &endptr, 10);
-	dprintf(2, "parsed '%s' into %d\n", devicename_, dev);
 	if (!*endptr)
 		return dev;
 
@@ -634,7 +633,6 @@ static int read_caps(const char *devicename, t_caps *caps)
 		goto done;
 	}
 	_caps[100 - 1] = 0;
-	//dprintf(2, "fps: %s\n", _caps);
 	if (caps) {
 		if (parse_caps(_caps, caps)) {
 			dprintf(2, "unable to parse format '%s'\n", _caps);
