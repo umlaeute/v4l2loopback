@@ -73,7 +73,9 @@ modprobe: v4l2loopback.ko
 	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
 
 man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
-	help2man -N --name "control v4l2 loopback devices" $^ > $@
+	help2man -N --name "control v4l2 loopback devices" \
+		--no-discard-stderr --help-option=-h --version-option=-v \
+		$^ > $@
 
 utils: utils/v4l2loopback-ctl
 utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
