@@ -666,10 +666,46 @@ done:
 static int get_fps(const char *devicename)
 {
 	t_caps caps;
-	if (read_caps(devicename, &caps))
-		return 1;
-	printf("%d/%d\n", caps.fps_num, caps.fps_denom);
-	return 0;
+	struct v4l2_streamparm parm;
+	int fd = -1;
+	int num = -1, denom = -1;
+	int ret = 0;
+
+	if (!read_caps(devicename, &caps)) {
+		num = caps.fps_num;
+		denom = caps.fps_denom;
+		goto done;
+	}
+
+	/* get the framerate via ctls */
+	fd = open_videodevice(devicename, O_RDWR);
+	if (fd < 0)
+		goto done;
+
+	memset(&parm, 0, sizeof(parm));
+	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	if (ioctl(fd, VIDIOC_G_PARM, &parm) == 0) {
+		const struct v4l2_fract *tf = &parm.parm.output.timeperframe;
+		num = tf->numerator;
+		denom = tf->denominator;
+		goto done;
+	}
+
+	memset(&parm, 0, sizeof(parm));
+	parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if (ioctl(fd, VIDIOC_G_PARM, &parm) == 0) {
+		const struct v4l2_fract *tf = &parm.parm.output.timeperframe;
+		num = tf->numerator;
+		denom = tf->denominator;
+		goto done;
+	}
+
+	ret = 1;
+done:
+	if (fd >= 0)
+		close(fd);
+	printf("%d/%d\n", num, denom);
+	return ret;
 }
 static int set_caps(const char *devicename, const char *capsstring)
 {
