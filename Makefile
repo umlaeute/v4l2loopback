@@ -75,8 +75,8 @@ modprobe: v4l2loopback.ko
 man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 	help2man -N --name "control v4l2 loopback devices" $^ > $@
 
-utils: utils/v4l2loopback
-utils/v4l2loopback: utils/v4l2loopback.c
+utils: utils/v4l2loopback-ctl
+utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
 	$(MAKE) -C utils
 
 .clang-format:

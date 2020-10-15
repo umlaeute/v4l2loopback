@@ -1,3 +1,3 @@
 CPPFLAGS += -I..
 
-default: v4l2loopback
+default: v4l2loopback-ctl
