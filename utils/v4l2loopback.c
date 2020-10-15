@@ -563,6 +563,24 @@ static int open_sysfs_file(const char *devicename, const char *filename,
 	return fd;
 }
 
+static int parse_fps(const char *fps, int *numerator, int *denominator)
+{
+	int num = 0;
+	int denom = 1;
+	if (sscanf(fps, "%d/%d", &num, &denom) <= 0) {
+		return 1;
+	}
+	if (numerator)
+		*numerator = num;
+	if (denominator)
+		*denominator = denom;
+	return 0;
+}
+static int is_fps(const char *fps)
+{
+	return parse_fps(fps, 0, 0);
+}
+
 static int set_fps(const char *devicename, const char *fps)
 {
 	int result = 1;
@@ -984,7 +1002,7 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
-				      "fps", 0)) {
+				      "fps", is_fps)) {
 			set_fps(argv[3], argv[2]);
 		} else
 			set_fps(argv[2], argv[3]);
