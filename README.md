@@ -161,13 +161,13 @@ If you encounter problems detecting your device with Chrome/WebRTC you can try '
 
     # modprobe v4l2loopback exclusive_caps=1
 
-Will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively.
+This will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively.
 The newly created device will announce OUTPUT capabilities only (so ordinary webcam applications
 (including Chrome) won't see it). As soon as you have attached a producer to the device, it will
 start announcing CAPTURE capabilities only (so applications that refuse to open devices that have
 other capabilities apart from capturing can open it too.)
 
-# CHANGING OPTIONS
+## CHANGING OPTIONS
 Options that you provided when loading the module (e.g. via `modprobe`) cannot be easily changed
 on the fly.
 In order to change these options, you must first unload the module with `rmmod`
@@ -175,6 +175,8 @@ In order to change these options, you must first unload the module with `rmmod`
 and then load it again (with the new options).
 
 See also the section about [DYNAMIC DEVICE MANAGEMENT](#dynamic-device-management).
+
+
 
 # ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
