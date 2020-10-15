@@ -87,7 +87,7 @@ static int my_execv(char *const *cmdline)
 #endif
 
 	pid = fork();
-	if (pid == 0) {
+	if (pid == 0) { /* this is the child-process */
 		res = execv(exe, cmdline);
 		if (res < 0) {
 			dprintf(2, "ERROR running helper program (%d, %d)", res,
@@ -99,7 +99,7 @@ static int my_execv(char *const *cmdline)
 			exit(0);
 		}
 		exit(0);
-	} else if (pid > 0) { // pid>0, parent, wait for child
+	} else if (pid > 0) { /* we are parent: wait for child */
 		int status = 0;
 		int waitoptions = 0;
 		signal(SIGCHLD, exec_cleanup);
@@ -109,7 +109,7 @@ static int my_execv(char *const *cmdline)
 		if (WIFEXITED(status))
 			return WEXITSTATUS(status);
 		return 0;
-	} else { //pid < 0, error
+	} else { /* pid < 0, error */
 		dprintf(2, "ERROR: child fork failed\n");
 		exit(1);
 	}
