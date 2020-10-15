@@ -1,3 +1,10 @@
 CPPFLAGS += -I..
 
-default: v4l2loopback-ctl
+.PHONY: default clean
+
+programs = v4l2loopback-ctl
+
+default: $(programs)
+
+clean:
+	-rm $(programs)
