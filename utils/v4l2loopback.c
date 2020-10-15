@@ -624,16 +624,13 @@ static int parse_caps(const char *buffer, t_caps *caps)
 	char fourcc[5];
 	memset(caps, 0, sizeof(*caps));
 	memset(fourcc, 0, sizeof(*fourcc));
+	caps->fps_denom = 1;
 
 	if (!(buffer && *buffer))
 		return 1;
 
 	if (sscanf(buffer, "%4c:%dx%d@%d/%d", &fourcc, &caps->width,
 		   &caps->height, &caps->fps_num, &caps->fps_denom) <= 0) {
-		if (sscanf(buffer, "%4c:%dx%d", &fourcc, &caps->width,
-			   &caps->height, &caps->fps_num) <= 0) {
-			dprintf(2, "oops...%s\n", buffer);
-		}
 	}
 	caps->fourcc = str2fourcc(fourcc);
 	return (0 == caps->fourcc);
