@@ -2249,6 +2249,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
+	struct video_device *vdev;
 
 	int err = -ENOMEM;
 
@@ -2307,27 +2308,27 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 		goto out_free_idr;
 	MARK();
 
-	dev->vdev = video_device_alloc();
-	if (dev->vdev == NULL) {
+	vdev = video_device_alloc();
+	if (vdev == NULL) {
 		err = -ENOMEM;
 		goto out_unregister;
 	}
-	video_set_drvdata(dev->vdev,
-			  kzalloc(sizeof(struct v4l2loopback_private),
-				  GFP_KERNEL));
-	if (video_get_drvdata(dev->vdev) == NULL) {
+	dev->vdev = vdev;
+	video_set_drvdata(vdev, kzalloc(sizeof(struct v4l2loopback_private),
+					GFP_KERNEL));
+	if (video_get_drvdata(vdev) == NULL) {
 		err = -ENOMEM;
 		goto out_unregister;
 	}
 
 	MARK();
-	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
+	snprintf(vdev->name, sizeof(vdev->name), dev->card_label);
 
-	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
-		->device_nr = capture_nr;
+	((struct v4l2loopback_private *)video_get_drvdata(vdev))->device_nr =
+		capture_nr;
 
-	init_vdev(dev->vdev);
-	dev->vdev->v4l2_dev = &dev->v4l2_dev;
+	init_vdev(vdev);
+	vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
 	set_timeperframe(dev, &dev->capture_param.timeperframe);
 	dev->keep_format = 0;
@@ -2405,21 +2406,21 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	init_waitqueue_head(&dev->read_event);
 
 	/* register the device -> it creates /dev/video* */
-	if (video_register_device(dev->vdev, VFL_TYPE_VIDEO, capture_nr) < 0) {
+	if (video_register_device(vdev, VFL_TYPE_VIDEO, capture_nr) < 0) {
 		printk(KERN_ERR
 		       "v4l2loopback: failed video_register_device()\n");
 		err = -EFAULT;
 		goto out_free_device;
 	}
-	v4l2loopback_create_sysfs(dev->vdev);
+	v4l2loopback_create_sysfs(vdev);
 
 	MARK();
 	if (ret_nr)
-		*ret_nr = dev->vdev->num;
+		*ret_nr = vdev->num;
 	return 0;
 
 out_free_device:
-	video_device_release(dev->vdev);
+	video_device_release(vdev);
 out_free_handler:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 out_unregister:
@@ -2434,10 +2435,12 @@ out_free_dev:
 
 static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 {
+	struct video_device *vdev = dev->vdev;
+
 	free_buffers(dev);
-	v4l2loopback_remove_sysfs(dev->vdev);
-	kfree(video_get_drvdata(dev->vdev));
-	video_unregister_device(dev->vdev);
+	v4l2loopback_remove_sysfs(vdev);
+	kfree(video_get_drvdata(vdev));
+	video_unregister_device(vdev);
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	kfree(dev);
