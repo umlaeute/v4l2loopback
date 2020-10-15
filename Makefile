@@ -62,6 +62,7 @@ clean:
 	rm -f *~
 	rm -f Module.symvers Module.markers modules.order
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
+	$(MAKE) -C utils clean
 
 distclean: clean
 	rm -f man/v4l2loopback-ctl.1
