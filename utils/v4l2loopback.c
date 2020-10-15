@@ -721,6 +721,14 @@ static int set_caps(const char *devicename, const char *capsstring)
 
 	if (!strncmp("any", capsstring, 4)) {
 		/* skip caps-parsing */
+	} else if (!strncmp("video/", capsstring, 6)) {
+		dprintf(2,
+			"ERROR: GStreamer-style caps are no longer supported!\n");
+		dprintf(2,
+			"ERROR: use '<FOURCC>:<width>x<height>[@<fps>] instead\n");
+		dprintf(2,
+			"       e.g. 'UYVY:640x480@30/1' or 'RGBA:1024x768'\n");
+		goto done;
 	} else if (parse_caps(capsstring, &caps)) {
 		dprintf(2, "unable to parse format '%s'\n", capsstring);
 		goto done;
