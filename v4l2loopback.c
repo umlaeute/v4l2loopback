@@ -611,14 +611,12 @@ static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
 		if (device->output_nr == cbdata->device_nr ||
 		    device->vdev->num == cbdata->device_nr) {
 			cbdata->device = device;
-			cbdata->device_nr = id;
 			return 1;
 		}
 	}
 	return 0;
 }
-static int v4l2loopback_lookup(int device_nr,
-			       struct v4l2_loopback_device **device)
+static struct v4l2_loopback_device *v4l2loopback_lookup(int device_nr)
 {
 	struct v4l2loopback_lookup_cb_data data = {
 		.device_nr = device_nr,
@@ -626,12 +624,7 @@ static int v4l2loopback_lookup(int device_nr,
 	};
 	int err = idr_for_each(&v4l2loopback_index_idr, &v4l2loopback_lookup_cb,
 			       &data);
-	if (1 == err) {
-		if (device)
-			*device = data.device;
-		return data.device_nr;
-	}
-	return -ENODEV;
+	return 1 == err ? data.device : NULL;
 }
 static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 {
@@ -2391,7 +2384,7 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 				       unsigned long parm)
 {
-	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_device *dev, *capture_dev, *output_dev;
 	struct v4l2_loopback_config conf;
 	struct v4l2_loopback_config *confptr = &conf;
 	int device_nr;
@@ -2420,12 +2413,12 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		break;
 		/* remove a v4l2loopback device (both capture and output) */
 	case V4L2LOOPBACK_CTL_REMOVE:
-		ret = v4l2loopback_lookup((int)parm, &dev);
-		if (ret >= 0 && dev) {
-			if (dev->open_count.counter > 0) {
-				ret = -EBUSY;
-				break;
-			}
+		dev = v4l2loopback_lookup((int)parm);
+		if (dev == NULL)
+			ret = -ENODEV;
+		else if (dev->open_count.counter > 0)
+			ret = -EBUSY;
+		else {
 			idr_remove(&v4l2loopback_index_idr, dev->output_nr);
 			idr_remove(&v4l2loopback_index_idr, dev->vdev->num);
 			v4l2_loopback_remove(dev);
@@ -2441,25 +2434,18 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
 		    0)
 			break;
-		device_nr =
-			(conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
-		MARK();
+
+		output_dev = v4l2loopback_lookup(conf.output_nr);
+		capture_dev = v4l2loopback_lookup(conf.capture_nr);
 		/* get the device from either capture_nr or output_nr (whatever is valid) */
-		if ((ret = v4l2loopback_lookup(device_nr, &dev)) < 0)
+		dev = output_dev ? output_dev : capture_dev;
+		if (dev == NULL)
 			break;
 		MARK();
-		/* if we got the device from output_nr and there is a valid capture_nr,
-                 * make sure that both refer to the same device (or bail out)
-                 */
-		if ((device_nr != conf.capture_nr) && (conf.capture_nr >= 0) &&
-		    (ret != v4l2loopback_lookup(conf.capture_nr, 0)))
-			break;
-		MARK();
-		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
-                 * make sure that both refer to the same device (or bail out)
-                 */
-		if ((device_nr != conf.output_nr) && (conf.output_nr >= 0) &&
-		    (ret != v4l2loopback_lookup(conf.output_nr, 0)))
+		/* if we got two valid device pointers, make sure they refer to
+		 * the same device (or bail out)
+		 */
+		if (output_dev && capture_dev && output_dev != capture_dev)
 			break;
 		MARK();
 
