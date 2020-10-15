@@ -245,8 +245,8 @@ $ sudo v4l2loopback-ctl delete /dev/video7
 ~~~
 
 # KERNELs
-the original module has been developed for linux-2.6.28;
-i don't have a system with such an old kernel anymore, so i don't know whether
+The original module has been developed for linux-2.6.28;
+I don't have a system with such an old kernel anymore, so I don't know whether
 it still works.
 Further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
 newer kernels being continually tested as they enter Debian.
@@ -262,13 +262,13 @@ Support:
 v4l2loopack is now (since 2010-10-13) available as a Debian-package.
 https://packages.debian.org/source/stable/v4l2loopback
 
-this means, that it is also part of Debian-derived distributions, including
+This means, that it is also part of Debian-derived distributions, including
 Ubuntu (starting with natty).
 The most convenient way is to install the package "v4l2loopback-dkms":
 
     # aptitude install v4l2loopback-dkms
 
-this should automatically build and install the module for your current kernel
+This should automatically build and install the module for your current kernel
 (provided you have the matching kernel-headers installed).
 Another option is to install the "v4l2loopback-source" package.
 In this case you should be able to simply do (as root):
