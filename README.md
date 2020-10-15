@@ -186,22 +186,33 @@ also there are some V4L2 controls that you can list with
 
 # FORCING FPS
 
-    $ v4l2loopback-ctl set-fps 25 /dev/video0
+    $ v4l2loopback-ctl set-fps /dev/video0 25
 
 or
 
     $ echo '@100' | sudo tee /sys/devices/virtual/video4linux/video0/format
 
-# FORCING A GSTREAMER (1.0) CAPS
+# FORCING FORMAT
 
-    $ v4l2loopback-ctl set-caps "video/x-raw,format=UYVY,width=640,height=480" /dev/video0
+    $ v4l2loopback-ctl set-caps /dev/video0 "UYVY:640x480"
+
+Please note that *GStreamer-style caps* (e.g. `video/x-raw,format=UYVY,width=640,height=480`) or no longer supported!
 
 # SETTING STREAM TIMEOUT
+
+You can define a timeout (in milliseconds), after which the loopback device will start outputting NULL frames,
+if the producer suddenly stopped.
+
 ~~~
 $ v4l2-ctl -d /dev/video0 -c timeout=3000
-(will output null frames by default)
-$ v4l2loopback-ctl set-timeout-image service-unavailable.png /dev/video0
-this currently requires GStreamer 1.0 installed
+~~~
+
+Alternatively, you can calso provide a timeout-image, which will be displayed (instead of the NULL frames),
+if the producer doesn't send any new frames for a given period:
+
+~~~
+$ v4l2loopback-ctl set-timeout-image -t 3000 /dev/video0 service-unavailable.png
+(this currently requires GStreamer 1.0 installed)
 ~~~
 
 # KERNELs
