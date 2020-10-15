@@ -167,6 +167,13 @@ The newly created device will announce OUTPUT capabilities only (so ordinary web
 start announcing CAPTURE capabilities only (so applications that refuse to open devices that have
 other capabilities apart from capturing can open it too.)
 
+# CHANGING OPTIONS
+Options that you provided when loading the module (e.g. via `modprobe`) cannot be easily changed
+on the fly.
+In order to change these options, you must first unload the module with `rmmod`
+(which will only work if no application is any longer accessing one of the loopback devices)
+and then load it again (with the new options).
+
 # ATTRIBUTES
 you can set and/or query some per-device attributes via sysfs, in a human
 readable format. See `/sys/devices/virtual/video4linux/video*/`
