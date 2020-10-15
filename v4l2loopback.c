@@ -243,6 +243,11 @@ module_param_array(video_nr, int, NULL, 0444);
 MODULE_PARM_DESC(video_nr,
 		 "video device numbers (-1=auto, 0=/dev/video0, etc.)");
 
+static int output_nr[MAX_DEVICES] = { [0 ...(MAX_DEVICES - 1)] = -1 };
+module_param_array(output_nr, int, NULL, 0444);
+MODULE_PARM_DESC(output_nr,
+		 "output device numbers (-1=auto, 0=/dev/video0, etc.)");
+
 static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
 MODULE_PARM_DESC(card_label, "card labels for each device");
@@ -2782,9 +2787,10 @@ static int __init v4l2loopback_init_module(void)
 	if (devices < 0) {
 		devices = 1;
 
-		/* try guessing the devices from the "video_nr" parameter */
+		/* try guessing the devices from the "video_nr" and "output_nr"
+		 * parameters */
 		for (i = MAX_DEVICES - 1; i >= 0; i--) {
-			if (video_nr[i] >= 0) {
+			if (video_nr[i] >= 0 || output_nr[i] >= 0) {
 				devices = i + 1;
 				break;
 			}
@@ -2827,7 +2833,7 @@ static int __init v4l2loopback_init_module(void)
 	for (i = 0; i < devices; i++) {
 		struct v4l2_loopback_config cfg = {
 			// clang-format off
-			.output_nr		= video_nr[i],
+			.output_nr		= output_nr[i],
 			.capture_nr		= video_nr[i],
 			.max_width		= max_width,
 			.max_height		= max_height,
