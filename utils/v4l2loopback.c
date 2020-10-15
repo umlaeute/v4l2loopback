@@ -915,6 +915,8 @@ int main(int argc, char **argv)
 	int buffers = -1;
 	int openers = -1;
 
+	int ret = 0;
+
 	int c;
 
 	if (argc < 2)
@@ -974,12 +976,12 @@ int main(int argc, char **argv)
 			} else {
 				usage_topic(argv[0], cmd);
 			}
-			return add_device(fd,
-					  make_conf(&cfg, label, max_width,
-						    max_height, exclusive_caps,
-						    buffers, openers,
-						    capture_nr, output_nr),
-					  verbose);
+			ret = add_device(fd,
+					 make_conf(&cfg, label, max_width,
+						   max_height, exclusive_caps,
+						   buffers, openers, capture_nr,
+						   output_nr),
+					 verbose);
 		} while (0);
 		break;
 	case DELETE:
@@ -987,51 +989,53 @@ int main(int argc, char **argv)
 			usage_topic(argv[0], cmd);
 		fd = open_controldevice();
 		for (i = 2; i < argc; i++) {
-			delete_device(fd, argv[i]);
+			ret += (delete_device(fd, argv[i]) != 0);
 		}
+		ret = (ret > 0);
 		break;
 	case QUERY:
 		if (argc == 2)
 			usage_topic(argv[0], cmd);
 		fd = open_controldevice();
 		for (i = 2; i < argc; i++) {
-			query_device(fd, argv[i]);
+			ret += query_device(fd, argv[i]);
 		}
+		ret = (ret > 0);
 		break;
 	case SET_FPS:
 		if (argc != 4)
 			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
 				      "fps", is_fps)) {
-			set_fps(argv[3], argv[2]);
+			ret = set_fps(argv[3], argv[2]);
 		} else
-			set_fps(argv[2], argv[3]);
+			ret = set_fps(argv[2], argv[3]);
 		break;
 	case GET_FPS:
 		if (argc != 3)
 			usage_topic(argv[0], cmd);
-		get_fps(argv[2]);
+		ret = get_fps(argv[2]);
 		break;
 	case SET_CAPS:
 		if (argc != 4)
 			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-caps",
 				      "caps", 0)) {
-			set_caps(argv[3], argv[2]);
+			ret = set_caps(argv[3], argv[2]);
 		} else {
-			set_caps(argv[2], argv[3]);
+			ret = set_caps(argv[2], argv[3]);
 		}
 		break;
 	case GET_CAPS:
 		if (argc != 3)
 			usage_topic(argv[0], cmd);
-		get_caps(argv[2]);
+		ret = get_caps(argv[2]);
 		break;
 	case SET_TIMEOUTIMAGE:
 		if ((4 == argc) && (strncmp("-t", argv[2], 4)) &&
 		    (called_deprecated(argv[2], argv[3], argv[0],
 				       "set-timeout-image", "image", 0))) {
-			set_timeoutimage(argv[3], argv[2], -1);
+			ret = set_timeoutimage(argv[3], argv[2], -1);
 		} else {
 			int timeout = -1;
 			while ((c = getopt(argc - 1, argv + 1, "t:")) != -1)
@@ -1044,8 +1048,8 @@ int main(int argc, char **argv)
 				}
 			if (optind + 3 != argc)
 				usage_topic(argv[0], cmd);
-			set_timeoutimage(argv[1 + optind], argv[2 + optind],
-					 timeout);
+			ret = set_timeoutimage(argv[1 + optind],
+					       argv[2 + optind], timeout);
 		}
 		break;
 	case VERSION:
@@ -1060,5 +1064,5 @@ int main(int argc, char **argv)
 	if (fd >= 0)
 		close(fd);
 
-	return 0;
+	return ret;
 }
