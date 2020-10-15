@@ -851,11 +851,29 @@ static t_command get_command(const char *command)
 	return _UNKNOWN;
 }
 
+typedef int (*t_argcheck)(const char *);
 static int called_deprecated(const char *device, const char *argument,
 			     const char *programname, const char *cmdname,
-			     const char *argname)
+			     const char *argname, t_argcheck argcheck)
 {
-	if (parse_device(device) < 0 && parse_device(argument) >= 0) {
+	/* check if <device> does not look like a device, but <argument> does
+   * if so, assume that the user swapped the two */
+	/* if the <device> looks about right, optionally do some extra
+   * <argument>-check, to see if it can be used
+   */
+
+	int deviceswapped = 0;
+	int argswapped = 0;
+
+	if (argcheck)
+		argswapped =
+			((argcheck(argument) != 0) && (argcheck(device) == 0));
+
+	if (!argswapped)
+		deviceswapped = (parse_device(device) < 0 &&
+				 parse_device(argument) >= 0);
+
+	if (argswapped || deviceswapped) {
 		dprintf(2, "WARNING: '%s %s <%s> <image>' is deprecated!\n",
 			programname, cmdname, argname);
 		dprintf(2, "WARNING: use '%s %s <device> <%s>' instead.\n",
@@ -966,7 +984,7 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
-				      "fps")) {
+				      "fps", 0)) {
 			set_fps(argv[3], argv[2]);
 		} else
 			set_fps(argv[2], argv[3]);
@@ -980,7 +998,7 @@ int main(int argc, char **argv)
 		if (argc != 4)
 			usage_topic(argv[0], cmd);
 		if (called_deprecated(argv[2], argv[3], argv[0], "set-caps",
-				      "caps")) {
+				      "caps", 0)) {
 			set_caps(argv[3], argv[2]);
 		} else {
 			set_caps(argv[2], argv[3]);
@@ -994,7 +1012,7 @@ int main(int argc, char **argv)
 	case SET_TIMEOUTIMAGE:
 		if ((4 == argc) && (strncmp("-t", argv[2], 4)) &&
 		    (called_deprecated(argv[2], argv[3], argv[0],
-				       "set-timeout-image", "image"))) {
+				       "set-timeout-image", "image", 0))) {
 			set_timeoutimage(argv[3], argv[2], -1);
 		} else {
 			int timeout = -1;
