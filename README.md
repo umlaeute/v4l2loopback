@@ -173,7 +173,7 @@ readable format. see `/sys/devices/virtual/video4linux/video*/`
 
 also there are some V4L2 controls that you can list with
 
-    $ v4l2-ctl -d /dev/video1 -l
+    $ v4l2-ctl -d /dev/video0 -l
 
 - `keep_format(0/1)`: while set to 1, once negotiated format will be fixed forever,
                   until the setting is set back to 0
