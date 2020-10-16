@@ -26,6 +26,8 @@
 #include <linux/eventpoll.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
+#include <media/videobuf2-v4l2.h>
+#include <media/videobuf2-vmalloc.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
@@ -331,11 +333,24 @@ struct v4l2l_buffer {
 	int use_count;
 };
 
+struct v4l2_loopback_buffer {
+	/* common v4l buffer stuff -- must be first */
+	struct vb2_v4l2_buffer vb2_v4l2_buf;
+
+	struct list_head list;
+};
+#define to_v4l2_loopback_buffer(buf)                                           \
+	container_of(buf, struct v4l2_loopback_buffer, vb2_v4l2_buf)
+
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct {
 		struct video_device vdev;
+		struct vb2_queue vidq;
+		struct list_head active_bufs; /* buffers in DQBUF order */
+		struct mutex lock;
+		int streaming : 1;
 	} capture, output;
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
@@ -2096,6 +2111,121 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 	return 0;
 }
 
+static int output_qops_queue_setup(struct vb2_queue *q,
+				   unsigned int *num_buffers,
+				   unsigned int *num_planes,
+				   unsigned int sizes[],
+				   struct device *alloc_devs[])
+{
+	struct video_device *vdev = vb2_get_drv_priv(q);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	unsigned int size;
+
+	size = dev->buffer_size;
+	if (*num_buffers > max_buffers)
+		*num_buffers = max_buffers;
+
+	/* When called with plane sizes, validate them. v4l2loopback supports
+	 * single planar formats only, and requires buffers to be large enough
+	 * to store a complete frame.
+	 */
+	if (*num_planes)
+		return *num_planes != 1 || sizes[0] < size ? -EINVAL : 0;
+
+	*num_planes = 1;
+	sizes[0] = size;
+	return 0;
+}
+
+static int output_qops_buf_init(struct vb2_buffer *vb)
+{
+	struct vb2_v4l2_buffer *vb_v4l2 = to_vb2_v4l2_buffer(vb);
+	struct v4l2_loopback_buffer *buf = to_v4l2_loopback_buffer(vb_v4l2);
+
+	INIT_LIST_HEAD(&buf->list);
+
+	return 0;
+}
+
+static int output_qops_buf_prepare(struct vb2_buffer *vb)
+{
+	struct video_device *vdev = vb2_get_drv_priv(vb->vb2_queue);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	unsigned long size;
+
+	size = dev->buffer_size;
+	if (vb2_plane_size(vb, 0) < size) {
+		v4l2_err(&dev->v4l2_dev,
+			 "%s data will not fit into plane (%lu < %lu)\n",
+			 __func__, vb2_plane_size(vb, 0), size);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static void output_qops_buf_finish(struct vb2_buffer *vb)
+{
+	struct vb2_v4l2_buffer *vb_v4l2 = to_vb2_v4l2_buffer(vb);
+	struct v4l2_loopback_buffer *buf = to_v4l2_loopback_buffer(vb_v4l2);
+
+	list_del(&buf->list);
+}
+
+static void output_qops_buf_queue(struct vb2_buffer *vb)
+{
+	struct video_device *vdev = vb2_get_drv_priv(vb->vb2_queue);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	struct vb2_v4l2_buffer *vb_v4l2 = to_vb2_v4l2_buffer(vb);
+	struct v4l2_loopback_buffer *buf = to_v4l2_loopback_buffer(vb_v4l2);
+
+	list_add_tail(&buf->list, &dev->output.active_bufs);
+
+	if (!dev->output.streaming)
+		return;
+	/* TODO: wake readers */
+}
+
+static int output_qops_start_streaming(struct vb2_queue *q, unsigned int count)
+{
+	struct video_device *vdev = vb2_get_drv_priv(q);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+
+	dev->output.streaming = 1;
+	/* TODO: wake readers */
+
+	return 0;
+}
+
+static void output_qops_stop_streaming(struct vb2_queue *q)
+{
+	struct video_device *vdev = vb2_get_drv_priv(q);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	struct v4l2_loopback_buffer *buf;
+	struct list_head *pos, *n;
+
+	list_for_each_safe (pos, n, &dev->output.active_bufs) {
+		buf = list_entry(pos, struct v4l2_loopback_buffer, list);
+		if (buf->vb2_v4l2_buf.vb2_buf.state == VB2_BUF_STATE_ACTIVE)
+			vb2_buffer_done(&buf->vb2_v4l2_buf.vb2_buf,
+					VB2_BUF_STATE_ERROR);
+	}
+}
+
+static const struct vb2_ops output_qops = {
+	// clang-format off
+	.queue_setup            = output_qops_queue_setup,
+	.buf_init               = output_qops_buf_init,
+	.buf_prepare            = output_qops_buf_prepare,
+	.buf_finish             = output_qops_buf_finish,
+	.buf_queue              = output_qops_buf_queue,
+	.wait_prepare           = vb2_ops_wait_prepare,
+	.wait_finish            = vb2_ops_wait_finish,
+	.start_streaming        = output_qops_start_streaming,
+	.stop_streaming         = output_qops_stop_streaming,
+	// clang-format on
+};
+
 /* fills and register video device */
 static int init_vdev(struct video_device *vdev, int nr, int type,
 		     struct v4l2_loopback_device *dev)
@@ -2140,6 +2270,30 @@ static int init_vdev(struct video_device *vdev, int nr, int type,
 	else
 		vdev->vfl_dir = VFL_DIR_M2M;
 #endif
+
+	if (is_output) {
+		struct vb2_queue *q = &dev->output.vidq;
+		int err;
+
+		q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+		q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF | VB2_WRITE;
+		q->gfp_flags = 0;
+		q->min_buffers_needed = 1;
+		q->drv_priv = vdev;
+		q->buf_struct_size = sizeof(struct v4l2_loopback_buffer);
+		q->ops = &output_qops;
+		q->mem_ops = &vb2_vmalloc_memops;
+		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+		q->lock = &dev->output.lock;
+
+		err = vb2_queue_init(q);
+		if (err < 0)
+			return err;
+
+		INIT_LIST_HEAD(&dev->output.active_bufs);
+		vdev->lock = q->lock;
+		vdev->queue = q;
+	}
 
 	MARK();
 
@@ -2549,6 +2703,10 @@ static const struct v4l2_file_operations output_fops = {
 	// clang-format off
 	.owner		= THIS_MODULE,
 	.open		= v4l2_fh_open,
+	.release	= vb2_fop_release,
+	.write		= vb2_fop_write,
+	.poll		= vb2_fop_poll,
+	.mmap		= vb2_fop_mmap,
 	.unlocked_ioctl	= video_ioctl2,
 	// clang-format on
 };
@@ -2581,6 +2739,16 @@ static const struct v4l2_ioctl_ops output_ioctl_ops = {
 
 	.vidioc_g_parm			= vidioc_g_parm,
 	.vidioc_s_parm			= vidioc_s_parm,
+
+	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
+	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
+	.vidioc_prepare_buf		= vb2_ioctl_prepare_buf,
+	.vidioc_querybuf		= vb2_ioctl_querybuf,
+	.vidioc_qbuf			= vb2_ioctl_qbuf,
+	.vidioc_dqbuf			= vb2_ioctl_dqbuf,
+	.vidioc_streamon		= vb2_ioctl_streamon,
+	.vidioc_streamoff		= vb2_ioctl_streamoff,
+	.vidioc_expbuf			= vb2_ioctl_expbuf,
 
 	.vidioc_subscribe_event		= vidioc_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
