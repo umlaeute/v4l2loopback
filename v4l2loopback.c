@@ -2489,7 +2489,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->timeout_happened = 0;
 
 	hdl = &dev->ctrl_handler;
-	err = v4l2_ctrl_handler_init(hdl, 1);
+	err = v4l2_ctrl_handler_init(hdl, 4);
 	if (err)
 		goto out_unregister;
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_keepformat, NULL);
@@ -2501,6 +2501,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 		goto out_free_handler;
 	}
 	dev->v4l2_dev.ctrl_handler = hdl;
+
+	err = v4l2_ctrl_handler_setup(hdl);
 
 	/* FIXME set buffers to 0 */
 
