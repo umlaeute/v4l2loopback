@@ -1103,7 +1103,7 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 	return ret;
 }
 
-/*#define V4L2L_OVERLAY*/
+// #define V4L2L_OVERLAY
 #ifdef V4L2L_OVERLAY
 /* ------------------ OVERLAY ----------------------- */
 /* currently unsupported */
@@ -1483,7 +1483,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	init_buffers(dev);
 	switch (b->memory) {
 	case V4L2_MEMORY_MMAP:
-		/* do nothing here, buffers are always allocated*/
+		/* do nothing here, buffers are always allocated */
 		if (b->count < 1 || dev->buffers_number < 1)
 			return 0;
 
