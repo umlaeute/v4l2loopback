@@ -405,6 +405,9 @@ struct v4l2_loopback_device {
 	int output_nr;
 	struct {
 		struct video_device vdev;
+	} output;
+	struct {
+		struct video_device vdev;
 	} capture;
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
@@ -733,6 +736,8 @@ static int free_buffers(struct v4l2_loopback_device *dev);
 static void try_free_buffers(struct v4l2_loopback_device *dev);
 static int allocate_timeout_image(struct v4l2_loopback_device *dev);
 static void check_timers(struct v4l2_loopback_device *dev);
+static const struct v4l2_file_operations output_fops;
+static const struct v4l2_ioctl_ops output_ioctl_ops;
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 
@@ -2251,9 +2256,11 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 }
 
 /* fills and register video device */
-static int init_vdev(struct video_device *vdev, int nr,
+static int init_vdev(struct video_device *vdev, int nr, int type,
 		     struct v4l2_loopback_device *dev)
 {
+	int is_output = type == V4L2_CAP_VIDEO_OUTPUT ? 1 : 0;
+
 	snprintf(vdev->name, sizeof(vdev->name), dev->card_label);
 	vdev->v4l2_dev = &dev->v4l2_dev;
 	video_set_drvdata(vdev, dev);
@@ -2263,13 +2270,17 @@ static int init_vdev(struct video_device *vdev, int nr,
 #endif /* V4L2LOOPBACK_WITH_STD */
 
 	vdev->vfl_type = VFL_TYPE_VIDEO;
-	vdev->fops = &v4l2_loopback_fops;
-	vdev->ioctl_ops = &v4l2_loopback_ioctl_ops;
+	if (is_output) {
+		vdev->fops = &output_fops;
+		vdev->ioctl_ops = &output_ioctl_ops;
+	} else {
+		vdev->fops = &v4l2_loopback_fops;
+		vdev->ioctl_ops = &v4l2_loopback_ioctl_ops;
+	}
 	vdev->release = &video_device_release_empty;
 	vdev->minor = -1;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
-			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
+	vdev->device_caps = type | V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 #ifdef V4L2_CAP_VIDEO_M2M
 	vdev->device_caps |= V4L2_CAP_VIDEO_M2M;
 #endif
@@ -2283,10 +2294,13 @@ static int init_vdev(struct video_device *vdev, int nr,
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
 #endif
 
-		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
+	/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
 	 * set to VFL_DIR_M2M for bidirectional devices */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
-	vdev->vfl_dir = VFL_DIR_M2M;
+	if (is_output)
+		vdev->vfl_dir = VFL_DIR_TX;
+	else
+		vdev->vfl_dir = VFL_DIR_M2M;
 #endif
 
 	MARK();
@@ -2301,6 +2315,18 @@ static int init_vdev(struct video_device *vdev, int nr,
 	v4l2loopback_create_sysfs(vdev);
 
 	return 0;
+}
+
+static int init_output_vdev(struct video_device *vdev, int output_nr,
+			    struct v4l2_loopback_device *dev)
+{
+	return init_vdev(vdev, output_nr, V4L2_CAP_VIDEO_OUTPUT, dev);
+}
+
+static int init_capture_vdev(struct video_device *vdev, int capture_nr,
+			     struct v4l2_loopback_device *dev)
+{
+	return init_vdev(vdev, capture_nr, V4L2_CAP_VIDEO_CAPTURE, dev);
 }
 
 /* init default capture parameters, only fps may be changed in future */
@@ -2381,7 +2407,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
-	struct video_device *vdev;
+	struct video_device *capture_vdev, *output_vdev;
 
 	int err = -ENOMEM;
 
@@ -2518,15 +2544,23 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	MARK();
 
-	vdev = &dev->capture.vdev;
-	if (init_vdev(vdev, capture_nr, dev))
+	output_vdev = &dev->output.vdev;
+	if (init_output_vdev(output_vdev, output_nr, dev))
 		goto out_free_handler;
 
 	MARK();
+
+	capture_vdev = &dev->capture.vdev;
+	if (init_capture_vdev(capture_vdev, capture_nr, dev))
+		goto out_unregister_output_vdev;
+
+	MARK();
 	if (ret_nr)
-		*ret_nr = vdev->num;
+		*ret_nr = capture_vdev->num;
 	return 0;
 
+out_unregister_output_vdev:
+	video_unregister_device(output_vdev);
 out_free_handler:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 out_free_idr:
@@ -2539,12 +2573,19 @@ out_free_dev:
 
 static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 {
-	struct video_device *vdev = &dev->capture.vdev;
+	struct video_device *output_vdev = &dev->output.vdev;
+	struct video_device *capture_vdev = &dev->capture.vdev;
 
 	free_buffers(dev);
-	v4l2loopback_remove_sysfs(vdev);
-	video_unregister_device(vdev);
-	video_device_release_empty(vdev);
+
+	v4l2loopback_remove_sysfs(output_vdev);
+	video_unregister_device(output_vdev);
+	video_device_release_empty(output_vdev);
+
+	v4l2loopback_remove_sysfs(capture_vdev);
+	video_unregister_device(capture_vdev);
+	video_device_release_empty(capture_vdev);
+
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	kfree(dev);
@@ -2665,6 +2706,15 @@ static struct miscdevice v4l2loopback_misc = {
 	.name		= "v4l2loopback",
 	.fops		= &v4l2loopback_ctl_fops,
 	// clang-format on
+};
+
+static const struct v4l2_file_operations output_fops = {
+	// clang-format off
+	.owner          = THIS_MODULE,
+	// clang-format on
+};
+
+static const struct v4l2_ioctl_ops output_ioctl_ops = {
 };
 
 static const struct v4l2_file_operations v4l2_loopback_fops = {
