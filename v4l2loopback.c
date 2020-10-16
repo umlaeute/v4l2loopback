@@ -309,7 +309,6 @@ struct v4l2l_buffer {
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
-	int output_nr;
 	struct v4l2_loopback_entity {
 		struct video_device vdev;
 	} capture, output;
@@ -608,7 +607,7 @@ static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
 	struct v4l2_loopback_device *device = ptr;
 	struct v4l2loopback_lookup_cb_data *cbdata = data;
 	if (cbdata && device) {
-		if (device->output_nr == cbdata->device_nr ||
+		if (device->output.vdev.num == cbdata->device_nr ||
 		    device->capture.vdev.num == cbdata->device_nr) {
 			cbdata->device = device;
 			return 1;
@@ -2229,9 +2228,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	dprintk("creating v4l2loopback-device %d:%d\n", output_nr, capture_nr);
 
-	/* Save output_nr somewhere before spliting device is supported. */
-	dev->output_nr = output_nr;
-
 	if (conf && conf->card_label && *(conf->card_label)) {
 		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
 			 conf->card_label);
@@ -2407,7 +2403,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		else if (dev->open_count.counter > 0)
 			ret = -EBUSY;
 		else {
-			idr_remove(&v4l2loopback_index_idr, dev->output_nr);
+			idr_remove(&v4l2loopback_index_idr,
+				   dev->output.vdev.num);
 			idr_remove(&v4l2loopback_index_idr,
 				   dev->capture.vdev.num);
 			v4l2_loopback_remove(dev);
@@ -2442,7 +2439,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
 		MARK();
-		conf.output_nr = dev->output_nr;
+		conf.output_nr = dev->output.vdev.num;
 		conf.capture_nr = dev->capture.vdev.num;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
@@ -2566,7 +2563,7 @@ static int free_device_cb(int id, void *ptr, void *data)
 	 * so here we only have to deal with fully instanciated devices. In
 	 * order to avoid double free, free only when id matches its output_nr.
 	 */
-	if (id == dev->output_nr)
+	if (id == dev->output.vdev.num)
 		v4l2_loopback_remove(dev);
 
 	return 0;
