@@ -1291,7 +1291,7 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 		if (val < 0 || val > 1)
 			return -EINVAL;
 		dev->keep_format = val;
-		try_free_buffers(dev);
+		try_free_buffers(dev); /* will only free buffers if !keep_format */
 		break;
 	case CID_SUSTAIN_FRAMERATE:
 		if (val < 0 || val > 1)
