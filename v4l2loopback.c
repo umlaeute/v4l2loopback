@@ -2436,6 +2436,17 @@ static const struct v4l2_ioctl_ops output_ioctl_ops = {
 	.vidioc_g_fmt_vid_out		= vidioc_g_fmt_out,
 	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
 	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
+
+#ifdef V4L2LOOPBACK_WITH_STD
+	.vidioc_g_std			= vidioc_g_std,
+	.vidioc_s_std			= vidioc_s_std,
+#endif /* V4L2LOOPBACK_WITH_STD */
+
+	.vidioc_g_parm			= vidioc_g_parm,
+	.vidioc_s_parm			= vidioc_s_parm,
+
+	.vidioc_subscribe_event		= vidioc_subscribe_event,
+	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
 	// clang-format on
 };
 
