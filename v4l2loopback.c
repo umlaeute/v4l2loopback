@@ -719,12 +719,12 @@ static int vidioc_querycap(struct file *file, void *priv,
 		}
 	}
 
+	cap->capabilities = capabilities;
+#if defined(V4L2_CAP_DEVICE_CAPS)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
 	dev->capture.vdev.device_caps =
 #endif /* >=linux-4.7.0 */
-		cap->device_caps = cap->capabilities = capabilities;
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
+		cap->device_caps = capabilities;
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 #endif
 
