@@ -693,11 +693,16 @@ static inline void unset_flags(struct v4l2l_buffer *buffer)
 static int vidioc_querycap(struct file *file, void *priv,
 			   struct v4l2_capability *cap)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	int is_output = (vdev == &dev->output.vdev) ? 1 : 0;
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
+#if defined(V4L2_CAP_DEVICE_CAPS)
+	__u32 device_caps;
+#endif
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
@@ -709,23 +714,44 @@ static int vidioc_querycap(struct file *file, void *priv,
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
 #endif
 
-	if (dev->announce_all_caps) {
+	if (is_output) {
+		/* If this is that splited output device, it will always be an
+		 * output device. No more trick here.
+		 */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+		capabilities = dev->output.vdev.device_caps |
+			       dev->capture.vdev.device_caps;
+		device_caps = vdev->device_caps;
+#else
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
+#if defined(V4L2_CAP_DEVICE_CAPS)
+		device_caps = capabilities & (~V4L2_CAP_VIDEO_CAPTURE);
+#endif
+#endif
 	} else {
-		if (dev->ready_for_capture) {
-			capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+		/* So this is the capture device that currently serves both
+		 * roles depending on ready_for_capture/ready_for_output and
+		 * announce_all_caps. */
+		if (dev->announce_all_caps) {
+			capabilities |=
+				V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
+		} else {
+			if (dev->ready_for_capture)
+				capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+			if (dev->ready_for_output)
+				capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 		}
-		if (dev->ready_for_output) {
-			capabilities |= V4L2_CAP_VIDEO_OUTPUT;
-		}
+#if defined(V4L2_CAP_DEVICE_CAPS)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
+		dev->capture.vdev.device_caps =
+#endif
+			device_caps = capabilities;
+#endif
 	}
 
 	cap->capabilities = capabilities;
 #if defined(V4L2_CAP_DEVICE_CAPS)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	dev->capture.vdev.device_caps =
-#endif /* >=linux-4.7.0 */
-		cap->device_caps = capabilities;
+	cap->device_caps = device_caps;
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 #endif
 
@@ -913,39 +939,14 @@ static int vidioc_s_fmt_cap(struct file *file, void *priv,
 static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
-	struct v4l2_loopback_device *dev;
 	const struct v4l2l_format *fmt;
 
-	dev = file_to_loopdev(file);
+	if (f->index < 0 || f->index >= FORMATS)
+		return -EINVAL;
 
-	if (dev->ready_for_capture) {
-		const __u32 format = dev->pix_format.pixelformat;
-
-		/* format has been fixed by the writer, so only one single format is supported */
-		if (f->index)
-			return -EINVAL;
-
-		fmt = format_by_fourcc(format);
-		if (NULL == fmt)
-			return -EINVAL;
-
-		/* f->flags = ??; */
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
-
-		f->pixelformat = dev->pix_format.pixelformat;
-	} else {
-		/* fill in a dummy format */
-		/* coverity[unsigned_compare] */
-		if (f->index < 0 || f->index >= FORMATS)
-			return -EINVAL;
-
-		fmt = &formats[f->index];
-
-		f->pixelformat = fmt->fourcc;
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
-	}
+	fmt = &formats[f->index];
+	f->pixelformat = fmt->fourcc;
+	snprintf(f->description, sizeof(f->description), "%s", fmt->name);
 	f->flags = 0;
 
 	return 0;
@@ -984,45 +985,39 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
 static int vidioc_try_fmt_out(struct file *file, void *priv,
 			      struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_device *dev;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	__u32 w = fmt->fmt.pix.width;
+	__u32 h = fmt->fmt.pix.height;
+	__u32 pixfmt = fmt->fmt.pix.pixelformat;
+	const struct v4l2l_format *format;
 	MARK();
 
-	dev = file_to_loopdev(file);
+	if (w > dev->max_width)
+		w = dev->max_width;
+	if (h > dev->max_height)
+		h = dev->max_height;
 
-	/* TODO(vasaka) loopback does not care about formats writer want to set,
-	 * maybe it is a good idea to restrict format somehow */
-	if (dev->ready_for_capture) {
-		fmt->fmt.pix = dev->pix_format;
-	} else {
-		__u32 w = fmt->fmt.pix.width;
-		__u32 h = fmt->fmt.pix.height;
-		__u32 pixfmt = fmt->fmt.pix.pixelformat;
-		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
+	dprintk("trying image %dx%d\n", w, h);
 
-		if (w > dev->max_width)
-			w = dev->max_width;
-		if (h > dev->max_height)
-			h = dev->max_height;
+	if (w < 1)
+		w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
 
-		dprintk("trying image %dx%d\n", w, h);
+	if (h < 1)
+		h = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 
-		if (w < 1)
-			w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	format = format_by_fourcc(pixfmt);
+	if (NULL == format)
+		format = &formats[0];
 
-		if (h < 1)
-			h = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	pix_format_set_size(&fmt->fmt.pix, format, w, h);
 
-		if (NULL == format)
-			format = &formats[0];
+	fmt->fmt.pix.pixelformat = format->fourcc;
+	fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 
-		pix_format_set_size(&fmt->fmt.pix, format, w, h);
+	if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
+		fmt->fmt.pix.field = V4L2_FIELD_NONE;
 
-		fmt->fmt.pix.pixelformat = format->fourcc;
-		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
-
-		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
-			fmt->fmt.pix.field = V4L2_FIELD_NONE;
-	}
 	return 0;
 }
 
@@ -1034,12 +1029,12 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 static int vidioc_s_fmt_out(struct file *file, void *priv,
 			    struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_device *dev;
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
 	char buf[5];
 	int ret;
 	MARK();
 
-	dev = file_to_loopdev(file);
 	ret = vidioc_try_fmt_out(file, priv, fmt);
 
 	dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
@@ -1232,11 +1227,7 @@ static int vidioc_enum_output(struct file *file, void *fh,
 			      struct v4l2_output *outp)
 {
 	__u32 index = outp->index;
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	MARK();
-
-	if (!dev->announce_all_caps && !dev->ready_for_output)
-		return -ENOTTY;
 
 	if (0 != index)
 		return -EINVAL;
@@ -1264,9 +1255,6 @@ static int vidioc_enum_output(struct file *file, void *fh,
  */
 static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	if (!dev->announce_all_caps && !dev->ready_for_output)
-		return -ENOTTY;
 	if (i)
 		*i = 0;
 	return 0;
@@ -1277,10 +1265,6 @@ static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
  */
 static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	if (!dev->announce_all_caps && !dev->ready_for_output)
-		return -ENOTTY;
-
 	if (i)
 		return -EINVAL;
 
@@ -2563,11 +2547,45 @@ static struct miscdevice v4l2loopback_misc = {
 
 static const struct v4l2_file_operations output_fops = {
 	// clang-format off
-	.owner          = THIS_MODULE,
+	.owner		= THIS_MODULE,
+	.open		= v4l2_fh_open,
+	.unlocked_ioctl	= video_ioctl2,
 	// clang-format on
 };
 
-static const struct v4l2_ioctl_ops output_ioctl_ops = {};
+static const struct v4l2_ioctl_ops output_ioctl_ops = {
+	// clang-format off
+	.vidioc_querycap		= vidioc_querycap,
+	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
+	.vidioc_enum_frameintervals	= vidioc_enum_frameintervals,
+
+	.vidioc_enum_output		= vidioc_enum_output,
+	.vidioc_g_output		= vidioc_g_output,
+	.vidioc_s_output		= vidioc_s_output,
+
+	.vidioc_enum_fmt_vid_out	= vidioc_enum_fmt_out,
+	.vidioc_g_fmt_vid_out		= vidioc_g_fmt_out,
+	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
+	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
+
+#ifdef V4L2L_OVERLAY
+	.vidioc_s_fmt_vid_overlay	= vidioc_s_fmt_overlay,
+	.vidioc_g_fmt_vid_overlay	= vidioc_g_fmt_overlay,
+#endif
+
+#ifdef V4L2LOOPBACK_WITH_STD
+	.vidioc_g_std			= vidioc_g_std,
+	.vidioc_s_std			= vidioc_s_std,
+	.vidioc_querystd		= vidioc_querystd,
+#endif /* V4L2LOOPBACK_WITH_STD */
+
+	.vidioc_g_parm			= vidioc_g_parm,
+	.vidioc_s_parm			= vidioc_s_parm,
+
+	.vidioc_subscribe_event		= vidioc_subscribe_event,
+	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
+	// clang-format on
+};
 
 static const struct v4l2_file_operations v4l2_loopback_fops = {
 	// clang-format off
@@ -2588,10 +2606,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
 	.vidioc_enum_frameintervals	= vidioc_enum_frameintervals,
 
-	.vidioc_enum_output		= vidioc_enum_output,
-	.vidioc_g_output		= vidioc_g_output,
-	.vidioc_s_output		= vidioc_s_output,
-
 	.vidioc_enum_input		= vidioc_enum_input,
 	.vidioc_g_input			= vidioc_g_input,
 	.vidioc_s_input			= vidioc_s_input,
@@ -2600,11 +2614,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_g_fmt_vid_cap		= vidioc_g_fmt_cap,
 	.vidioc_s_fmt_vid_cap		= vidioc_s_fmt_cap,
 	.vidioc_try_fmt_vid_cap		= vidioc_try_fmt_cap,
-
-	.vidioc_enum_fmt_vid_out	= vidioc_enum_fmt_out,
-	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
-	.vidioc_g_fmt_vid_out		= vidioc_g_fmt_out,
-	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
 
 #ifdef V4L2L_OVERLAY
 	.vidioc_s_fmt_vid_overlay	= vidioc_s_fmt_overlay,
