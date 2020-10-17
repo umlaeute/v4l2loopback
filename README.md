@@ -235,7 +235,7 @@ When creating a new device, module options might be ignored. So you must specify
 To create a new device `/dev/video7` that has a label "loopy doopy", use:
 
 ~~~
-$ sudo sudo v4l2loopback-ctl add -n "loopy doopy" /dev/video7
+$ sudo v4l2loopback-ctl add -n "loopy doopy" /dev/video7
 ~~~
 
 Deleting devices is as simple as:
