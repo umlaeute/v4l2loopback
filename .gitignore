@@ -3,7 +3,9 @@
 *.yuv
 Module.symvers
 modules.order
+utils/v4l2loopback-ctl
 v4l2loopback.ko
+v4l2loopback.mod
 v4l2loopback.mod.c
 v4l2loopback.mod.o
 v4l2loopback.o
