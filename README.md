@@ -32,8 +32,8 @@ The issue tracker is meant to track specific bugs in the code (and new features)
 However, it is ill-suited as a user support forum.
 
 If you have general questions or problems, please use the `v4l2loopback` tag
-on [Stack Overflow](https://stackoverflow.com/questions/tagged/v4l2loopback) instead:
-https://stackoverflow.com/questions/tagged/v4l2loopback
+on [Unix & Linux](https://unix.stackexchange.com/questions/tagged/v4l2loopback) instead:
+https://unix.stackexchange.com/questions/tagged/v4l2loopback
 
 
 # DEPENDENCIES
