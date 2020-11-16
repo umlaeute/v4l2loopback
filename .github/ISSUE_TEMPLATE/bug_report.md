@@ -1,5 +1,5 @@
 ---
-name: Bug report
+name: Report a bug
 about: Create a report to help us improve (but make sure to read all the documentation first)
 title: ''
 labels: 'needs triage'
