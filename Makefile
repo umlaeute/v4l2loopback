@@ -34,9 +34,10 @@ MODULE_OPTIONS = devices=2
 
 # we don't control the .ko file dependencies, as it is done by kernel
 # makefiles. therefore v4l2loopback.ko is a phony target actually
-.PHONY: v4l2loopback.ko
+.PHONY: v4l2loopback.ko utils
 
-all: v4l2loopback.ko
+all: v4l2loopback.ko utils
+
 v4l2loopback: v4l2loopback.ko
 v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
@@ -45,6 +46,9 @@ v4l2loopback.ko:
 install-all: install install-utils install-man
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
+	@echo ""
+	@echo "SUCCESS (if you got 'SSL errors' above, you can safely ignore them)"
+	@echo ""
 
 install-utils: utils/v4l2loopback-ctl
 	$(INSTALL_DIR) "$(DESTDIR)$(BINDIR)"
@@ -58,6 +62,7 @@ clean:
 	rm -f *~
 	rm -f Module.symvers Module.markers modules.order
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
+	$(MAKE) -C utils clean
 
 distclean: clean
 	rm -f man/v4l2loopback-ctl.1
@@ -69,4 +74,17 @@ modprobe: v4l2loopback.ko
 	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
 
 man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
-	help2man -N --name "control v4l2 loopback devices" $^ > $@
+	help2man -N --name "control v4l2 loopback devices" \
+		--no-discard-stderr --help-option=-h --version-option=-v \
+		$^ > $@
+
+utils: utils/v4l2loopback-ctl
+utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
+	$(MAKE) -C utils
+
+.clang-format:
+	curl "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.clang-format" > $@
+
+.PHONY: clang-format
+clang-format: .clang-format
+	clang-format -i *.c *.h utils/*.c

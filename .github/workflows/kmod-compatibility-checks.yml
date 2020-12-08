@@ -1,0 +1,48 @@
+name: kmod compatibility checks
+on:
+  pull_request:
+    branches:
+      - develop
+      - master
+  push:
+    branches:
+      - develop
+      - master
+
+jobs:
+  kmod-compile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        series: [trusty, xenial, bionic, focal, groovy]
+    container: buildpack-deps:${{ matrix.series }}
+    env:
+      JOB_KNOWN_FAILURES: "3.13"
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Compile against all available kernel header versions
+        shell: bash
+        run: |
+          apt-get update --quiet;
+          for kver in $(apt-cache search 'linux-headers-.*-generic' | cut -d- -f3 | sort -u -V); do
+            apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | tail -n 1 | awk '{print $1}';
+          done | xargs apt-get install --yes --no-install-recommends kmod
+
+          for kver in $(dpkg -l | grep 'linux-headers-.*-generic' | awk '{print $2}' | cut -d- -f3-); do
+            echo "=== Testing ${kver} ===";
+            ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
+            if [ ${ret} -eq 0 ]; then
+              modinfo v4l2loopback.ko;
+            else
+              case " ${JOB_KNOWN_FAILURES} " in
+              *" ${kver%.*} "*)
+                echo "#### Skipped known failure ${kver}";
+                ;;
+              *)
+                exit ${ret};
+                ;;
+              esac;
+            fi;
+            make KERNELRELEASE="${kver}" clean;
+          done

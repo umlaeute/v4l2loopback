@@ -1,3 +1,46 @@
+v4l2loopback (0.12.5) unstable; urgency=medium
+
+  [ Joan Bruguera ]
+  * Fix build in Linux 5.7-rc1 due to symbol name changes
+
+  [ IOhannes m zmölnig ]
+  * Simplify set/clear of V4L2_CAP_DEVICE_CAPS in querycaps
+  * Use temp-var for capabilities
+  * Also set vdev->device_caps
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Sun, 19 Apr 2020 19:06:09 +0200
+
+v4l2loopback (0.12.4) unstable; urgency=medium
+
+  [ Alex Xu (Hello71) ]
+  * Use v4l2_buffer ptr instead of timeval (Compat with linux-5.6)
+
+  [ tongdaxu ]
+  * Add example that loops over YUV frames infinitely
+
+  [ Thomas Hutterer ]
+  * Document 'exclusive_caps' mode option (and some markdown fixes)
+
+  [ IOhannes m zmölnig ]
+  * Set the default number of buffers to 2
+  * Print "SUCCESS" message on installation success
+  * Drop cast to (time_t)
+  * Document 'exclusive_caps' mode option (and some more markdown fixes)
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Thu, 09 Apr 2020 22:09:28 +0200
+
+v4l2loopback (0.12.3) unstable; urgency=medium
+
+  [ Ricardo Ribalda Delgado ]
+  * v4l2lookback: Port to kernel 5.4+
+
+  [ IOhannes m zmölnig ]
+  * Set video_device->device_caps for linux>4.7.0
+  * Set some more device_caps
+  * Update issue templates
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Fri, 06 Dec 2019 18:27:25 +0100
+
 v4l2loopback (0.12.2) unstable; urgency=medium
 
   [ wuweixin ]

@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Ask a Question
+    url: https://unix.stackexchange.com/questions/tagged/v4l2loopback
+    about: For general questions (and answers) about the usage of this module, please check the `v4l2loopback` tag on "Unix & Linux @ StackExchange"
+  - name: Ask a Dev-Question
+    url: https://stackoverflow.com/questions/tagged/v4l2loopback
+    about: There's also a `v4l2loopback` tag on "StackOverflow" (which has a larger userbase than the "Unix & Linux" group, although strictly speaking "usage"-questions are off-topic there)
+  - name: Look for more Documentation
+    url: https://github.com/umlaeute/v4l2loopback/wiki
+    about: Check our WIKI to see whether your question has already been answered.

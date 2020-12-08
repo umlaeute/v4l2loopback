@@ -1,9 +1,9 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: Report a bug
+about: Create a report to help us improve (but make sure to read all the documentation first)
 title: ''
-labels: ''
-assignees: ''
+labels: 'needs triage'
+assignees: 'umlaeute'
 
 ---
 
@@ -18,6 +18,14 @@ Please keep in mind that the development of `v4l2loopback` is done by volunteers
 They are spending their spare time to give you a hopfully nice product and to help you if you have troubles - for free.
 
 Please look through the list of issues (*open* and **closed** ones alike), to see whether you problem has been reported before. Probably you can find a solution to your problem without having to create a new ticket.
+
+#### Seeking Help? Looking for Support?
+This issue tracker is meant to track specific bugs in the code (and new features).
+However, it is ill-suited as a user support forum.
+
+If you have general questions or problems, please use the `v4l2loopback` tag on Stack Overflow instead:
+https://stackoverflow.com/questions/tagged/v4l2loopback
+
 
 #### Remove Cruft
 
@@ -36,6 +44,24 @@ Sometimes pictures say more.
 However, mostly they prevent the use of advanced tools (like "search" or "copy&paste").
 And always they prevent people who don't use graphical browser to access the tracker from reading your content.
 So, to make the web a better place, we ask you to post *text* rather than *screenshots of text* whenever feasible (pretty much always).
+
+
+#### Do some research first
+
+Please read the documentation carefully: while it is not very long, it does
+contain some information that might help fixing your problem.
+If you have trouble compiling the kernel module, double-read the 'DEPENDENCIES'
+section in the README.md.
+
+Also make sure to check the issue tracker.
+Maybe somebody already reported your problem? Maybe they found a workaround that
+could help you.
+If you found that somebody already reported your problem, it's *much* better to
+add additional information to that report than opening a new one.
+If your entire problem has been described and there's nothing to add for you,
+consider voting the issue up (using the :+1: emoji; please avoid posts that only
+say "me too").
+
 
 
 ### Step 2: Describe your environment
