@@ -22,6 +22,18 @@
 #define MARK()
 #endif
 
+struct v4l2l_format {
+	char *name;
+	int fourcc; /* video4linux 2 */
+	int depth; /* bit/pixel */
+	int flags;
+};
+#define FORMAT_FLAGS_PLANAR 0x01
+#define FORMAT_FLAGS_COMPRESSED 0x02
+static const struct v4l2l_format known_formats[] = {
+#include "../v4l2loopback_formats.h"
+};
+
 /********************/
 /* helper functions */
 
@@ -296,7 +308,24 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 		return;
 	dprintf(2,
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1");
+		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1 (<fourcc>:<width>x<height>@<fps>)"
+		"\n");
+	if (!argc) {
+		dprintf(2, "\nknown fourcc-codes"
+			   "\n------------------"
+			   "\n");
+		char fourcc[5];
+		const size_t num_formats =
+			sizeof(known_formats) / sizeof(*known_formats);
+		size_t i = 0;
+		for (i = 0; i < num_formats; i++) {
+			const struct v4l2l_format *fmt = known_formats + i;
+			memset(fourcc, 0, 5);
+			dprintf(2, "%4s\t%d\t%s\n",
+				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
+				fmt->name);
+		}
+	}
 }
 static void help_getcaps(const char *program, int brief, int argc, char **argv)
 {
