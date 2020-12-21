@@ -745,8 +745,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
-			       sizeof(cap->card) :
-			       sizeof(dev->card_label);
+				     sizeof(cap->card) :
+				     sizeof(dev->card_label);
 	int device_nr =
 		((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
 			->device_nr;
@@ -1291,7 +1291,8 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 		if (val < 0 || val > 1)
 			return -EINVAL;
 		dev->keep_format = val;
-		try_free_buffers(dev); /* will only free buffers if !keep_format */
+		try_free_buffers(
+			dev); /* will only free buffers if !keep_format */
 		break;
 	case CID_SUSTAIN_FRAMERATE:
 		if (val < 0 || val > 1)
@@ -2344,9 +2345,9 @@ static void timeout_timer_clb(unsigned long nr)
 /* init loopback main structure */
 #define DEFAULT_FROM_CONF(confmember, default_condition, default_value)        \
 	((conf) ?                                                              \
-		 ((conf->confmember default_condition) ? (default_value) :     \
-							 (conf->confmember)) : \
-		 default_value)
+		       ((conf->confmember default_condition) ? (default_value) :     \
+							       (conf->confmember)) : \
+		       default_value)
 
 static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
@@ -2360,8 +2361,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	int _max_height = DEFAULT_FROM_CONF(
 		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
 	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
-					  (conf->announce_all_caps) :
-					  V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
+						(conf->announce_all_caps) :
+						V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
 
 	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
 	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
