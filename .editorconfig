@@ -1,0 +1,14 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+[*.[ch]]
+indent_style = tab
+indent_size = 8
+trim_trailing_whitespace = true
+[*.sym]
+indent_style = tab
+indent_size = 4
+trim_trailing_whitespace = true
