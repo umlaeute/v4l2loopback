@@ -276,6 +276,10 @@ MODULE_PARM_DESC(max_height,
 		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
 
+/* frame intervals */
+#define V4L2LOOPBACK_FPS_MIN 1
+#define V4L2LOOPBACK_FPS_MAX 1000
+
 static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
@@ -434,7 +438,6 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int vidioc_enum_frameintervals_calls;
 	int read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
@@ -789,11 +792,6 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 
-	/* LATER: what does the index really  mean?
-	 * if it's about enumerating formats, we can safely ignore it
-	 * (CHECK)
-	 */
-
 	/* there can be only one... */
 	if (argp->index)
 		return -EINVAL;
@@ -831,20 +829,28 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+
+	/* there can be only one... */
+	if (argp->index)
+		return -EINVAL;
 
 	if (dev->ready_for_capture) {
-		if (opener->vidioc_enum_frameintervals_calls > 0)
+		if (argp->width != dev->pix_format.width ||
+		    argp->height != dev->pix_format.height)
 			return -EINVAL;
-		if (argp->width == dev->pix_format.width &&
-		    argp->height == dev->pix_format.height) {
-			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-			argp->discrete = dev->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
-			return 0;
-		}
-		return -EINVAL;
+
+		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+		argp->discrete = dev->capture_param.timeperframe;
+	} else {
+		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+		argp->stepwise.min.numerator = 1;
+		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
+		argp->stepwise.max.numerator = 1;
+		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+		argp->stepwise.step.numerator = 1;
+		argp->stepwise.step.denominator = 1;
 	}
+
 	return 0;
 }
 
