@@ -2862,6 +2862,7 @@ error:
 	return err;
 }
 
+#ifdef MODULE
 static void v4l2loopback_cleanup_module(void)
 {
 	MARK();
@@ -2871,6 +2872,7 @@ static void v4l2loopback_cleanup_module(void)
 	misc_deregister(&v4l2loopback_misc);
 	dprintk("module removed\n");
 }
+#endif
 
 MODULE_ALIAS_MISCDEV(MISC_DYNAMIC_MINOR);
 MODULE_ALIAS("devname:v4l2loopback");
