@@ -30,9 +30,7 @@ struct v4l2l_format {
 };
 #define FORMAT_FLAGS_PLANAR 0x01
 #define FORMAT_FLAGS_COMPRESSED 0x02
-static const struct v4l2l_format known_formats[] = {
 #include "../v4l2loopback_formats.h"
-};
 
 /********************/
 /* helper functions */
@@ -316,10 +314,10 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 			   "\n");
 		char fourcc[5];
 		const size_t num_formats =
-			sizeof(known_formats) / sizeof(*known_formats);
+			sizeof(formats) / sizeof(*formats);
 		size_t i = 0;
 		for (i = 0; i < num_formats; i++) {
-			const struct v4l2l_format *fmt = known_formats + i;
+			const struct v4l2l_format *fmt = formats + i;
 			memset(fourcc, 0, 5);
 			dprintf(2, "%4s\t%d\t%s\n",
 				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
