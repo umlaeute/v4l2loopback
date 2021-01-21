@@ -2304,7 +2304,7 @@ static int output_queue_setup(struct vb2_queue *q, unsigned int *num_buffers,
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
 	unsigned int size;
 
-	size = device->buffer_size;
+	size = dev->buffer_size;
 	if (*num_buffers > max_buffers)
 		*num_buffers = max_buffers;
 
