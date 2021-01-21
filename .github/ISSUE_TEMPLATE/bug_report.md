@@ -1,9 +1,9 @@
 ---
-name: Bug report
-about: Create a report to help us improve
+name: Report a bug
+about: Create a report to help us improve (but make sure to read all the documentation first)
 title: ''
-labels: ''
-assignees: ''
+labels: 'needs triage'
+assignees: 'umlaeute'
 
 ---
 
