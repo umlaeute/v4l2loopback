@@ -477,8 +477,8 @@ struct v4l2_loopback_device {
 	spinlock_t lock;
 };
 
-#define cd_to_loopdev(ptr)      video_get_drvdata(to_video_device((ptr)))
-#define file_to_loopdev(ptr)    video_get_drvdata(video_devdata((ptr)))
+#define cd_to_loopdev(ptr) video_get_drvdata(to_video_device((ptr)))
+#define file_to_loopdev(ptr) video_get_drvdata(video_devdata((ptr)))
 
 /* types of opener shows what opener wants to do with loopback */
 enum opener_type {
@@ -724,7 +724,7 @@ static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
 	}
 	return 0;
 }
-static struct v4l2_loopback_device* v4l2loopback_lookup(int device_nr)
+static struct v4l2_loopback_device *v4l2loopback_lookup(int device_nr)
 {
 	struct v4l2loopback_lookup_cb_data data = {
 		.device_nr = device_nr,
@@ -778,8 +778,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
 	int is_output = vdev == &dev->output.vdev ? 1 : 0;
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
-			       sizeof(cap->card) :
-			       sizeof(dev->card_label);
+				     sizeof(cap->card) :
+				     sizeof(dev->card_label);
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 #if defined(V4L2_CAP_DEVICE_CAPS)
 	__u32 device_caps;
@@ -818,8 +818,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 		 * roles depending on ready_for_capture/ready_for_output and
 		 * announce_all_caps. */
 		if (dev->announce_all_caps) {
-			capabilities |= V4L2_CAP_VIDEO_CAPTURE |
-					V4L2_CAP_VIDEO_OUTPUT;
+			capabilities |=
+				V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 		} else {
 			if (dev->ready_for_capture)
 				capabilities |= V4L2_CAP_VIDEO_CAPTURE;
@@ -2393,7 +2393,7 @@ static int init_vdev(struct video_device *vdev, int nr, int type,
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
 #endif
 
-	/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
+		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
 	 * set to VFL_DIR_M2M for bidirectional devices */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 	if (is_output)
@@ -2748,8 +2748,10 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		else if (dev->open_count.counter > 0)
 			ret = -EBUSY;
 		else {
-			idr_remove(&v4l2loopback_index_idr, dev->output.vdev.num);
-			idr_remove(&v4l2loopback_index_idr, dev->capture.vdev.num);
+			idr_remove(&v4l2loopback_index_idr,
+				   dev->output.vdev.num);
+			idr_remove(&v4l2loopback_index_idr,
+				   dev->capture.vdev.num);
 			v4l2_loopback_remove(dev);
 			ret = 0;
 		};
