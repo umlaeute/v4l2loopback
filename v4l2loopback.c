@@ -2875,7 +2875,6 @@ static void v4l2loopback_cleanup_module(void)
 #endif
 
 MODULE_ALIAS_MISCDEV(MISC_DYNAMIC_MINOR);
-MODULE_ALIAS("devname:v4l2loopback");
 
 module_init(v4l2loopback_init_module);
 module_exit(v4l2loopback_cleanup_module);
