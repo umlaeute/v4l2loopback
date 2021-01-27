@@ -2358,7 +2358,7 @@ static const struct vb2_ops output_qops = {
 static int init_vdev(struct video_device *vdev, int nr, int type,
 		     struct v4l2_loopback_device *dev)
 {
-	int is_output = type == V4L2_CAP_VIDEO_OUTPUT ? 1 : 0;
+	int is_output = (type == V4L2_CAP_VIDEO_OUTPUT) ? 1 : 0;
 
 	snprintf(vdev->name, sizeof(vdev->name), dev->card_label);
 	vdev->v4l2_dev = &dev->v4l2_dev;
