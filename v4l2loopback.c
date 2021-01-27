@@ -781,9 +781,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
-#if defined(V4L2_CAP_DEVICE_CAPS)
 	__u32 device_caps;
-#endif
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
@@ -809,9 +807,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 		device_caps = vdev->device_caps;
 #else
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
-#if defined(V4L2_CAP_DEVICE_CAPS)
 		device_caps = capabilities & (~V4L2_CAP_VIDEO_CAPTURE);
-#endif
 #endif
 	} else {
 		/* So this is the capture device that currently serves both
@@ -826,12 +822,10 @@ static int vidioc_querycap(struct file *file, void *priv,
 			if (dev->ready_for_output)
 				capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 		}
-#if defined(V4L2_CAP_DEVICE_CAPS)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
 		dev->capture.vdev.device_caps =
 #endif
 			device_caps = capabilities;
-#endif
 	}
 
 	cap->capabilities = capabilities;
