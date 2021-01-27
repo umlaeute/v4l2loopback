@@ -55,6 +55,9 @@ vagrant@/vagrant/v4l2loopback$ make modprobe
 vagrant@/vagrant/v4l2loopback$ (do some tests)
 ~~~
 
+if the machine freezes, or something else really bad happens to it, just
+re-run `./vbox-restart` and start anew.
+
 # Resources
 
 ## Vagrantfile
