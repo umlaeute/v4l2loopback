@@ -41,13 +41,14 @@ jobs:
                 echo "#### Skipped known failure ${kver}";
                 ;;
               *)
+                echo "#### Skipped unexpected failure ${kver}";
                 failed="${failed} ${kver}";
                 ;;
               esac;
             fi;
-            make KERNELRELEASE="${kver}" clean;
+            make KERNELRELEASE="${kver}" clean || test ${ret} -ne 0
           done
           if [ "x${failed}" != "x" ]; then
-            echo "#### Failed tests: ${failed}";
+            echo "#### Failed kernels: ${failed}";
             exit 1
           fi
