@@ -1,34 +1,86 @@
 #!/bin/sh
 
-vm=$1
-
 usage() {
 cat 1>&2 <<EOL
-usage: $0 <vm>
+usage: $0 [ -w ] [ -a ] <vm>
    stops the given VM, restores the current snapshot and restarts it again
 
-   here's a list of running VMs:
+OPTIONS
+   -w         attach host's webcam to VM
+   -a         if no <vm> is given, try to automatically guess it
+              (using the currently running one, if this is unambiguous)
 EOL
-vboxmanage list runningvms
-echo "" 1>&2
-exit 1
+
+if [ "x${1}" != "x" ]; then
+    cat 1>&2 <<EOL
+
+ here's a list of running VMs:
+EOL
+    vboxmanage list runningvms
+    echo "" 1>&2
+fi
 }
 
+
+webcam=no
+auto_vm=no
+
+while getopts "h?wa" opt; do
+    case $opt in
+        w)
+            webcam=yes
+            ;;
+        a)
+            auto_vm=yes
+            ;;
+        h|\?)
+            usage
+            exit 0
+            ;;
+        :)
+            usage
+            exit 0
+            ;;
+    esac
+done
+shift $((OPTIND-1))
+
+vm=$1
+
+if test "x${auto_vm}" = "xyes" && test "x${vm}" = "x"; then
+    vm=$(vboxmanage list runningvms | grep -c .)
+    if [ ${vm} -eq 1 ]; then
+        vboxmanage list runningvms
+        vm=$(vboxmanage list runningvms | awk '{print $2}' | tail -1)
+    else
+        cat 1>&2 <<EOL
+unable to unambiguously determine VM
+
+EOL
+        usage vms
+        exit 1
+    fi
+fi
+
+
 if [ "x${vm}" = "x" ]; then
-  usage
+    usage 1
+    exit 1
 fi
 
 restore() {
-vboxmanage controlvm "${vm}" poweroff \
-&& vboxmanage snapshot "${vm}" restorecurrent
+    vboxmanage controlvm "${vm}" poweroff \
+        && vboxmanage snapshot "${vm}" restorecurrent
 }
 restart() {
-  # don't know why, but if we start the VM immediately after restoring the
-  # current snapshot, it fails...
-  sleep 2
-  vboxmanage startvm "${vm}"
+    # don't know why, but if we start the VM immediately after restoring the
+    # current snapshot, it fails...
+    sleep 2
+    vboxmanage startvm "${vm}"
 }
 configure() {
-  vboxmanage controlvm "${vm}" webcam attach /dev/video0
+    if [ "x${webcam}" = "xyes" ]; then
+       vboxmanage controlvm "${vm}" webcam attach /dev/video0
+    fi
 }
 restore && restart && configure

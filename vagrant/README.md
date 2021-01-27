@@ -48,7 +48,7 @@ Running it (give the UUID of a running VM) will:
 ~~~
 me@host:~/v4l2loopback$ cd vagrant
 
-me@host:~/v4l2loopback/vagrant$ ./vbox-restart
+me@host:~/v4l2loopback/vagrant$ ./vbox-restart -a
 me@host:~/v4l2loopback/vagrant$ vagrant ssh
 vagrant@/vagrant/v4l2loopback$ make clean
 vagrant@/vagrant/v4l2loopback$ make modprobe
