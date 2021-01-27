@@ -2664,10 +2664,10 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 
 static const struct file_operations v4l2loopback_ctl_fops = {
 	// clang-format off
+	.owner		= THIS_MODULE,
 	.open		= nonseekable_open,
 	.unlocked_ioctl	= v4l2loopback_control_ioctl,
 	.compat_ioctl	= v4l2loopback_control_ioctl,
-	.owner		= THIS_MODULE,
 	.llseek		= noop_llseek,
 	// clang-format on
 };
