@@ -2813,10 +2813,10 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 
 static const struct file_operations v4l2loopback_ctl_fops = {
 	// clang-format off
+	.owner		= THIS_MODULE,
 	.open		= nonseekable_open,
 	.unlocked_ioctl	= v4l2loopback_control_ioctl,
 	.compat_ioctl	= v4l2loopback_control_ioctl,
-	.owner		= THIS_MODULE,
 	.llseek		= noop_llseek,
 	// clang-format on
 };
@@ -3078,20 +3078,9 @@ static void v4l2loopback_cleanup_module(void)
 #endif
 
 MODULE_ALIAS_MISCDEV(MISC_DYNAMIC_MINOR);
-MODULE_ALIAS("devname:v4l2loopback");
 
-#ifdef MODULE
-int __init init_module(void)
-{
-	return v4l2loopback_init_module();
-}
-void __exit cleanup_module(void)
-{
-	return v4l2loopback_cleanup_module();
-}
-#else
-late_initcall(v4l2loopback_init_module);
-#endif
+module_init(v4l2loopback_init_module);
+module_exit(v4l2loopback_cleanup_module);
 
 /*
  * fake usage of unused functions
