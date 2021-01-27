@@ -252,11 +252,9 @@ Further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
 newer kernels being continually tested as they enter Debian.
 
 Support:
-- >= <kbd>5.0.0</kbd>		should work
-- >= <kbd>4.0.0</kbd>		should work
-- >= <kbd>3.0.0</kbd>		might work
-- << <kbd>3.0.0</kbd>		may work (has not been tested in ages)
-- <= <kbd>2.6.27</kbd>		will definitely NOT work
+- &le; <kbd>5.0.0</kbd>		should work
+- &le; <kbd>4.0.0</kbd>		should work
+- &lt; <kbd>4.0.0</kbd>		unsupported
 
 # DISTRIBUTIONS
 v4l2loopack is now (since 2010-10-13) available as a Debian-package.
