@@ -474,7 +474,7 @@ struct v4l2_loopback_device {
 	char card_label[32];
 
 	wait_queue_head_t read_event;
-	spinlock_t lock;
+	spinlock_t spinlock;
 };
 
 #define cd_to_loopdev(ptr) video_get_drvdata(to_video_device((ptr)))
@@ -1344,18 +1344,18 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 	case CID_SUSTAIN_FRAMERATE:
 		if (val < 0 || val > 1)
 			return -EINVAL;
-		spin_lock_bh(&dev->lock);
+		spin_lock_bh(&dev->spinlock);
 		dev->sustain_framerate = val;
 		check_timers(dev);
-		spin_unlock_bh(&dev->lock);
+		spin_unlock_bh(&dev->spinlock);
 		break;
 	case CID_TIMEOUT:
 		if (val < 0 || val > MAX_TIMEOUT)
 			return -EINVAL;
-		spin_lock_bh(&dev->lock);
+		spin_lock_bh(&dev->spinlock);
 		dev->timeout_jiffies = msecs_to_jiffies(val);
 		check_timers(dev);
-		spin_unlock_bh(&dev->lock);
+		spin_unlock_bh(&dev->spinlock);
 		allocate_timeout_image(dev);
 		break;
 	case CID_TIMEOUT_IMAGE_IO:
@@ -1633,7 +1633,7 @@ static void buffer_written(struct v4l2_loopback_device *dev,
 {
 	del_timer_sync(&dev->sustain_timer);
 	del_timer_sync(&dev->timeout_timer);
-	spin_lock_bh(&dev->lock);
+	spin_lock_bh(&dev->spinlock);
 
 	dev->bufpos2index[dev->write_position % dev->used_buffers] =
 		buf->buffer.index;
@@ -1642,7 +1642,7 @@ static void buffer_written(struct v4l2_loopback_device *dev,
 	dev->reread_count = 0;
 
 	check_timers(dev);
-	spin_unlock_bh(&dev->lock);
+	spin_unlock_bh(&dev->spinlock);
 }
 
 /* put buffer to queue
@@ -1699,11 +1699,11 @@ static int can_read(struct v4l2_loopback_device *dev,
 {
 	int ret;
 
-	spin_lock_bh(&dev->lock);
+	spin_lock_bh(&dev->spinlock);
 	check_timers(dev);
 	ret = dev->write_position > opener->read_position ||
 	      dev->reread_count > opener->reread_count || dev->timeout_happened;
-	spin_unlock_bh(&dev->lock);
+	spin_unlock_bh(&dev->spinlock);
 	return ret;
 }
 
@@ -1721,7 +1721,7 @@ static int get_capture_buffer(struct file *file)
 		return -EAGAIN;
 	wait_event_interruptible(dev->read_event, can_read(dev, opener));
 
-	spin_lock_bh(&dev->lock);
+	spin_lock_bh(&dev->spinlock);
 	if (dev->write_position == opener->read_position) {
 		if (dev->reread_count > opener->reread_count + 2)
 			opener->reread_count = dev->reread_count - 1;
@@ -1738,7 +1738,7 @@ static int get_capture_buffer(struct file *file)
 	}
 	timeout_happened = dev->timeout_happened;
 	dev->timeout_happened = 0;
-	spin_unlock_bh(&dev->lock);
+	spin_unlock_bh(&dev->spinlock);
 
 	ret = dev->bufpos2index[pos];
 	if (timeout_happened) {
@@ -2478,7 +2478,7 @@ static void sustain_timer_clb(unsigned long nr)
 	struct v4l2_loopback_device *dev =
 		idr_find(&v4l2loopback_index_idr, nr);
 #endif
-	spin_lock(&dev->lock);
+	spin_lock(&dev->spinlock);
 	if (dev->sustain_framerate) {
 		dev->reread_count++;
 		dprintkrw("reread: %d %d\n", dev->write_position,
@@ -2491,7 +2491,7 @@ static void sustain_timer_clb(unsigned long nr)
 				  jiffies + dev->frame_jiffies);
 		wake_up_all(&dev->read_event);
 	}
-	spin_unlock(&dev->lock);
+	spin_unlock(&dev->spinlock);
 }
 #ifdef HAVE_TIMER_SETUP
 static void timeout_timer_clb(struct timer_list *t)
@@ -2503,13 +2503,13 @@ static void timeout_timer_clb(unsigned long nr)
 	struct v4l2_loopback_device *dev =
 		idr_find(&v4l2loopback_index_idr, nr);
 #endif
-	spin_lock(&dev->lock);
+	spin_lock(&dev->spinlock);
 	if (dev->timeout_jiffies > 0) {
 		dev->timeout_happened = 1;
 		mod_timer(&dev->timeout_timer, jiffies + dev->timeout_jiffies);
 		wake_up_all(&dev->read_event);
 	}
-	spin_unlock(&dev->lock);
+	spin_unlock(&dev->spinlock);
 }
 
 /* init loopback main structure */
@@ -2593,7 +2593,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->write_position = 0;
 
 	MARK();
-	spin_lock_init(&dev->lock);
+	spin_lock_init(&dev->spinlock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
 		int i;
