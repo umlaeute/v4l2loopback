@@ -29,6 +29,7 @@ jobs:
             apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | tail -n 1 | awk '{print $1}';
           done | xargs apt-get install --yes --no-install-recommends kmod
 
+          failed=""
           for kver in $(dpkg -l | grep 'linux-headers-.*-generic' | awk '{print $2}' | cut -d- -f3-); do
             echo "=== Testing ${kver} ===";
             ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
@@ -40,9 +41,13 @@ jobs:
                 echo "#### Skipped known failure ${kver}";
                 ;;
               *)
-                exit ${ret};
+                failed="${failed} ${kver}";
                 ;;
               esac;
             fi;
             make KERNELRELEASE="${kver}" clean;
           done
+          if [ "x${failed}" != "x" ]; then
+            echo "#### Failed tests: ${failed}";
+            exit 1
+          fi
