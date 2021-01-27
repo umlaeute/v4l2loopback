@@ -409,14 +409,10 @@ struct v4l2_loopback_vb2_buffer {
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
-	struct {
-		struct video_device vdev;
-		struct vb2_queue vidq;
-		struct mutex lock;
-	} output;
-	struct {
-		struct video_device vdev;
-	} capture;
+	struct video_device output;
+	struct video_device capture;
+	struct vb2_queue vidq;
+	struct mutex lock;
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
 	struct v4l2_captureparm capture_param;
@@ -716,8 +712,8 @@ static int v4l2loopback_lookup_cb(int id, void *ptr, void *data)
 	struct v4l2_loopback_device *device = ptr;
 	struct v4l2loopback_lookup_cb_data *cbdata = data;
 	if (cbdata && device) {
-		if (device->output.vdev.num == cbdata->device_nr ||
-		    device->capture.vdev.num == cbdata->device_nr) {
+		if (device->output.num == cbdata->device_nr ||
+		    device->capture.num == cbdata->device_nr) {
 			cbdata->device = device;
 			return 1;
 		}
@@ -776,7 +772,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
@@ -786,7 +782,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
-		 "platform:v4l2loopback-%03d", dev->capture.vdev.num);
+		 "platform:v4l2loopback-%03d", dev->capture.num);
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
 	/* since 3.1.0, the v4l2-core system is supposed to set the version */
@@ -802,8 +798,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 		 * output device. No more trick here.
 		 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		capabilities = dev->output.vdev.device_caps |
-			       dev->capture.vdev.device_caps;
+		capabilities = dev->output.device_caps |
+			       dev->capture.device_caps;
 		device_caps = vdev->device_caps;
 #else
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
@@ -823,7 +819,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 				capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 		}
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		dev->capture.vdev.device_caps =
+		dev->capture.device_caps =
 #endif
 			device_caps = capabilities;
 	}
@@ -1003,7 +999,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	const struct v4l2l_format *fmt;
 
 	if (!is_output && dev->ready_for_capture) {
@@ -1075,7 +1071,7 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	MARK();
 
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
@@ -1125,7 +1121,7 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	char buf[5];
 	int ret;
 	MARK();
@@ -1389,7 +1385,7 @@ static int vidioc_enum_output(struct file *file, void *fh,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	__u32 index = outp->index;
 	MARK();
 
@@ -1424,7 +1420,7 @@ static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	if (!is_output && !dev->announce_all_caps && !dev->ready_for_output)
 		return -ENOTTY;
 	if (i)
@@ -1439,7 +1435,7 @@ static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = vdev == &dev->output.vdev ? 1 : 0;
+	int is_output = vdev == &dev->output ? 1 : 0;
 	if (!is_output && !dev->announce_all_caps && !dev->ready_for_output)
 		return -ENOTTY;
 
@@ -2397,7 +2393,7 @@ static int init_vdev(struct video_device *vdev, int nr, int type,
 #endif
 
 	if (is_output) {
-		struct vb2_queue *q = &dev->output.vidq;
+		struct vb2_queue *q = &dev->vidq;
 		int err;
 
 		q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -2409,7 +2405,7 @@ static int init_vdev(struct video_device *vdev, int nr, int type,
 		q->ops = &output_qops;
 		q->mem_ops = &vb2_vmalloc_memops;
 		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-		q->lock = &dev->output.lock;
+		q->lock = &dev->lock;
 
 		err = vb2_queue_init(q);
 		if (err < 0)
@@ -2657,13 +2653,13 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	MARK();
 
-	output_vdev = &dev->output.vdev;
+	output_vdev = &dev->output;
 	if (init_output_vdev(output_vdev, output_nr, dev))
 		goto out_free_handler;
 
 	MARK();
 
-	capture_vdev = &dev->capture.vdev;
+	capture_vdev = &dev->capture;
 	if (init_capture_vdev(capture_vdev, capture_nr, dev))
 		goto out_unregister_output_vdev;
 
@@ -2686,8 +2682,8 @@ out_free_dev:
 
 static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 {
-	struct video_device *output_vdev = &dev->output.vdev;
-	struct video_device *capture_vdev = &dev->capture.vdev;
+	struct video_device *output_vdev = &dev->output;
+	struct video_device *capture_vdev = &dev->capture;
 
 	free_buffers(dev);
 
@@ -2743,9 +2739,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			ret = -EBUSY;
 		else {
 			idr_remove(&v4l2loopback_index_idr,
-				   dev->output.vdev.num);
+				   dev->output.num);
 			idr_remove(&v4l2loopback_index_idr,
-				   dev->capture.vdev.num);
+				   dev->capture.num);
 			v4l2_loopback_remove(dev);
 			ret = 0;
 		};
@@ -2778,8 +2774,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
 		MARK();
-		conf.output_nr = dev->output.vdev.num;
-		conf.capture_nr = dev->capture.vdev.num;
+		conf.output_nr = dev->output.num;
+		conf.capture_nr = dev->capture.num;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
 		conf.announce_all_caps = dev->announce_all_caps;
@@ -2953,7 +2949,7 @@ static int free_device_cb(int id, void *ptr, void *data)
 	 * so here we only have to deal with fully instanciated devices. In
 	 * order to avoid double free, free only when id matches its output_nr.
 	 */
-	if (id == dev->output.vdev.num)
+	if (id == dev->output.num)
 		v4l2_loopback_remove(dev);
 
 	return 0;
