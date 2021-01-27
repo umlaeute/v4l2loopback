@@ -1,0 +1,34 @@
+#!/bin/sh
+
+vm=$1
+
+usage() {
+cat 1>&2 <<EOL
+usage: $0 <vm>
+   stops the given VM, restores the current snapshot and restarts it again
+
+   here's a list of running VMs:
+EOL
+vboxmanage list runningvms
+echo "" 1>&2
+exit 1
+}
+
+if [ "x${vm}" = "x" ]; then
+  usage
+fi
+
+restore() {
+vboxmanage controlvm "${vm}" poweroff \
+&& vboxmanage snapshot "${vm}" restorecurrent
+}
+restart() {
+  # don't know why, but if we start the VM immediately after restoring the
+  # current snapshot, it fails...
+  sleep 2
+  vboxmanage startvm "${vm}"
+}
+configure() {
+  vboxmanage controlvm "${vm}" webcam attach /dev/video0
+}
+restore && restart && configure
