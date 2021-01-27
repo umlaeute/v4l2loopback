@@ -836,7 +836,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 
 	cap->capabilities = capabilities;
 #if defined(V4L2_CAP_DEVICE_CAPS)
-	cap->device_caps = device_caps;
+	cap->device_caps = device_caps & (~V4L2_CAP_DEVICE_CAPS);
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 #endif
 
