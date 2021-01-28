@@ -701,12 +701,9 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = (vdev == dev->output) ? 1 : 0;
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
-	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
-	__u32 device_caps;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
