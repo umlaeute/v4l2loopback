@@ -2554,52 +2554,52 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	// clang-format off
-	.vidioc_querycap		= &vidioc_querycap,
-	.vidioc_enum_framesizes		= &vidioc_enum_framesizes,
-	.vidioc_enum_frameintervals	= &vidioc_enum_frameintervals,
+	.vidioc_querycap		= vidioc_querycap,
+	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
+	.vidioc_enum_frameintervals	= vidioc_enum_frameintervals,
 
-	.vidioc_enum_output		= &vidioc_enum_output,
-	.vidioc_g_output		= &vidioc_g_output,
-	.vidioc_s_output		= &vidioc_s_output,
+	.vidioc_enum_output		= vidioc_enum_output,
+	.vidioc_g_output		= vidioc_g_output,
+	.vidioc_s_output		= vidioc_s_output,
 
-	.vidioc_enum_input		= &vidioc_enum_input,
-	.vidioc_g_input			= &vidioc_g_input,
-	.vidioc_s_input			= &vidioc_s_input,
+	.vidioc_enum_input		= vidioc_enum_input,
+	.vidioc_g_input			= vidioc_g_input,
+	.vidioc_s_input			= vidioc_s_input,
 
-	.vidioc_enum_fmt_vid_cap	= &vidioc_enum_fmt_cap,
-	.vidioc_g_fmt_vid_cap		= &vidioc_g_fmt_cap,
-	.vidioc_s_fmt_vid_cap		= &vidioc_s_fmt_cap,
-	.vidioc_try_fmt_vid_cap		= &vidioc_try_fmt_cap,
+	.vidioc_enum_fmt_vid_cap	= vidioc_enum_fmt_cap,
+	.vidioc_g_fmt_vid_cap		= vidioc_g_fmt_cap,
+	.vidioc_s_fmt_vid_cap		= vidioc_s_fmt_cap,
+	.vidioc_try_fmt_vid_cap		= vidioc_try_fmt_cap,
 
-	.vidioc_enum_fmt_vid_out	= &vidioc_enum_fmt_out,
-	.vidioc_s_fmt_vid_out		= &vidioc_s_fmt_out,
-	.vidioc_g_fmt_vid_out		= &vidioc_g_fmt_out,
-	.vidioc_try_fmt_vid_out		= &vidioc_try_fmt_out,
+	.vidioc_enum_fmt_vid_out	= vidioc_enum_fmt_out,
+	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
+	.vidioc_g_fmt_vid_out		= vidioc_g_fmt_out,
+	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
 
 #ifdef V4L2L_OVERLAY
-	.vidioc_s_fmt_vid_overlay	= &vidioc_s_fmt_overlay,
-	.vidioc_g_fmt_vid_overlay	= &vidioc_g_fmt_overlay,
+	.vidioc_s_fmt_vid_overlay	= vidioc_s_fmt_overlay,
+	.vidioc_g_fmt_vid_overlay	= vidioc_g_fmt_overlay,
 #endif
 
 #ifdef V4L2LOOPBACK_WITH_STD
-	.vidioc_s_std			= &vidioc_s_std,
-	.vidioc_g_std			= &vidioc_g_std,
-	.vidioc_querystd		= &vidioc_querystd,
+	.vidioc_s_std			= vidioc_s_std,
+	.vidioc_g_std			= vidioc_g_std,
+	.vidioc_querystd		= vidioc_querystd,
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-	.vidioc_g_parm			= &vidioc_g_parm,
-	.vidioc_s_parm			= &vidioc_s_parm,
+	.vidioc_g_parm			= vidioc_g_parm,
+	.vidioc_s_parm			= vidioc_s_parm,
 
-	.vidioc_reqbufs			= &vidioc_reqbufs,
-	.vidioc_querybuf		= &vidioc_querybuf,
-	.vidioc_qbuf			= &vidioc_qbuf,
-	.vidioc_dqbuf			= &vidioc_dqbuf,
+	.vidioc_reqbufs			= vidioc_reqbufs,
+	.vidioc_querybuf		= vidioc_querybuf,
+	.vidioc_qbuf			= vidioc_qbuf,
+	.vidioc_dqbuf			= vidioc_dqbuf,
 
-	.vidioc_streamon		= &vidioc_streamon,
-	.vidioc_streamoff		= &vidioc_streamoff,
+	.vidioc_streamon		= vidioc_streamon,
+	.vidioc_streamoff		= vidioc_streamoff,
 
-	.vidioc_subscribe_event		= &vidioc_subscribe_event,
-	.vidioc_unsubscribe_event	= &v4l2_event_unsubscribe,
+	.vidioc_subscribe_event		= vidioc_subscribe_event,
+	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
 	// clang-format on
 };
 
