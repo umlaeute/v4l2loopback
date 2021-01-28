@@ -712,54 +712,12 @@ static int vidioc_querycap(struct file *file, void *priv,
 	snprintf(cap->card, labellen, dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", dev->capture->num);
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
-	/* since 3.1.0, the v4l2-core system is supposed to set the version */
-	cap->version = V4L2LOOPBACK_VERSION_CODE;
-#endif
-
-#ifdef V4L2_CAP_VIDEO_M2M
-	capabilities |= V4L2_CAP_VIDEO_M2M;
-#endif /* V4L2_CAP_VIDEO_M2M */
-
-	if (is_output) {
-		/* If this is that splited output device, it will always be an
-		 * output device. No more trick here.
-		 */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		capabilities = dev->output->device_caps |
-			       dev->capture->device_caps;
-		device_caps = vdev->device_caps;
-#else
-		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
-		device_caps = capabilities & (~V4L2_CAP_VIDEO_CAPTURE);
-#endif
-	} else {
-		/* So this is the capture device that currently serves both
-		 * roles depending on ready_for_capture/ready_for_output and
-		 * announce_all_caps. */
-		if (dev->announce_all_caps) {
-			capabilities |=
-				V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
-		} else {
-			if (dev->ready_for_capture)
-				capabilities |= V4L2_CAP_VIDEO_CAPTURE;
-			if (dev->ready_for_output)
-				capabilities |= V4L2_CAP_VIDEO_OUTPUT;
-		}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		dev->capture->device_caps =
-#endif
-			device_caps = capabilities;
-	}
-
-	cap->capabilities = capabilities;
+	cap->capabilities
+		= dev->output->device_caps
+		| dev->capture->device_caps;
 #if defined(V4L2_CAP_DEVICE_CAPS)
-	cap->device_caps = device_caps & (~V4L2_CAP_DEVICE_CAPS);
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 #endif
-
-	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
 }
 
