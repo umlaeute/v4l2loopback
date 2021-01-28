@@ -2768,7 +2768,7 @@ static void free_devices(void)
 	idr_destroy(&v4l2loopback_index_idr);
 }
 
-static int __init v4l2loopback_init_module(void)
+static int v4l2loopback_init_module(void)
 {
 	int err;
 	int i;
