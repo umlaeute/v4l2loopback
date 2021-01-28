@@ -2529,14 +2529,16 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 	video_unregister_device(output_vdev);
 	video_device_release_empty(output_vdev);
 
-	v4l2loopback_remove_sysfs(capture_vdev);
-	video_unregister_device(capture_vdev);
-	video_device_release_empty(capture_vdev);
+	if(output_vdev != capture_vdev) {
+		v4l2loopback_remove_sysfs(capture_vdev);
+		video_unregister_device(capture_vdev);
+		video_device_release_empty(capture_vdev);
+	}
 
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	if(dev->output) kfree(dev->output);
-	if(dev->capture)kfree(dev->capture);
+	if(dev->capture && (dev->capture != dev->output))kfree(dev->capture);
 	kfree(dev);
 }
 
