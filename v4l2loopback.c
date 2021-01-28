@@ -2376,7 +2376,13 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	if (!dev)
 		return -ENOMEM;
 
-	err = idr_alloc2(&v4l2loopback_index_idr, dev, &output_nr, &capture_nr);
+	if (output_nr >= 0 && capture_nr >= 0 &&
+	    output_nr == capture_nr) {
+		err = idr_alloc1(&v4l2loopback_index_idr, dev, &output_nr);
+		capture_nr = output_nr;
+	} else {
+		err = idr_alloc2(&v4l2loopback_index_idr, dev, &output_nr, &capture_nr);
+	}
 	if (err)
 		goto out_free_dev;
 
@@ -2477,16 +2483,24 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	init_waitqueue_head(&dev->read_event);
 
 	MARK();
+	printk(KERN_ERR "out[%d]=%p\tcap[%d]=%p", output_nr, dev->output, capture_nr, dev->capture);
 
 	output_vdev = dev->output;
-	if (init_output_vdev(output_vdev, output_nr, dev))
-		goto out_free_handler;
-
-	MARK();
-
 	capture_vdev = dev->capture;
-	if (init_capture_vdev(capture_vdev, capture_nr, dev))
-		goto out_unregister_output_vdev;
+	if(output_vdev != capture_vdev) {
+
+		if (init_output_vdev(output_vdev, output_nr, dev))
+			goto out_free_handler;
+
+		MARK();
+
+		if (init_capture_vdev(capture_vdev, capture_nr, dev))
+			goto out_unregister_output_vdev;
+	} else {
+		MARK();
+		if (init_vdev(output_vdev, output_nr, V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT, dev))
+			goto out_free_handler;
+	}
 
 	MARK();
 	if (ret_nr)
