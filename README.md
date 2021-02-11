@@ -149,7 +149,7 @@ You can also specify the device IDs manually; e.g.
 
 Will create 3 devices (`/dev/video3`, `/dev/video4` & `/dev/video7`)
 
-    # modprobe v4l2loopback video_nr=3,4,7 card_label="device number 3","the number four","the last one"
+    # modprobe v4l2loopback video_nr=3,4,7 card_label="device number 3,the number four,the last one"
 
 Will create 3 devices with the card names passed as the second parameter:
 - `/dev/video3` -> *device number 3*
