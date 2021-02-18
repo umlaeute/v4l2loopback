@@ -1,7 +1,5 @@
-ifneq ($(KERNELRELEASE),)
-	# (only) the following line is invoked by kbuild
 include Kbuild
-else # !kbuild
+ifeq ($(KBUILD_MODULES),)
 
 KERNELRELEASE	?= `uname -r`
 KERNEL_DIR	?= /lib/modules/$(KERNELRELEASE)/build
