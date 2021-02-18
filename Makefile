@@ -1,6 +1,6 @@
 ifneq ($(KERNELRELEASE),)
 	# (only) the following line is invoked by kbuild
-include KBuild
+include Kbuild
 else # !kbuild
 
 KERNELRELEASE	?= `uname -r`
