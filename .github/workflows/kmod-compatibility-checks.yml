@@ -3,11 +3,11 @@ on:
   pull_request:
     branches:
       - develop
-      - master
+      - main
   push:
     branches:
       - develop
-      - master
+      - main
 
 jobs:
   kmod-compile:
