@@ -34,7 +34,7 @@
 #include "v4l2loopback.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-#define kstrtoul strict_strtoul
+#error This module is not supported on kernels before 3.6.1.
 #endif
 
 #if defined(timer_setup) && defined(from_timer)
@@ -912,11 +912,6 @@ static int vidioc_querycap(struct file *file, void *priv,
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", device_nr);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
-	/* since 3.1.0, the v4l2-core system is supposed to set the version */
-	cap->version = V4L2LOOPBACK_VERSION_CODE;
-#endif
-
 	if (dev->announce_all_caps) {
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 	} else {
@@ -933,9 +928,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 #endif /* >=linux-4.7.0 */
 		cap->device_caps = cap->capabilities = capabilities;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
-#endif
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
@@ -2455,9 +2448,6 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 		b->length = buffer_size;
 		b->field = V4L2_FIELD_NONE;
 		b->flags = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-		b->input = 0;
-#endif
 		b->m.offset = i * buffer_size;
 		b->memory = V4L2_MEMORY_MMAP;
 		b->sequence = 0;
