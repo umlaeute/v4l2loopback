@@ -801,6 +801,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		/* format has already been negotiated
 		 * cannot change during runtime
 		 */
+		if (argp->pixel_format != dev->pix_format.pixelformat)
+			return -EINVAL;
+
 		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 
 		argp->discrete.width = dev->pix_format.width;
@@ -808,6 +811,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 	} else {
 		/* if the format has not been negotiated yet, we accept anything
 		 */
+		if (NULL == format_by_fourcc(argp->pixel_format))
+			return -EINVAL;
+
 		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
 		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
@@ -836,12 +842,20 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 
 	if (dev->ready_for_capture) {
 		if (argp->width != dev->pix_format.width ||
-		    argp->height != dev->pix_format.height)
+		    argp->height != dev->pix_format.height ||
+		    argp->pixel_format != dev->pix_format.pixelformat)
 			return -EINVAL;
 
 		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 		argp->discrete = dev->capture_param.timeperframe;
 	} else {
+		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
+		    argp->width > max_width ||
+		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
+		    argp->height > max_height ||
+		    NULL == format_by_fourcc(argp->pixel_format))
+			return -EINVAL;
+
 		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
 		argp->stepwise.min.numerator = 1;
 		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
