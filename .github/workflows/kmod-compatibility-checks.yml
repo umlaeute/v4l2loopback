@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        series: [trusty, xenial, bionic, focal, groovy]
+        series: [trusty, xenial, bionic, focal, groovy, hirsute]
     container: buildpack-deps:${{ matrix.series }}
     env:
       JOB_KNOWN_FAILURES: "3.13 3.16 3.19 4.2"
