@@ -1,0 +1,29 @@
+name: kmod compatibility checks
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+  push:
+    branches:
+      - develop
+      - main
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+    container: buildpack-deps:sid-scm
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Check clang-format
+        shell: bash
+        run: |
+          apt-get update --quiet
+          apt-get install --yes --no-install-recommends make clang-format
+
+          make clang-format
+          if [ -n "$(git status -s)" ]; then
+            git diff
+            exit 1
+          fi
