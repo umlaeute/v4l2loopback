@@ -983,7 +983,6 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 		if (NULL == fmt)
 			return -EINVAL;
 
-		f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		/* f->flags = ??; */
 		snprintf(f->description, sizeof(f->description), "%s",
 			 fmt->name);
