@@ -651,8 +651,8 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev);
 static void check_timers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations output_fops;
 static const struct v4l2_ioctl_ops output_ioctl_ops;
-static const struct v4l2_file_operations v4l2_loopback_fops;
-static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
+static const struct v4l2_file_operations capture_fops;
+static const struct v4l2_ioctl_ops capture_ioctl_ops;
 
 /* Queue helpers */
 /* next functions sets buffer flags and adjusts counters accordingly */
@@ -2126,12 +2126,16 @@ static const struct vb2_ops output_qops = {
 	// clang-format on
 };
 
+static const struct vb2_ops capture_qops = {};
+
 /* fills and register video device */
 static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 		       struct v4l2_loopback_device *dev)
 {
 	int is_output = (type == V4L2_CAP_VIDEO_OUTPUT) ? 1 : 0;
 	struct video_device *vdev = &entity->vdev;
+	struct vb2_queue *q = &entity->vidq;
+	int err;
 
 	snprintf(vdev->name, sizeof(vdev->name), dev->card_label);
 	vdev->v4l2_dev = &dev->v4l2_dev;
@@ -2146,10 +2150,12 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 		vdev->vfl_dir = VFL_DIR_TX;
 		vdev->fops = &output_fops;
 		vdev->ioctl_ops = &output_ioctl_ops;
+		q->ops = &output_qops;
 	} else {
-		vdev->vfl_dir = VFL_DIR_M2M;
-		vdev->fops = &v4l2_loopback_fops;
-		vdev->ioctl_ops = &v4l2_loopback_ioctl_ops;
+		vdev->vfl_dir = VFL_DIR_RX;
+		vdev->fops = &capture_fops;
+		vdev->ioctl_ops = &capture_ioctl_ops;
+		q->ops = &capture_qops;
 	}
 	vdev->release = &video_device_release_empty;
 	vdev->minor = -1;
@@ -2160,30 +2166,23 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 	if (debug > 1)
 		vdev->dev_debug =
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
+	q->type = type;
+	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF | VB2_WRITE;
+	q->gfp_flags = 0;
+	q->min_buffers_needed = 1;
+	q->drv_priv = vdev;
+	q->buf_struct_size = sizeof(struct v4l2_loopback_buffer);
+	q->mem_ops = &vb2_vmalloc_memops;
+	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	q->lock = &entity->lock;
 
-	if (is_output) {
-		struct vb2_queue *q = &dev->output.vidq;
-		int err;
+	err = vb2_queue_init(q);
+	if (err < 0)
+		return err;
 
-		q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-		q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF | VB2_WRITE;
-		q->gfp_flags = 0;
-		q->min_buffers_needed = 1;
-		q->drv_priv = vdev;
-		q->buf_struct_size = sizeof(struct v4l2_loopback_buffer);
-		q->ops = &output_qops;
-		q->mem_ops = &vb2_vmalloc_memops;
-		q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
-		q->lock = &dev->output.lock;
-
-		err = vb2_queue_init(q);
-		if (err < 0)
-			return err;
-
-		INIT_LIST_HEAD(&dev->output.active_bufs);
-		vdev->lock = q->lock;
-		vdev->queue = q;
-	}
+	INIT_LIST_HEAD(&entity->active_bufs);
+	vdev->lock = q->lock;
+	vdev->queue = q;
 
 	MARK();
 
@@ -2618,7 +2617,7 @@ static const struct v4l2_ioctl_ops output_ioctl_ops = {
 	// clang-format on
 };
 
-static const struct v4l2_file_operations v4l2_loopback_fops = {
+static const struct v4l2_file_operations capture_fops = {
 	// clang-format off
 	.owner		= THIS_MODULE,
 	.open		= v4l2_loopback_open,
@@ -2631,7 +2630,7 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 	// clang-format on
 };
 
-static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
+static const struct v4l2_ioctl_ops capture_ioctl_ops = {
 	// clang-format off
 	.vidioc_querycap		= vidioc_querycap,
 	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
