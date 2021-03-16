@@ -345,7 +345,7 @@ struct v4l2_loopback_buffer {
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
-	struct {
+	struct v4l2_loopback_entity {
 		struct video_device vdev;
 		struct vb2_queue vidq;
 		struct list_head active_bufs; /* buffers in DQBUF order */
@@ -2227,10 +2227,11 @@ static const struct vb2_ops output_qops = {
 };
 
 /* fills and register video device */
-static int init_vdev(struct video_device *vdev, int nr, int type,
-		     struct v4l2_loopback_device *dev)
+static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
+		       struct v4l2_loopback_device *dev)
 {
 	int is_output = (type == V4L2_CAP_VIDEO_OUTPUT) ? 1 : 0;
+	struct video_device *vdev = &entity->vdev;
 
 	snprintf(vdev->name, sizeof(vdev->name), dev->card_label);
 	vdev->v4l2_dev = &dev->v4l2_dev;
@@ -2307,18 +2308,6 @@ static int init_vdev(struct video_device *vdev, int nr, int type,
 	v4l2loopback_create_sysfs(vdev);
 
 	return 0;
-}
-
-static int init_output_vdev(struct video_device *vdev, int output_nr,
-			    struct v4l2_loopback_device *dev)
-{
-	return init_vdev(vdev, output_nr, V4L2_CAP_VIDEO_OUTPUT, dev);
-}
-
-static int init_capture_vdev(struct video_device *vdev, int capture_nr,
-			     struct v4l2_loopback_device *dev)
-{
-	return init_vdev(vdev, capture_nr, V4L2_CAP_VIDEO_CAPTURE, dev);
 }
 
 /* init default capture parameters, only fps may be changed in future */
@@ -2399,7 +2388,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
-	struct video_device *capture_vdev, *output_vdev;
 
 	int err = -ENOMEM;
 
@@ -2533,23 +2521,21 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	MARK();
 
-	output_vdev = &dev->output.vdev;
-	if (init_output_vdev(output_vdev, output_nr, dev))
+	if (init_entity(&dev->output, output_nr, V4L2_CAP_VIDEO_OUTPUT, dev))
 		goto out_free_handler;
 
 	MARK();
 
-	capture_vdev = &dev->capture.vdev;
-	if (init_capture_vdev(capture_vdev, capture_nr, dev))
+	if (init_entity(&dev->capture, capture_nr, V4L2_CAP_VIDEO_CAPTURE, dev))
 		goto out_unregister_output_vdev;
 
 	MARK();
 	if (ret_nr)
-		*ret_nr = capture_vdev->num;
+		*ret_nr = dev->capture.vdev.num;
 	return 0;
 
 out_unregister_output_vdev:
-	video_unregister_device(output_vdev);
+	video_unregister_device(&dev->output.vdev);
 out_free_handler:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 out_free_idr:
