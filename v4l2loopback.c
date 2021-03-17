@@ -1730,21 +1730,6 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	return -EINVAL;
 }
 
-#ifdef CONFIG_VIDEO_V4L1_COMPAT
-static int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
-{
-	struct v4l2_loopback_device *dev;
-	MARK();
-
-	dev = v4l2loopback_getdevice(file);
-	p->frames = dev->buffers_number;
-	p->offsets[0] = 0;
-	p->offsets[1] = 0;
-	p->size = dev->buffer_size;
-	return 0;
-}
-#endif
-
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
 				  const struct v4l2_event_subscription *sub)
 {
@@ -2651,10 +2636,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 
 	.vidioc_streamon		= &vidioc_streamon,
 	.vidioc_streamoff		= &vidioc_streamoff,
-
-#ifdef CONFIG_VIDEO_V4L1_COMPAT
-	.vidiocgmbuf			= &vidiocgmbuf,
-#endif
 
 	.vidioc_subscribe_event		= &vidioc_subscribe_event,
 	.vidioc_unsubscribe_event	= &v4l2_event_unsubscribe,
