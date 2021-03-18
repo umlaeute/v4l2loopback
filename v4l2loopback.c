@@ -35,8 +35,8 @@
 #include <linux/miscdevice.h>
 #include "v4l2loopback.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-#define kstrtoul strict_strtoul
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)
+#error This module is not supported on kernels before 4.0.0.
 #endif
 
 #if defined(timer_setup) && defined(from_timer)
@@ -91,20 +91,10 @@ MODULE_LICENSE("GPL");
 		}                                                              \
 	} while (0)
 
-/*
- * compatibility hacks
- */
-
 static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 {
-	/* ktime_get_ts is considered deprecated, so use ktime_get_ts64 if possible */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
-	struct timespec ts;
-	ktime_get_ts(&ts);
-#else
 	struct timespec64 ts;
 	ktime_get_ts64(&ts);
-#endif
 
 	b->timestamp.tv_sec = ts.tv_sec;
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
@@ -724,11 +714,6 @@ static int vidioc_querycap(struct file *file, void *priv,
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", dev->capture.vdev.num);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
-	/* since 3.1.0, the v4l2-core system is supposed to set the version */
-	cap->version = V4L2LOOPBACK_VERSION_CODE;
-#endif
-
 	if (is_output) {
 		/* If this is that splited output device, it will always be an
 		 * output device. No more trick here.
@@ -765,10 +750,8 @@ static int vidioc_querycap(struct file *file, void *priv,
 	}
 
 	cap->capabilities = capabilities;
-#if defined(V4L2_CAP_DEVICE_CAPS)
 	cap->device_caps = device_caps;
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
-#endif
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
@@ -1676,21 +1659,8 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 #endif /* >=linux-4.7.0 */
 
 	if (debug > 1)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
-		vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
-#else
 		vdev->dev_debug =
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
-#endif
-
-		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
-	 * set to VFL_DIR_M2M for bidirectional devices */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
-	if (is_output)
-		vdev->vfl_dir = VFL_DIR_TX;
-	else
-		vdev->vfl_dir = VFL_DIR_M2M;
-#endif
 
 	q->type = type;
 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF | VB2_WRITE;
@@ -2307,7 +2277,7 @@ static int v4l2loopback_init_module(void)
 		if (card_label[i])
 			snprintf(cfg.card_label, sizeof(cfg.card_label), "%s",
 				 card_label[i]);
-		err = v4l2_loopback_add(&cfg, 0);
+		err = v4l2_loopback_add(&cfg, video_nr+i);
 		if (err) {
 			free_devices();
 			goto error;
