@@ -26,21 +26,15 @@
 #include <linux/eventpoll.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
-#define HAVE__V4L2_DEVICE
 #include <media/v4l2-device.h>
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
-#define HAVE__V4L2_CTRLS
 #include <media/v4l2-ctrls.h>
-#endif
 #include <media/v4l2-event.h>
 
 #include <linux/miscdevice.h>
 #include "v4l2loopback.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-#define kstrtoul strict_strtoul
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)
+#error This module is not supported on kernels before 4.0.0.
 #endif
 
 #if defined(timer_setup) && defined(from_timer)
@@ -95,82 +89,10 @@ MODULE_LICENSE("GPL");
 		}                                                              \
 	} while (0)
 
-/*
- * compatibility hacks
- */
-
-#ifndef HAVE__V4L2_CTRLS
-struct v4l2_ctrl_handler {
-	int error;
-};
-struct v4l2_ctrl_config {
-	void *ops;
-	u32 id;
-	const char *name;
-	int type;
-	s32 min;
-	s32 max;
-	u32 step;
-	s32 def;
-};
-int v4l2_ctrl_handler_init(struct v4l2_ctrl_handler *hdl,
-			   unsigned nr_of_controls_hint)
-{
-	hdl->error = 0;
-	return 0;
-}
-void v4l2_ctrl_handler_free(struct v4l2_ctrl_handler *hdl)
-{
-}
-void *v4l2_ctrl_new_custom(struct v4l2_ctrl_handler *hdl,
-			   const struct v4l2_ctrl_config *conf, void *priv)
-{
-	return NULL;
-}
-#endif /* HAVE__V4L2_CTRLS */
-
-#ifndef HAVE__V4L2_DEVICE
-/* dummy v4l2_device struct/functions */
-#define V4L2_DEVICE_NAME_SIZE (20 + 16)
-struct v4l2_device {
-	char name[V4L2_DEVICE_NAME_SIZE];
-	struct v4l2_ctrl_handler *ctrl_handler;
-};
-static inline int v4l2_device_register(void *dev, void *v4l2_dev)
-{
-	return 0;
-}
-static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev)
-{
-	return;
-}
-#endif /*  HAVE__V4L2_DEVICE */
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
-#define v4l2_file_operations file_operations
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 37)
-void *v4l2l_vzalloc(unsigned long size)
-{
-	void *data = vmalloc(size);
-
-	memset(data, 0, size);
-	return data;
-}
-#else
-#define v4l2l_vzalloc vzalloc
-#endif
-
 static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 {
-	/* ktime_get_ts is considered deprecated, so use ktime_get_ts64 if possible */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
-	struct timespec ts;
-	ktime_get_ts(&ts);
-#else
 	struct timespec64 ts;
 	ktime_get_ts64(&ts);
-#endif
 
 	b->timestamp.tv_sec = ts.tv_sec;
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
@@ -280,11 +202,7 @@ static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
 /* control IDs */
-#ifndef HAVE__V4L2_CTRLS
-#define V4L2LOOPBACK_CID_BASE (V4L2_CID_PRIVATE_BASE)
-#else
 #define V4L2LOOPBACK_CID_BASE (V4L2_CID_USER_BASE | 0xf000)
-#endif
 #define CID_KEEP_FORMAT (V4L2LOOPBACK_CID_BASE + 0)
 #define CID_SUSTAIN_FRAMERATE (V4L2LOOPBACK_CID_BASE + 1)
 #define CID_TIMEOUT (V4L2LOOPBACK_CID_BASE + 2)
@@ -755,11 +673,6 @@ static int vidioc_querycap(struct file *file, void *priv,
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", device_nr);
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 1, 0)
-	/* since 3.1.0, the v4l2-core system is supposed to set the version */
-	cap->version = V4L2LOOPBACK_VERSION_CODE;
-#endif
-
 #ifdef V4L2_CAP_VIDEO_M2M
 	capabilities |= V4L2_CAP_VIDEO_M2M;
 #endif /* V4L2_CAP_VIDEO_M2M */
@@ -780,9 +693,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 #endif /* >=linux-4.7.0 */
 		cap->device_caps = cap->capabilities = capabilities;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 3, 0)
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
-#endif
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
@@ -2203,9 +2114,6 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 		b->length = buffer_size;
 		b->field = V4L2_FIELD_NONE;
 		b->flags = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-		b->input = 0;
-#endif
 		b->m.offset = i * buffer_size;
 		b->memory = V4L2_MEMORY_MMAP;
 		b->sequence = 0;
@@ -2227,7 +2135,7 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 		return -EINVAL;
 
 	if (dev->timeout_image == NULL) {
-		dev->timeout_image = v4l2l_vzalloc(dev->buffer_size);
+		dev->timeout_image = vzalloc(dev->buffer_size);
 		if (dev->timeout_image == NULL)
 			return -ENOMEM;
 	}
@@ -2257,18 +2165,10 @@ static void init_vdev(struct video_device *vdev, int nr)
 #endif /* >=linux-4.7.0 */
 
 	if (debug > 1)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
-		vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
-#else
 		vdev->dev_debug =
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
-#endif
 
-		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
-	 * set to VFL_DIR_M2M for bidirectional devices */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 	vdev->vfl_dir = VFL_DIR_M2M;
-#endif
 
 	MARK();
 }
@@ -2696,16 +2596,8 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	// clang-format off
 	.vidioc_querycap		= &vidioc_querycap,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
 	.vidioc_enum_framesizes		= &vidioc_enum_framesizes,
 	.vidioc_enum_frameintervals	= &vidioc_enum_frameintervals,
-#endif
-
-#ifndef HAVE__V4L2_CTRLS
-	.vidioc_queryctrl		= &vidioc_queryctrl,
-	.vidioc_g_ctrl			= &vidioc_g_ctrl,
-	.vidioc_s_ctrl			= &vidioc_s_ctrl,
-#endif /* HAVE__V4L2_CTRLS */
 
 	.vidioc_enum_output		= &vidioc_enum_output,
 	.vidioc_g_output		= &vidioc_g_output,
@@ -2880,11 +2772,9 @@ module_exit(v4l2loopback_cleanup_module);
 /*
  * fake usage of unused functions
  */
-#ifdef HAVE__V4L2_CTRLS
 static int vidioc_queryctrl(struct file *file, void *fh,
 			    struct v4l2_queryctrl *q) __attribute__((unused));
 static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 	__attribute__((unused));
 static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
 	__attribute__((unused));
-#endif /* HAVE__V4L2_CTRLS */
