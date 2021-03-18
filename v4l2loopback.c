@@ -198,6 +198,10 @@ MODULE_PARM_DESC(max_height,
 		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
 
+/* frame intervals */
+#define V4L2LOOPBACK_FPS_MIN 1
+#define V4L2LOOPBACK_FPS_MAX 1000
+
 static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
@@ -352,7 +356,6 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int vidioc_enum_frameintervals_calls;
 	int read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
@@ -673,9 +676,6 @@ static int vidioc_querycap(struct file *file, void *priv,
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", device_nr);
 
-#ifdef V4L2_CAP_VIDEO_M2M
-	capabilities |= V4L2_CAP_VIDEO_M2M;
-#endif /* V4L2_CAP_VIDEO_M2M */
 
 	if (dev->announce_all_caps) {
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
@@ -704,11 +704,6 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 
-	/* LATER: what does the index really  mean?
-	 * if it's about enumerating formats, we can safely ignore it
-	 * (CHECK)
-	 */
-
 	/* there can be only one... */
 	if (argp->index)
 		return -EINVAL;
@@ -718,6 +713,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		/* format has already been negotiated
 		 * cannot change during runtime
 		 */
+		if (argp->pixel_format != dev->pix_format.pixelformat)
+			return -EINVAL;
+
 		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 
 		argp->discrete.width = dev->pix_format.width;
@@ -725,6 +723,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 	} else {
 		/* if the format has not been negotiated yet, we accept anything
 		 */
+		if (NULL == format_by_fourcc(argp->pixel_format))
+			return -EINVAL;
+
 		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
 		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
@@ -746,20 +747,36 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+
+	/* there can be only one... */
+	if (argp->index)
+		return -EINVAL;
 
 	if (dev->ready_for_capture) {
-		if (opener->vidioc_enum_frameintervals_calls > 0)
+		if (argp->width != dev->pix_format.width ||
+		    argp->height != dev->pix_format.height ||
+		    argp->pixel_format != dev->pix_format.pixelformat)
 			return -EINVAL;
-		if (argp->width == dev->pix_format.width &&
-		    argp->height == dev->pix_format.height) {
-			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-			argp->discrete = dev->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
-			return 0;
-		}
-		return -EINVAL;
+
+		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+		argp->discrete = dev->capture_param.timeperframe;
+	} else {
+		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
+		    argp->width > max_width ||
+		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
+		    argp->height > max_height ||
+		    NULL == format_by_fourcc(argp->pixel_format))
+			return -EINVAL;
+
+		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+		argp->stepwise.min.numerator = 1;
+		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
+		argp->stepwise.max.numerator = 1;
+		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+		argp->stepwise.step.numerator = 1;
+		argp->stepwise.step.denominator = 1;
 	}
+
 	return 0;
 }
 
@@ -878,7 +895,6 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 		if (NULL == fmt)
 			return -EINVAL;
 
-		f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		/* f->flags = ??; */
 		snprintf(f->description, sizeof(f->description), "%s",
 			 fmt->name);
@@ -2159,9 +2175,6 @@ static void init_vdev(struct video_device *vdev, int nr)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
 	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
 			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
-#ifdef V4L2_CAP_VIDEO_M2M
-	vdev->device_caps |= V4L2_CAP_VIDEO_M2M;
-#endif
 #endif /* >=linux-4.7.0 */
 
 	if (debug > 1)
