@@ -1,7 +1,9 @@
+include Kbuild
+ifeq ($(KBUILD_MODULES),)
+
 KERNELRELEASE	?= `uname -r`
 KERNEL_DIR	?= /lib/modules/$(KERNELRELEASE)/build
 PWD		:= $(shell pwd)
-obj-m		:= v4l2loopback.o
 
 PREFIX ?= /usr/local
 BINDIR  = $(PREFIX)/bin
@@ -88,3 +90,5 @@ utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
 .PHONY: clang-format
 clang-format: .clang-format
 	clang-format -i *.c *.h utils/*.c
+
+endif # !kbuild

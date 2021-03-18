@@ -15,20 +15,13 @@ Replace the host's `/PATH/TO/v4l2loopback` to the full path to the v4l2loopback 
 
 - Make the VM up-to-date `apt update && apt dist-upgrade ` or similar
 - Drop the unused stuff with `apt autoremove; apt-get clean` or similar
-- Make sure that the `vagrant` user will end up in `/vagrant/v4l2loopback` when logging in.
-  I did so by adding the following 2 lines at the very end of `~vagrant/.bashrc`:
-
-      cd /vagrant
-      test -d v4l2loopback && cd v4l2loopback
-
-
-- Power the VM off, and create an offline snapshot
+- Power the VM off, and create an *offline snapshot*
 
 - Boot the VM (with the share mounted onto `/vagrant/v4l2loopback`):
 
       vagrant up
 
-- Create an online snapshot of the running VM
+- Create an *online snapshot* of the running VM
 - Leave the VM running
 
 # scripts
@@ -49,10 +42,10 @@ Running it (give the UUID of a running VM) will:
 me@host:~/v4l2loopback$ cd vagrant
 
 me@host:~/v4l2loopback/vagrant$ ./vbox-restart -a
-me@host:~/v4l2loopback/vagrant$ vagrant ssh
-vagrant@/vagrant/v4l2loopback$ make clean
-vagrant@/vagrant/v4l2loopback$ make modprobe
-vagrant@/vagrant/v4l2loopback$ (do some tests)
+me@host:~/v4l2loopback/vagrant$ vagrant ssh -c "cd /vagrant/v4l2loopback; sudo bash"
+root@debian:/vagrant/v4l2loopback# make clean
+root@debian:/vagrant/v4l2loopback# make modprobe
+root@debian:/vagrant/v4l2loopback# (do some tests)
 ~~~
 
 if the machine freezes, or something else really bad happens to it, just

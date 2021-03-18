@@ -35,8 +35,8 @@
 #include <linux/miscdevice.h>
 #include "v4l2loopback.h"
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-#define kstrtoul strict_strtoul
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 0, 0)
+#error This module is not supported on kernels before 4.0.0.
 #endif
 
 #if defined(timer_setup) && defined(from_timer)
@@ -91,21 +91,10 @@ MODULE_LICENSE("GPL");
 		}                                                              \
 	} while (0)
 
-/*
- * compatibility hacks
- */
-
-
 static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 {
-	/* ktime_get_ts is considered deprecated, so use ktime_get_ts64 if possible */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)
-	struct timespec ts;
-	ktime_get_ts(&ts);
-#else
 	struct timespec64 ts;
 	ktime_get_ts64(&ts);
-#endif
 
 	b->timestamp.tv_sec = ts.tv_sec;
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
@@ -215,6 +204,10 @@ module_param(max_height, int, S_IRUGO);
 MODULE_PARM_DESC(max_height,
 		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
+
+/* frame intervals */
+#define V4L2LOOPBACK_FPS_MIN 1
+#define V4L2LOOPBACK_FPS_MAX 1000
 
 static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
@@ -338,8 +331,8 @@ struct v4l2_loopback_vb2_buffer {
 struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
-	struct video_device*output;
-	struct video_device*capture;
+	struct video_device *output;
+	struct video_device *capture;
 	struct vb2_queue vidq;
 	struct mutex lock;
 	/* pixel and stream format */
@@ -417,7 +410,6 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int vidioc_enum_frameintervals_calls;
 	int read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
@@ -709,12 +701,12 @@ static int vidioc_querycap(struct file *file, void *priv,
 	snprintf(cap->card, labellen, dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", dev->capture->num);
-	cap->capabilities
-		= dev->output->device_caps
-		| dev->capture->device_caps;
-#if defined(V4L2_CAP_DEVICE_CAPS)
+
+	cap->capabilities =
+		dev->output->device_caps | dev->capture->device_caps;
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
-#endif
+
+	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
 }
 
@@ -722,11 +714,6 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *argp)
 {
 	struct v4l2_loopback_device *dev;
-
-	/* LATER: what does the index really  mean?
-	 * if it's about enumerating formats, we can safely ignore it
-	 * (CHECK)
-	 */
 
 	/* there can be only one... */
 	if (argp->index)
@@ -737,6 +724,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		/* format has already been negotiated
 		 * cannot change during runtime
 		 */
+		if (argp->pixel_format != dev->pix_format.pixelformat)
+			return -EINVAL;
+
 		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 
 		argp->discrete.width = dev->pix_format.width;
@@ -744,6 +734,9 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 	} else {
 		/* if the format has not been negotiated yet, we accept anything
 		 */
+		if (NULL == format_by_fourcc(argp->pixel_format))
+			return -EINVAL;
+
 		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
 		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
@@ -764,21 +757,38 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	struct v4l2_loopback_device *dev;
+	/* there can be only one... */
+	if (argp->index)
+		return -EINVAL;
+
+	dev = file_to_loopdev(file);
 
 	if (dev->ready_for_capture) {
-		if (opener->vidioc_enum_frameintervals_calls > 0)
+		if (argp->width != dev->pix_format.width ||
+		    argp->height != dev->pix_format.height ||
+		    argp->pixel_format != dev->pix_format.pixelformat)
 			return -EINVAL;
-		if (argp->width == dev->pix_format.width &&
-		    argp->height == dev->pix_format.height) {
-			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-			argp->discrete = dev->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
-			return 0;
-		}
-		return -EINVAL;
+
+		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+		argp->discrete = dev->capture_param.timeperframe;
+	} else {
+		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
+		    argp->width > max_width ||
+		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
+		    argp->height > max_height ||
+		    NULL == format_by_fourcc(argp->pixel_format))
+			return -EINVAL;
+
+		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+		argp->stepwise.min.numerator = 1;
+		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
+		argp->stepwise.max.numerator = 1;
+		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+		argp->stepwise.step.numerator = 1;
+		argp->stepwise.step.denominator = 1;
 	}
+
 	return 0;
 }
 
@@ -897,7 +907,6 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 		if (NULL == fmt)
 			return -EINVAL;
 
-		f->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		/* f->flags = ??; */
 		snprintf(f->description, sizeof(f->description), "%s",
 			 fmt->name);
@@ -1148,7 +1157,6 @@ static int vidioc_querystd(struct file *file, void *fh, v4l2_std_id *norm)
 	return 0;
 }
 #endif /* V4L2LOOPBACK_WITH_STD */
-
 
 static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 				 s64 val)
@@ -1673,21 +1681,6 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	return -EINVAL;
 }
 
-#ifdef CONFIG_VIDEO_V4L1_COMPAT
-static int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
-{
-	struct v4l2_loopback_device *dev;
-	MARK();
-
-	dev = file_to_loopdev(file);
-	p->frames = dev->buffers_number;
-	p->offsets[0] = 0;
-	p->offsets[1] = 0;
-	p->size = dev->buffer_size;
-	return 0;
-}
-#endif
-
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
 				  const struct v4l2_event_subscription *sub)
 {
@@ -2073,9 +2066,6 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 		b->length = buffer_size;
 		b->field = V4L2_FIELD_NONE;
 		b->flags = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-		b->input = 0;
-#endif
 		b->m.offset = i * buffer_size;
 		b->memory = V4L2_MEMORY_MMAP;
 		b->sequence = 0;
@@ -2188,28 +2178,18 @@ static int init_vdev(struct video_device *vdev, int nr, int type,
 	vdev->release = &video_device_release_empty;
 	vdev->minor = -1;
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	vdev->device_caps = type | V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
-#ifdef V4L2_CAP_VIDEO_M2M
-	vdev->device_caps |= V4L2_CAP_VIDEO_M2M;
-#endif
+	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 #endif /* >=linux-4.7.0 */
 
 	if (debug > 1)
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
-		vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
-#else
 		vdev->dev_debug =
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
-#endif
 
-		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
-	 * set to VFL_DIR_M2M for bidirectional devices */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 	if (is_output)
 		vdev->vfl_dir = VFL_DIR_TX;
 	else
 		vdev->vfl_dir = VFL_DIR_M2M;
-#endif
 
 	if (is_output) {
 		struct vb2_queue *q = &dev->vidq;
@@ -2373,18 +2353,20 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	if (!dev)
 		return -ENOMEM;
 
-	if (output_nr >= 0 && capture_nr >= 0 &&
-	    output_nr == capture_nr) {
+	if (output_nr >= 0 && capture_nr >= 0 && output_nr == capture_nr) {
 		err = idr_alloc1(&v4l2loopback_index_idr, dev, &output_nr);
 		capture_nr = output_nr;
 	} else {
-		err = idr_alloc2(&v4l2loopback_index_idr, dev, &output_nr, &capture_nr);
+		err = idr_alloc2(&v4l2loopback_index_idr, dev, &output_nr,
+				 &capture_nr);
 	}
 	if (err)
 		goto out_free_dev;
 
 	dev->capture = kzalloc(sizeof(*dev->capture), GFP_KERNEL);
-	dev->output = (output_nr != capture_nr) ? kzalloc(sizeof(*dev->output), GFP_KERNEL) : dev->capture;
+	dev->output = (output_nr != capture_nr) ?
+				    kzalloc(sizeof(*dev->output), GFP_KERNEL) :
+				    dev->capture;
 
 	dprintk("creating v4l2loopback-device %d:%d\n", output_nr, capture_nr);
 
@@ -2480,12 +2462,12 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	init_waitqueue_head(&dev->read_event);
 
 	MARK();
-	printk(KERN_ERR "out[%d]=%p\tcap[%d]=%p", output_nr, dev->output, capture_nr, dev->capture);
+	printk(KERN_ERR "out[%d]=%p\tcap[%d]=%p", output_nr, dev->output,
+	       capture_nr, dev->capture);
 
 	output_vdev = dev->output;
 	capture_vdev = dev->capture;
-	if(output_vdev != capture_vdev) {
-
+	if (output_vdev != capture_vdev) {
 		if (init_output_vdev(output_vdev, output_nr, dev))
 			goto out_free_handler;
 
@@ -2495,7 +2477,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 			goto out_unregister_output_vdev;
 	} else {
 		MARK();
-		if (init_vdev(output_vdev, output_nr, V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT, dev))
+		if (init_vdev(output_vdev, output_nr,
+			      V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT,
+			      dev))
 			goto out_free_handler;
 	}
 
@@ -2512,8 +2496,10 @@ out_free_idr:
 	idr_remove(&v4l2loopback_index_idr, output_nr);
 	idr_remove(&v4l2loopback_index_idr, capture_nr);
 out_free_dev:
-	if(dev->output) kfree(dev->output);
-	if(dev->capture)kfree(dev->capture);
+	if (dev->output)
+		kfree(dev->output);
+	if (dev->capture)
+		kfree(dev->capture);
 	kfree(dev);
 	return err;
 }
@@ -2529,7 +2515,7 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 	video_unregister_device(output_vdev);
 	video_device_release_empty(output_vdev);
 
-	if(output_vdev != capture_vdev) {
+	if (output_vdev != capture_vdev) {
 		v4l2loopback_remove_sysfs(capture_vdev);
 		video_unregister_device(capture_vdev);
 		video_device_release_empty(capture_vdev);
@@ -2537,8 +2523,10 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
-	if(dev->output) kfree(dev->output);
-	if(dev->capture && (dev->capture != dev->output))kfree(dev->capture);
+	if (dev->output)
+		kfree(dev->output);
+	if (dev->capture && (dev->capture != dev->output))
+		kfree(dev->capture);
 	kfree(dev);
 }
 
@@ -2580,10 +2568,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		else if (dev->open_count.counter > 0)
 			ret = -EBUSY;
 		else {
-			idr_remove(&v4l2loopback_index_idr,
-				   dev->output->num);
-			idr_remove(&v4l2loopback_index_idr,
-				   dev->capture->num);
+			idr_remove(&v4l2loopback_index_idr, dev->output->num);
+			idr_remove(&v4l2loopback_index_idr, dev->capture->num);
 			v4l2_loopback_remove(dev);
 			ret = 0;
 		};
@@ -2765,10 +2751,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 
 	.vidioc_streamon		= vidioc_streamon,
 	.vidioc_streamoff		= vidioc_streamoff,
-
-#ifdef CONFIG_VIDEO_V4L1_COMPAT
-	.vidiocgmbuf			= vidiocgmbuf,
-#endif
 
 	.vidioc_subscribe_event		= vidioc_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,

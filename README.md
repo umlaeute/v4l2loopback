@@ -287,11 +287,9 @@ E.g. to build the v4l2loopback-v0.12.5 (but check the webpage for newer releases
 use something like the following (you might need to run the `dkms` commands as superuser/root):
 
 ~~~
-mkdir -p ~/src/
-cd ~/src/
 version=0.12.5
-# download and extract the tarball
-curl -L https://github.com/umlaeute/v4l2loopback/archive/v${version}.tar.gz | tar xvz
+# download and extract the tarball (tar requires superuser privileges)
+curl -L https://github.com/umlaeute/v4l2loopback/archive/v${version}.tar.gz | tar xvz -C /usr/src
 # build and install the DKMS-module (requires superuser privileges)
 dkms add -m v4l2loopback -v ${version}
 dkms build -m v4l2loopback -v ${version}
