@@ -1146,67 +1146,6 @@ static int vidioc_querystd(struct file *file, void *fh, v4l2_std_id *norm)
 }
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-/* get ctrls info
- * called on VIDIOC_QUERYCTRL
- */
-static int vidioc_queryctrl(struct file *file, void *fh,
-			    struct v4l2_queryctrl *q)
-{
-	const struct v4l2_ctrl_config *cnf = 0;
-	switch (q->id) {
-	case CID_KEEP_FORMAT:
-		cnf = &v4l2loopback_ctrl_keepformat;
-		break;
-	case CID_SUSTAIN_FRAMERATE:
-		cnf = &v4l2loopback_ctrl_sustainframerate;
-		break;
-	case CID_TIMEOUT:
-		cnf = &v4l2loopback_ctrl_timeout;
-		break;
-	case CID_TIMEOUT_IMAGE_IO:
-		cnf = &v4l2loopback_ctrl_timeoutimageio;
-		break;
-	default:
-		return -EINVAL;
-	}
-	if (!cnf)
-		BUG();
-
-	strcpy(q->name, cnf->name);
-	q->default_value = cnf->def;
-	q->type = cnf->type;
-	q->minimum = cnf->min;
-	q->maximum = cnf->max;
-	q->step = cnf->step;
-
-	memset(q->reserved, 0, sizeof(q->reserved));
-	return 0;
-}
-
-static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-{
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-
-	switch (c->id) {
-	case CID_KEEP_FORMAT:
-		c->value = dev->keep_format;
-		break;
-	case CID_SUSTAIN_FRAMERATE:
-		c->value = dev->sustain_framerate;
-		break;
-	case CID_TIMEOUT:
-		c->value = jiffies_to_msecs(dev->timeout_jiffies);
-		break;
-	case CID_TIMEOUT_IMAGE_IO:
-		c->value = dev->timeout_image_io;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 				 s64 val)
 {
@@ -1251,11 +1190,6 @@ static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct v4l2_loopback_device *dev = container_of(
 		ctrl->handler, struct v4l2_loopback_device, ctrl_handler);
 	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val);
-}
-static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-{
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	return v4l2loopback_set_ctrl(dev, c->id, c->value);
 }
 
 /* returns set of device outputs, in our case there is only one
@@ -2761,13 +2695,3 @@ MODULE_ALIAS_MISCDEV(MISC_DYNAMIC_MINOR);
 
 module_init(v4l2loopback_init_module);
 module_exit(v4l2loopback_cleanup_module);
-
-/*
- * fake usage of unused functions
- */
-static int vidioc_queryctrl(struct file *file, void *fh,
-			    struct v4l2_queryctrl *q) __attribute__((unused));
-static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-	__attribute__((unused));
-static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-	__attribute__((unused));
