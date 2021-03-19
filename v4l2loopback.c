@@ -1619,9 +1619,11 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 	if (is_output) {
 		vdev->fops = &output_fops;
 		vdev->ioctl_ops = &output_ioctl_ops;
+		vdev->vfl_dir = VFL_DIR_TX;
 	} else {
 		vdev->fops = &capture_fops;
 		vdev->ioctl_ops = &capture_ioctl_ops;
+		vdev->vfl_dir = VFL_DIR_RX;
 	}
 	vdev->release = &video_device_release_empty;
 	vdev->minor = -1;
