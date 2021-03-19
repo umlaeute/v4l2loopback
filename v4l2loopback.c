@@ -371,6 +371,7 @@ struct v4l2_loopback_device {
 
 #define cd_to_loopdev(ptr) video_get_drvdata(to_video_device((ptr)))
 #define file_to_loopdev(ptr) video_get_drvdata(video_devdata((ptr)))
+#define is_output(dev, vdev) (((vdev) == &(dev)->output.vdev) ? 1 : 0)
 
 /* types of opener shows what opener wants to do with loopback */
 enum opener_type {
@@ -662,33 +663,32 @@ static inline void unset_flags(struct v4l2l_buffer *buffer)
 /* returns device capabilities
  * called on VIDIOC_QUERYCAP
  */
-static int vidioc_querycap(struct file *file, void *priv,
+static int vidioc_querycap(struct file *file, void *fh,
 			   struct v4l2_capability *cap)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
+	struct video_device *vdev = video_devdata(file);
+	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
-	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", dev->capture.vdev.num);
 
-	if (dev->ready_for_capture) {
-		capabilities |= V4L2_CAP_VIDEO_CAPTURE;
-	}
-	if (dev->ready_for_output) {
-		capabilities |= V4L2_CAP_VIDEO_OUTPUT;
-	}
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	dev->capture.vdev.device_caps =
+	cap->capabilities = dev->capture.vdev.device_caps |
+			    dev->output.vdev.device_caps | V4L2_CAP_DEVICE_CAPS;
+	cap->device_caps = vdev->device_caps;
+#else
+	cap->capabilities = V4L2_CAP_READWRITE | V4L2_CAP_STREAMING |
+			    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+			    V4L2_CAP_DEVICE_CAPS;
+	cap->device_caps = V4L2_CAP_READWRITE | V4L2_CAP_STREAMING |
+			   (is_output(dev, vdev) ? V4L2_CAP_VIDEO_OUTPUT :
+							 V4L2_CAP_VIDEO_CAPTURE);
 #endif /* >=linux-4.7.0 */
-		cap->device_caps = cap->capabilities = capabilities;
-
-	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
@@ -2447,6 +2447,8 @@ static const struct v4l2_file_operations output_fops = {
 
 static const struct v4l2_ioctl_ops output_ioctl_ops = {
 	// clang-format off
+	.vidioc_querycap		= vidioc_querycap,
+
 	.vidioc_enum_output		= vidioc_enum_output,
 	.vidioc_g_output		= vidioc_g_output,
 	.vidioc_s_output		= vidioc_s_output,
