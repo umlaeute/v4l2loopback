@@ -874,39 +874,14 @@ static int vidioc_s_fmt_cap(struct file *file, void *priv,
 static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
-	struct v4l2_loopback_device *dev;
 	const struct v4l2l_format *fmt;
 
-	dev = file_to_loopdev(file);
+	if (f->index < 0 || f->index >= FORMATS)
+		return -EINVAL;
 
-	if (dev->ready_for_capture) {
-		const __u32 format = dev->pix_format.pixelformat;
-
-		/* format has been fixed by the writer, so only one single format is supported */
-		if (f->index)
-			return -EINVAL;
-
-		fmt = format_by_fourcc(format);
-		if (NULL == fmt)
-			return -EINVAL;
-
-		/* f->flags = ??; */
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
-
-		f->pixelformat = dev->pix_format.pixelformat;
-	} else {
-		/* fill in a dummy format */
-		/* coverity[unsigned_compare] */
-		if (f->index < 0 || f->index >= FORMATS)
-			return -EINVAL;
-
-		fmt = &formats[f->index];
-
-		f->pixelformat = fmt->fourcc;
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
-	}
+	fmt = &formats[f->index];
+	f->pixelformat = fmt->fourcc;
+	snprintf(f->description, sizeof(f->description), "%s", fmt->name);
 	f->flags = 0;
 
 	return 0;
@@ -945,40 +920,31 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
 static int vidioc_try_fmt_out(struct file *file, void *priv,
 			      struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_device *dev = file_to_loopdev(file);
+	__u32 w = fmt->fmt.pix.width;
+	__u32 h = fmt->fmt.pix.height;
+	__u32 pixfmt = fmt->fmt.pix.pixelformat;
+	const struct v4l2l_format *format;
 	MARK();
 
-	dev = file_to_loopdev(file);
+	w = w ? clamp_val(w, V4L2LOOPBACK_SIZE_MIN_WIDTH, dev->max_width) :
+		      V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	h = h ? clamp_val(h, V4L2LOOPBACK_SIZE_MIN_HEIGHT, dev->max_height) :
+		      V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	dprintk("trying image %dx%d\n", w, h);
 
-	/* TODO(vasaka) loopback does not care about formats writer want to set,
-	 * maybe it is a good idea to restrict format somehow */
-	if (dev->ready_for_capture) {
-		fmt->fmt.pix = dev->pix_format;
-	} else {
-		__u32 w = fmt->fmt.pix.width;
-		__u32 h = fmt->fmt.pix.height;
-		__u32 pixfmt = fmt->fmt.pix.pixelformat;
-		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
+	format = format_by_fourcc(pixfmt);
+	if (NULL == format)
+		format = &formats[0];
 
-		w = w ? clamp_val(w, V4L2LOOPBACK_SIZE_MIN_WIDTH,
-				  dev->max_width) :
-			      V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
-		h = h ? clamp_val(h, V4L2LOOPBACK_SIZE_MIN_HEIGHT,
-				  dev->max_height) :
-			      V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
-		dprintk("trying image %dx%d\n", w, h);
+	pix_format_set_size(&fmt->fmt.pix, format, w, h);
 
-		if (NULL == format)
-			format = &formats[0];
+	fmt->fmt.pix.pixelformat = format->fourcc;
+	fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 
-		pix_format_set_size(&fmt->fmt.pix, format, w, h);
+	if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
+		fmt->fmt.pix.field = V4L2_FIELD_NONE;
 
-		fmt->fmt.pix.pixelformat = format->fourcc;
-		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
-
-		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
-			fmt->fmt.pix.field = V4L2_FIELD_NONE;
-	}
 	return 0;
 }
 
@@ -990,12 +956,11 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 static int vidioc_s_fmt_out(struct file *file, void *priv,
 			    struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	char buf[5];
 	int ret;
 	MARK();
 
-	dev = file_to_loopdev(file);
 	ret = vidioc_try_fmt_out(file, priv, fmt);
 
 	dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
@@ -1188,11 +1153,7 @@ static int vidioc_enum_output(struct file *file, void *fh,
 			      struct v4l2_output *outp)
 {
 	__u32 index = outp->index;
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	MARK();
-
-	if (!dev->ready_for_output)
-		return -ENOTTY;
 
 	if (0 != index)
 		return -EINVAL;
@@ -1220,9 +1181,6 @@ static int vidioc_enum_output(struct file *file, void *fh,
  */
 static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	if (!dev->ready_for_output)
-		return -ENOTTY;
 	if (i)
 		*i = 0;
 	return 0;
@@ -1233,10 +1191,6 @@ static int vidioc_g_output(struct file *file, void *fh, unsigned int *i)
  */
 static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 {
-	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	if (!dev->ready_for_output)
-		return -ENOTTY;
-
 	if (i)
 		return -EINVAL;
 
@@ -2486,10 +2440,23 @@ static struct miscdevice v4l2loopback_misc = {
 static const struct v4l2_file_operations output_fops = {
 	// clang-format off
 	.owner		= THIS_MODULE,
+	.open		= v4l2_fh_open,
+	.unlocked_ioctl	= video_ioctl2,
 	// clang-format on
 };
 
-static const struct v4l2_ioctl_ops output_ioctl_ops = {};
+static const struct v4l2_ioctl_ops output_ioctl_ops = {
+	// clang-format off
+	.vidioc_enum_output		= vidioc_enum_output,
+	.vidioc_g_output		= vidioc_g_output,
+	.vidioc_s_output		= vidioc_s_output,
+
+	.vidioc_enum_fmt_vid_out	= vidioc_enum_fmt_out,
+	.vidioc_g_fmt_vid_out		= vidioc_g_fmt_out,
+	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
+	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
+	// clang-format on
+};
 
 static const struct v4l2_file_operations v4l2_loopback_fops = {
 	// clang-format off
@@ -2510,10 +2477,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
 	.vidioc_enum_frameintervals	= vidioc_enum_frameintervals,
 
-	.vidioc_enum_output		= vidioc_enum_output,
-	.vidioc_g_output		= vidioc_g_output,
-	.vidioc_s_output		= vidioc_s_output,
-
 	.vidioc_enum_input		= vidioc_enum_input,
 	.vidioc_g_input			= vidioc_g_input,
 	.vidioc_s_input			= vidioc_s_input,
@@ -2522,11 +2485,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_g_fmt_vid_cap		= vidioc_g_fmt_cap,
 	.vidioc_s_fmt_vid_cap		= vidioc_s_fmt_cap,
 	.vidioc_try_fmt_vid_cap		= vidioc_try_fmt_cap,
-
-	.vidioc_enum_fmt_vid_out	= vidioc_enum_fmt_out,
-	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
-	.vidioc_g_fmt_vid_out		= vidioc_g_fmt_out,
-	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
 
 #ifdef V4L2L_OVERLAY
 	.vidioc_s_fmt_vid_overlay	= vidioc_s_fmt_overlay,
