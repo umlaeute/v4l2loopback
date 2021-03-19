@@ -700,54 +700,29 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
-	int is_output = (vdev == &dev->output.vdev) ? 1 : 0;
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
-#if defined(V4L2_CAP_DEVICE_CAPS)
 	__u32 device_caps;
-#endif
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", dev->capture.vdev.num);
 
-	if (is_output) {
-		/* If this is that splited output device, it will always be an
-		 * output device. No more trick here.
-		 */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		capabilities = dev->output.vdev.device_caps |
-			       dev->capture.vdev.device_caps;
-		device_caps = vdev->device_caps;
+	capabilities =
+		dev->output.vdev.device_caps | dev->capture.vdev.device_caps;
+	device_caps = vdev->device_caps;
 #else
-		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
-#if defined(V4L2_CAP_DEVICE_CAPS)
+	capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
+	if (vdev == &dev->output.vdev) {
 		device_caps = capabilities & (~V4L2_CAP_VIDEO_CAPTURE);
-#endif
-#endif
 	} else {
-		/* So this is the capture device that currently serves both
-		 * roles depending on ready_for_capture/ready_for_output and
-		 * announce_all_caps. */
-		if (dev->announce_all_caps) {
-			capabilities |=
-				V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
-		} else {
-			if (dev->ready_for_capture)
-				capabilities |= V4L2_CAP_VIDEO_CAPTURE;
-			if (dev->ready_for_output)
-				capabilities |= V4L2_CAP_VIDEO_OUTPUT;
-		}
-#if defined(V4L2_CAP_DEVICE_CAPS)
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-		dev->capture.vdev.device_caps =
-#endif
-			device_caps = capabilities;
-#endif
+		device_caps = capabilities & (~V4L2_CAP_VIDEO_OUTPUT);
 	}
+#endif
 
 	cap->capabilities = capabilities;
 	cap->device_caps = device_caps;
