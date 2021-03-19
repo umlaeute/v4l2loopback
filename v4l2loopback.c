@@ -848,7 +848,6 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	MARK();
-
 	dev = file_to_loopdev(file);
 
 	if (f->index)
@@ -1328,7 +1327,6 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 	return -EINVAL;
 }
 
-
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
 				  const struct v4l2_event_subscription *sub)
 {
@@ -1458,10 +1456,8 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 	return 0;
 }
 
-static int qops_queue_setup(struct vb2_queue *q,
-			    unsigned int *num_buffers,
-			    unsigned int *num_planes,
-			    unsigned int sizes[],
+static int qops_queue_setup(struct vb2_queue *q, unsigned int *num_buffers,
+			    unsigned int *num_planes, unsigned int sizes[],
 			    struct device *alloc_devs[])
 {
 	struct video_device *vdev = vb2_get_drv_priv(q);
@@ -2277,7 +2273,8 @@ static int v4l2loopback_init_module(void)
 		if (card_label[i])
 			snprintf(cfg.card_label, sizeof(cfg.card_label), "%s",
 				 card_label[i]);
-		err = v4l2_loopback_add(&cfg, video_nr+i);
+		//TODO: also set output_nr
+		err = v4l2_loopback_add(&cfg, video_nr + i);
 		if (err) {
 			free_devices();
 			goto error;
