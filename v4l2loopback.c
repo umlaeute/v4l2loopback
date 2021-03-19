@@ -2250,7 +2250,6 @@ static int v4l2loopback_init_module(void)
 		if (card_label[i])
 			snprintf(cfg.card_label, sizeof(cfg.card_label), "%s",
 				 card_label[i]);
-		//TODO: also set output_nr
 		err = v4l2_loopback_add(&cfg, video_nr + i);
 		if (err) {
 			free_devices();
