@@ -761,9 +761,9 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 		argp->discrete = dev->capture_param.timeperframe;
 	} else {
 		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
-		    argp->width > max_width ||
+		    argp->width > dev->max_width ||
 		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
-		    argp->height > max_height ||
+		    argp->height > dev->max_height ||
 		    NULL == format_by_fourcc(argp->pixel_format))
 			return -EINVAL;
 
