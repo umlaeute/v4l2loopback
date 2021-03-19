@@ -156,12 +156,6 @@ Will create 3 devices with the card names passed as the second parameter:
 - `/dev/video4` -> *the number four*
 - `/dev/video7` -> *the last one*
 
-
-If you encounter problems detecting your device with Chrome/WebRTC you can try 'exclusive_caps' mode:
-
-    # modprobe v4l2loopback exclusive_caps=1
-
-This will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively.
 The newly created device will announce OUTPUT capabilities only (so ordinary webcam applications
 (including Chrome) won't see it). As soon as you have attached a producer to the device, it will
 start announcing CAPTURE capabilities only (so applications that refuse to open devices that have
