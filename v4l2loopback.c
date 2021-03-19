@@ -964,18 +964,13 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 		__u32 pixfmt = fmt->fmt.pix.pixelformat;
 		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
 
-		if (w > dev->max_width)
-			w = dev->max_width;
-		if (h > dev->max_height)
-			h = dev->max_height;
-
+		w = w ? clamp_val(w, V4L2LOOPBACK_SIZE_MIN_WIDTH,
+				  dev->max_width) :
+			      V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+		h = h ? clamp_val(h, V4L2LOOPBACK_SIZE_MIN_HEIGHT,
+				  dev->max_height) :
+			      V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 		dprintk("trying image %dx%d\n", w, h);
-
-		if (w < 1)
-			w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
-
-		if (h < 1)
-			h = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 
 		if (NULL == format)
 			format = &formats[0];
