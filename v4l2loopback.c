@@ -704,34 +704,21 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		return -EINVAL;
 
 	dev = file_to_loopdev(file);
-	if (dev->ready_for_capture) {
-		/* format has already been negotiated
-		 * cannot change during runtime
-		 */
-		if (argp->pixel_format != dev->pix_format.pixelformat)
-			return -EINVAL;
 
-		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	if (NULL == format_by_fourcc(argp->pixel_format))
+		return -EINVAL;
 
-		argp->discrete.width = dev->pix_format.width;
-		argp->discrete.height = dev->pix_format.height;
-	} else {
-		/* if the format has not been negotiated yet, we accept anything
-		 */
-		if (NULL == format_by_fourcc(argp->pixel_format))
-			return -EINVAL;
+	argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
-		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+	argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
+	argp->stepwise.min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
 
-		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
-		argp->stepwise.min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
+	argp->stepwise.max_width = dev->max_width;
+	argp->stepwise.max_height = dev->max_height;
 
-		argp->stepwise.max_width = dev->max_width;
-		argp->stepwise.max_height = dev->max_height;
+	argp->stepwise.step_width = 1;
+	argp->stepwise.step_height = 1;
 
-		argp->stepwise.step_width = 1;
-		argp->stepwise.step_height = 1;
-	}
 	return 0;
 }
 
@@ -747,30 +734,20 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 	if (argp->index)
 		return -EINVAL;
 
-	if (dev->ready_for_capture) {
-		if (argp->width != dev->pix_format.width ||
-		    argp->height != dev->pix_format.height ||
-		    argp->pixel_format != dev->pix_format.pixelformat)
-			return -EINVAL;
+	if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
+	    argp->width > dev->max_width ||
+	    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
+	    argp->height > dev->max_height ||
+	    NULL == format_by_fourcc(argp->pixel_format))
+		return -EINVAL;
 
-		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-		argp->discrete = dev->capture_param.timeperframe;
-	} else {
-		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
-		    argp->width > dev->max_width ||
-		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
-		    argp->height > dev->max_height ||
-		    NULL == format_by_fourcc(argp->pixel_format))
-			return -EINVAL;
-
-		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
-		argp->stepwise.min.numerator = 1;
-		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
-		argp->stepwise.max.numerator = 1;
-		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
-		argp->stepwise.step.numerator = 1;
-		argp->stepwise.step.denominator = 1;
-	}
+	argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+	argp->stepwise.min.numerator = 1;
+	argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
+	argp->stepwise.max.numerator = 1;
+	argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+	argp->stepwise.step.numerator = 1;
+	argp->stepwise.step.denominator = 1;
 
 	return 0;
 }
@@ -2448,6 +2425,8 @@ static const struct v4l2_file_operations output_fops = {
 static const struct v4l2_ioctl_ops output_ioctl_ops = {
 	// clang-format off
 	.vidioc_querycap		= vidioc_querycap,
+	.vidioc_enum_framesizes		= vidioc_enum_framesizes,
+	.vidioc_enum_frameintervals	= vidioc_enum_frameintervals,
 
 	.vidioc_enum_output		= vidioc_enum_output,
 	.vidioc_g_output		= vidioc_g_output,
