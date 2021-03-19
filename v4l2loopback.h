@@ -46,14 +46,6 @@ struct v4l2_loopback_config {
 	int max_height;
 
 	/**
-         * whether to announce OUTPUT/CAPTURE capabilities exclusively
-         * for this device or not
-         * (!exclusive_caps)
-         * FIXXME: this ought to be removed (if superseded by output_nr vs capture_nr)
-         */
-	int announce_all_caps;
-
-	/**
          * number of buffers to allocate for the queue
          * if set to <=0, default values are used
          */

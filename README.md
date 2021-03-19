@@ -156,12 +156,6 @@ Will create 3 devices with the card names passed as the second parameter:
 - `/dev/video4` -> *the number four*
 - `/dev/video7` -> *the last one*
 
-
-If you encounter problems detecting your device with Chrome/WebRTC you can try 'exclusive_caps' mode:
-
-    # modprobe v4l2loopback exclusive_caps=1
-
-This will enable 'exclusive_caps' mode that only reports CAPTURE/OUTPUT capabilities exclusively.
 The newly created device will announce OUTPUT capabilities only (so ordinary webcam applications
 (including Chrome) won't see it). As soon as you have attached a producer to the device, it will
 start announcing CAPTURE capabilities only (so applications that refuse to open devices that have
@@ -252,11 +246,9 @@ Further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
 newer kernels being continually tested as they enter Debian.
 
 Support:
-- >= <kbd>5.0.0</kbd>		should work
-- >= <kbd>4.0.0</kbd>		should work
-- >= <kbd>3.0.0</kbd>		might work
-- << <kbd>3.0.0</kbd>		may work (has not been tested in ages)
-- <= <kbd>2.6.27</kbd>		will definitely NOT work
+- &le; <kbd>5.0.0</kbd>		should work
+- &le; <kbd>4.0.0</kbd>		should work
+- &lt; <kbd>4.0.0</kbd>		unsupported
 
 # DISTRIBUTIONS
 v4l2loopack is now (since 2010-10-13) available as a Debian-package.
