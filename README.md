@@ -252,8 +252,8 @@ Further development has been done mainly on linux-2.6.32 and linux-2.6.35, with
 newer kernels being continually tested as they enter Debian.
 
 Support:
-- &le; <kbd>5.0.0</kbd>		should work
-- &le; <kbd>4.0.0</kbd>		should work
+- &ge; <kbd>5.0.0</kbd>		should work
+- &ge; <kbd>4.0.0</kbd>		should work
 - &lt; <kbd>4.0.0</kbd>		unsupported
 
 # DISTRIBUTIONS
