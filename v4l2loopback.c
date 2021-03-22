@@ -717,7 +717,6 @@ static int vidioc_querycap(struct file *file, void *fh,
 static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *argp)
 {
-#warning handle pre-negotiated formats
 	struct v4l2_loopback_device *dev;
 
 	/* there can be only one... */
@@ -725,6 +724,18 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		return -EINVAL;
 
 	dev = file_to_loopdev(file);
+
+	if (is_format_locked(dev)) {
+		/* format is negotiated, so there's only a single valid format */
+		if (dev->pix_format.pixelformat != argp->pixel_format)
+			return -EINVAL;
+		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+
+		argp->discrete.width = dev->pix_format.width;
+		argp->discrete.height = dev->pix_format.height;
+
+		return 0;
+	}
 
 	if (NULL == format_by_fourcc(argp->pixel_format))
 		return -EINVAL;
@@ -872,10 +883,29 @@ static int vidioc_s_fmt_cap(struct file *file, void *fh,
 static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
+	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	const struct v4l2l_format *fmt;
-
 	if (f->index < 0 || f->index >= FORMATS)
 		return -EINVAL;
+
+	if (is_format_locked(dev)) {
+		int i;
+		MARK();
+		if (f->index)
+			return -EINVAL;
+		f->index = -1;
+		MARK();
+		for (i = 0; i < FORMATS; i++) {
+			printk(KERN_ERR "JMZ: format#%d", i);
+			if (formats[i].fourcc == dev->pix_format.pixelformat) {
+				f->index = i;
+				break;
+			}
+		}
+		if (f->index < 0)
+			return -EINVAL;
+		MARK();
+	}
 
 	fmt = &formats[f->index];
 	f->pixelformat = fmt->fourcc;
@@ -918,7 +948,6 @@ static int vidioc_g_fmt_out(struct file *file, void *fh,
 static int vidioc_try_fmt_out(struct file *file, void *fh,
 			      struct v4l2_format *fmt)
 {
-#warning handle pre-negotiated formats
 	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	__u32 w = fmt->fmt.pix.width;
 	__u32 h = fmt->fmt.pix.height;
@@ -931,6 +960,12 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 	h = h ? clamp_val(h, V4L2LOOPBACK_SIZE_MIN_HEIGHT, dev->max_height) :
 		      V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 	dprintk("trying image %dx%d\n", w, h);
+
+	if (is_format_locked(dev)) {
+		w = dev->pix_format.width;
+		h = dev->pix_format.height;
+		pixfmt = dev->pix_format.pixelformat;
+	}
 
 	format = format_by_fourcc(pixfmt);
 	if (NULL == format)
