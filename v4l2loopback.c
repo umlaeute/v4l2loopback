@@ -975,28 +975,6 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 	return ret;
 }
 
-// #define V4L2L_OVERLAY
-#ifdef V4L2L_OVERLAY
-/* ------------------ OVERLAY ----------------------- */
-/* currently unsupported */
-/* GSTreamer's v4l2sink is buggy, as it requires the overlay to work
- * while it should only require it, if overlay is requested
- * once the gstreamer element is fixed, remove the overlay dummies
- */
-#warning OVERLAY dummies
-static int vidioc_g_fmt_overlay(struct file *file, void *priv,
-				struct v4l2_format *fmt)
-{
-	return 0;
-}
-
-static int vidioc_s_fmt_overlay(struct file *file, void *priv,
-				struct v4l2_format *fmt)
-{
-	return 0;
-}
-#endif /* V4L2L_OVERLAY */
-
 /* ------------------ PARAMs ----------------------- */
 
 /* get some data flow parameters, only capability, fps and readbuffers has
@@ -2058,11 +2036,6 @@ static const struct v4l2_ioctl_ops capture_ioctl_ops = {
 	.vidioc_g_fmt_vid_cap		= vidioc_g_fmt_cap,
 	.vidioc_s_fmt_vid_cap		= vidioc_s_fmt_cap,
 	.vidioc_try_fmt_vid_cap		= vidioc_try_fmt_cap,
-
-#ifdef V4L2L_OVERLAY
-	.vidioc_s_fmt_vid_overlay	= vidioc_s_fmt_overlay,
-	.vidioc_g_fmt_vid_overlay	= vidioc_g_fmt_overlay,
-#endif
 
 #ifdef V4L2LOOPBACK_WITH_STD
 	.vidioc_s_std			= vidioc_s_std,
