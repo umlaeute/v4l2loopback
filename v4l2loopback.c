@@ -2145,7 +2145,8 @@ static void timeout_timer_clb(unsigned long nr)
 							       (conf->confmember)) : \
 		       default_value)
 
-static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
+static struct v4l2_loopback_device *
+v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
@@ -2180,7 +2181,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 			printk(KERN_INFO
 			       "both devices must have the same number (%d != %d).",
 			       conf->output_nr, conf->capture_nr);
-			return -EINVAL;
+			if (ret_nr)
+				*ret_nr = -EINVAL;
+			return 0;
 		}
 	}
 
@@ -2189,8 +2192,11 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	dprintk("creating v4l2loopback-device #%d\n", nr);
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
-	if (!dev)
-		return -ENOMEM;
+	if (!dev) {
+		if (ret_nr)
+			*ret_nr = -ENOMEM;
+		return 0;
+	}
 
 	/* allocate id, if @id >= 0, we're requesting that specific id */
 	if (nr >= 0) {
@@ -2329,8 +2335,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	MARK();
 	if (ret_nr)
-		*ret_nr = dev->vdev->num;
-	return 0;
+		*ret_nr = 0;
+	return dev;
 
 out_free_device:
 	video_device_release(dev->vdev);
@@ -2342,7 +2348,9 @@ out_free_idr:
 	idr_remove(&v4l2loopback_index_idr, nr);
 out_free_dev:
 	kfree(dev);
-	return err;
+	if (ret_nr)
+		*ret_nr = err;
+	return 0;
 }
 
 static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
@@ -2362,7 +2370,6 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_config conf;
 	struct v4l2_loopback_config *confptr = &conf;
-	int device_nr;
 	int ret;
 
 	ret = mutex_lock_killable(&v4l2loopback_ctl_mutex);
@@ -2382,9 +2389,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 				break;
 		} else
 			confptr = NULL;
-		ret = v4l2_loopback_add(confptr, &device_nr);
-		if (ret >= 0)
-			ret = device_nr;
+		dev = v4l2_loopback_add(confptr, &ret);
+		if (dev)
+			ret = dev->capture.vdev.num;
 		break;
 		/* remove a v4l2loopback device (both capture and output) */
 	case V4L2LOOPBACK_CTL_REMOVE:
@@ -2617,15 +2624,18 @@ static int v4l2loopback_init_module(void)
 			.debug			= debug,
 			// clang-format on
 		};
+		struct v4l2_loopback_device *dev;
 		cfg.card_label[0] = 0;
 		if (card_label[i])
 			snprintf(cfg.card_label, sizeof(cfg.card_label), "%s",
 				 card_label[i]);
-		err = v4l2_loopback_add(&cfg, video_nr + i);
-		if (err) {
+		dev = v4l2_loopback_add(&cfg, &err);
+		if (!dev) {
 			free_devices();
 			goto error;
 		}
+		video_nr[i] = dev->capture.vdev.num;
+		output_nr[i] = dev->output.vdev.num;
 	}
 
 	dprintk("module installed\n");
