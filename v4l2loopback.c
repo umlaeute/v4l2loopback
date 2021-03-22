@@ -412,6 +412,11 @@ struct v4l2_loopback_opener {
 
 #define fh_to_opener(ptr) container_of((ptr), struct v4l2_loopback_opener, fh)
 
+static int is_format_locked(struct v4l2_loopback_device *dev)
+{
+	return (dev->ready_for_capture);
+}
+
 /* this is heavily inspired by the bttv driver found in the linux kernel */
 struct v4l2l_format {
 	char *name;
