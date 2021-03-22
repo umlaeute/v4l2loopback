@@ -792,6 +792,7 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
+#warning handle formats if no negotiation has happened yet
 	struct v4l2_loopback_device *dev;
 	MARK();
 
@@ -843,6 +844,7 @@ static int vidioc_g_fmt_cap(struct file *file, void *fh,
 static int vidioc_try_fmt_cap(struct file *file, void *fh,
 			      struct v4l2_format *fmt)
 {
+#warning handle formats if no negotiation has happened yet
 	struct v4l2_loopback_device *dev;
 	char buf[5];
 
