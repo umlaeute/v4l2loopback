@@ -813,7 +813,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 /* returns current video format format fmt
  * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
  */
-static int vidioc_g_fmt_cap(struct file *file, void *priv,
+static int vidioc_g_fmt_cap(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
@@ -835,7 +835,7 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv,
  * obey this decision
  * called on VIDIOC_TRY_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
  */
-static int vidioc_try_fmt_cap(struct file *file, void *priv,
+static int vidioc_try_fmt_cap(struct file *file, void *fh,
 			      struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
@@ -863,10 +863,10 @@ static int vidioc_try_fmt_cap(struct file *file, void *priv,
  * current one, but it is possible to set subregions of input TODO(vasaka)
  * called on VIDIOC_S_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
  */
-static int vidioc_s_fmt_cap(struct file *file, void *priv,
+static int vidioc_s_fmt_cap(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
-	return vidioc_try_fmt_cap(file, priv, fmt);
+	return vidioc_try_fmt_cap(file, fh, fmt);
 }
 
 /* ------------------ OUTPUT ----------------------- */
@@ -922,7 +922,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
  * it should return ALL of available formats,
  * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
  */
-static int vidioc_g_fmt_out(struct file *file, void *priv,
+static int vidioc_g_fmt_out(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
@@ -946,7 +946,7 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
  * if format is negotiated do not change it
  * called on VIDIOC_TRY_FMT with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
  */
-static int vidioc_try_fmt_out(struct file *file, void *priv,
+static int vidioc_try_fmt_out(struct file *file, void *fh,
 			      struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
@@ -991,7 +991,7 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
  * read/write IO
  * called on VIDIOC_S_FMT with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
  */
-static int vidioc_s_fmt_out(struct file *file, void *priv,
+static int vidioc_s_fmt_out(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
@@ -1000,7 +1000,7 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
-	ret = vidioc_try_fmt_out(file, priv, fmt);
+	ret = vidioc_try_fmt_out(file, fh, fmt);
 
 	dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
 		fmt->fmt.pix.sizeimage);
@@ -1026,7 +1026,7 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
  * effect on this driver
  * called on VIDIOC_G_PARM
  */
-static int vidioc_g_parm(struct file *file, void *priv,
+static int vidioc_g_parm(struct file *file, void *fh,
 			 struct v4l2_streamparm *parm)
 {
 	/* do not care about type of opener, hope these enums would always be
@@ -1043,7 +1043,7 @@ static int vidioc_g_parm(struct file *file, void *priv,
  * effect on this driver
  * called on VIDIOC_S_PARM
  */
-static int vidioc_s_parm(struct file *file, void *priv,
+static int vidioc_s_parm(struct file *file, void *fh,
 			 struct v4l2_streamparm *parm)
 {
 	struct v4l2_loopback_device *dev;
