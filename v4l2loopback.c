@@ -114,11 +114,6 @@ typedef unsigned __poll_t;
 #define MAX_DEVICES 8
 #endif
 
-/* whether the default is to announce capabilities exclusively or not */
-#ifndef V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS
-#define V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS 0
-#endif
-
 /* when a producer is considered to have gone stale */
 #ifndef MAX_TIMEOUT
 #define MAX_TIMEOUT (100 * 1000) /* in msecs */
@@ -175,16 +170,6 @@ MODULE_PARM_DESC(output_nr,
 static char *card_label[MAX_DEVICES];
 module_param_array(card_label, charp, NULL, 0000);
 MODULE_PARM_DESC(card_label, "card labels for each device");
-
-static bool exclusive_caps[MAX_DEVICES] = {
-	[0 ...(MAX_DEVICES - 1)] = V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS
-};
-module_param_array(exclusive_caps, bool, NULL, 0444);
-/* FIXXME: wording */
-MODULE_PARM_DESC(
-	exclusive_caps,
-	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not  [DEFAULT: " STRINGIFY2(
-		V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS) "]");
 
 /* format specifications */
 #define V4L2LOOPBACK_SIZE_MIN_WIDTH 48
@@ -389,9 +374,6 @@ struct v4l2_loopback_device {
 	int ready_for_output; /* set to true when no writer is currently attached
 			       * this differs slightly from !ready_for_capture,
 			       * e.g. when using fallback images */
-	int announce_all_caps; /* set to false, if device caps (OUTPUT/CAPTURE)
-                                * should only be announced if the resp. "ready"
-                                * flag is set; default=TRUE */
 
 	int max_width;
 	int max_height;
@@ -404,6 +386,7 @@ struct v4l2_loopback_device {
 
 #define cd_to_loopdev(ptr) video_get_drvdata(to_video_device((ptr)))
 #define file_to_loopdev(ptr) video_get_drvdata(video_devdata((ptr)))
+#define is_output(dev, vdev) (((vdev) == &(dev)->output.vdev) ? 1 : 0)
 
 /* types of opener shows what opener wants to do with loopback */
 enum opener_type {
@@ -695,7 +678,7 @@ static inline void unset_flags(struct v4l2l_buffer *buffer)
 /* returns device capabilities
  * called on VIDIOC_QUERYCAP
  */
-static int vidioc_querycap(struct file *file, void *priv,
+static int vidioc_querycap(struct file *file, void *fh,
 			   struct v4l2_capability *cap)
 {
 	struct video_device *vdev = video_devdata(file);
@@ -703,8 +686,6 @@ static int vidioc_querycap(struct file *file, void *priv,
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
 				     sizeof(cap->card) :
 				     sizeof(dev->card_label);
-	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
-	__u32 device_caps;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	snprintf(cap->card, labellen, dev->card_label);
@@ -712,21 +693,17 @@ static int vidioc_querycap(struct file *file, void *priv,
 		 "platform:v4l2loopback-%03d", dev->capture.vdev.num);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
-	capabilities =
-		dev->output.vdev.device_caps | dev->capture.vdev.device_caps;
-	device_caps = vdev->device_caps;
+	cap->capabilities = dev->capture.vdev.device_caps |
+			    dev->output.vdev.device_caps | V4L2_CAP_DEVICE_CAPS;
+	cap->device_caps = vdev->device_caps;
 #else
-	capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
-	if (vdev == &dev->output.vdev) {
-		device_caps = capabilities & (~V4L2_CAP_VIDEO_CAPTURE);
-	} else {
-		device_caps = capabilities & (~V4L2_CAP_VIDEO_OUTPUT);
-	}
-#endif
-
-	cap->capabilities = capabilities;
-	cap->device_caps = device_caps;
-	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
+	cap->capabilities = V4L2_CAP_READWRITE | V4L2_CAP_STREAMING |
+			    V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+			    V4L2_CAP_DEVICE_CAPS;
+	cap->device_caps = V4L2_CAP_READWRITE | V4L2_CAP_STREAMING |
+			   (is_output(dev, vdev) ? V4L2_CAP_VIDEO_OUTPUT :
+							 V4L2_CAP_VIDEO_CAPTURE);
+#endif /* >=linux-4.7.0 */
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
 	return 0;
@@ -735,6 +712,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *argp)
 {
+#warning handle pre-negotiated formats
 	struct v4l2_loopback_device *dev;
 
 	/* there can be only one... */
@@ -742,34 +720,21 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		return -EINVAL;
 
 	dev = file_to_loopdev(file);
-	if (dev->ready_for_capture) {
-		/* format has already been negotiated
-		 * cannot change during runtime
-		 */
-		if (argp->pixel_format != dev->pix_format.pixelformat)
-			return -EINVAL;
 
-		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
+	if (NULL == format_by_fourcc(argp->pixel_format))
+		return -EINVAL;
 
-		argp->discrete.width = dev->pix_format.width;
-		argp->discrete.height = dev->pix_format.height;
-	} else {
-		/* if the format has not been negotiated yet, we accept anything
-		 */
-		if (NULL == format_by_fourcc(argp->pixel_format))
-			return -EINVAL;
+	argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
-		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+	argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
+	argp->stepwise.min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
 
-		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
-		argp->stepwise.min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
+	argp->stepwise.max_width = dev->max_width;
+	argp->stepwise.max_height = dev->max_height;
 
-		argp->stepwise.max_width = dev->max_width;
-		argp->stepwise.max_height = dev->max_height;
+	argp->stepwise.step_width = 1;
+	argp->stepwise.step_height = 1;
 
-		argp->stepwise.step_width = 1;
-		argp->stepwise.step_height = 1;
-	}
 	return 0;
 }
 
@@ -785,30 +750,20 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 	if (argp->index)
 		return -EINVAL;
 
-	if (dev->ready_for_capture) {
-		if (argp->width != dev->pix_format.width ||
-		    argp->height != dev->pix_format.height ||
-		    argp->pixel_format != dev->pix_format.pixelformat)
-			return -EINVAL;
+	if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
+	    argp->width > dev->max_width ||
+	    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
+	    argp->height > dev->max_height ||
+	    NULL == format_by_fourcc(argp->pixel_format))
+		return -EINVAL;
 
-		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-		argp->discrete = dev->capture_param.timeperframe;
-	} else {
-		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
-		    argp->width > dev->max_width ||
-		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
-		    argp->height > dev->max_height ||
-		    NULL == format_by_fourcc(argp->pixel_format))
-			return -EINVAL;
-
-		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
-		argp->stepwise.min.numerator = 1;
-		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
-		argp->stepwise.max.numerator = 1;
-		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
-		argp->stepwise.step.numerator = 1;
-		argp->stepwise.step.denominator = 1;
-	}
+	argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
+	argp->stepwise.min.numerator = 1;
+	argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
+	argp->stepwise.max.numerator = 1;
+	argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+	argp->stepwise.step.numerator = 1;
+	argp->stepwise.step.denominator = 1;
 
 	return 0;
 }
@@ -823,6 +778,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	MARK();
+
 	dev = file_to_loopdev(file);
 
 	if (f->index)
@@ -957,8 +913,8 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
 static int vidioc_try_fmt_out(struct file *file, void *priv,
 			      struct v4l2_format *fmt)
 {
-	struct video_device *vdev = video_devdata(file);
-	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+#warning handle pre-negotiated formats
+	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	__u32 w = fmt->fmt.pix.width;
 	__u32 h = fmt->fmt.pix.height;
 	__u32 pixfmt = fmt->fmt.pix.pixelformat;
@@ -994,8 +950,7 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 static int vidioc_s_fmt_out(struct file *file, void *priv,
 			    struct v4l2_format *fmt)
 {
-	struct video_device *vdev = video_devdata(file);
-	struct v4l2_loopback_device *dev = video_get_drvdata(vdev);
+	struct v4l2_loopback_device *dev = file_to_loopdev(file);
 	char buf[5];
 	int ret;
 	MARK();
@@ -1275,7 +1230,7 @@ static int vidioc_enum_input(struct file *file, void *fh,
 static int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
 {
 	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	if (!dev->announce_all_caps && !dev->ready_for_capture)
+	if (!dev->ready_for_capture)
 		return -ENOTTY;
 	if (i)
 		*i = 0;
@@ -1288,7 +1243,7 @@ static int vidioc_g_input(struct file *file, void *fh, unsigned int *i)
 static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 {
 	struct v4l2_loopback_device *dev = file_to_loopdev(file);
-	if (!dev->announce_all_caps && !dev->ready_for_capture)
+	if (!dev->ready_for_capture)
 		return -ENOTTY;
 	if (i == 0)
 		return 0;
@@ -1393,9 +1348,6 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 		b->length = buffer_size;
 		b->field = V4L2_FIELD_NONE;
 		b->flags = 0;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
-		b->input = 0;
-#endif
 		b->m.offset = i * buffer_size;
 		b->memory = V4L2_MEMORY_MMAP;
 		b->sequence = 0;
@@ -1610,13 +1562,15 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 
 	vdev->vfl_type = VFL_TYPE_VIDEO;
 	if (is_output) {
+		vdev->vfl_dir = VFL_DIR_TX;
 		vdev->fops = &output_fops;
 		vdev->ioctl_ops = &output_ioctl_ops;
-		vdev->vfl_dir = VFL_DIR_TX;
+		q->ops = &output_qops;
 	} else {
+		vdev->vfl_dir = VFL_DIR_RX;
 		vdev->fops = &capture_fops;
 		vdev->ioctl_ops = &capture_ioctl_ops;
-		vdev->vfl_dir = VFL_DIR_RX;
+		q->ops = &capture_qops;
 	}
 	vdev->release = &video_device_release_empty;
 	vdev->minor = -1;
@@ -1627,7 +1581,6 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 	if (debug > 1)
 		vdev->dev_debug =
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
-
 	q->type = type;
 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF | VB2_WRITE;
 	q->gfp_flags = 0;
@@ -1637,10 +1590,6 @@ static int init_entity(struct v4l2_loopback_entity *entity, int nr, int type,
 	q->mem_ops = &vb2_vmalloc_memops;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->lock = &entity->lock;
-	if (is_output)
-		q->ops = &output_qops;
-	else
-		q->ops = &capture_qops;
 
 	err = vb2_queue_init(q);
 	if (err < 0)
@@ -1749,10 +1698,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
 	int _max_height = DEFAULT_FROM_CONF(
 		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
-	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
-						(conf->announce_all_caps) :
-						V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
-
 	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
 	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
 
@@ -1802,7 +1747,6 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
 
-	dev->announce_all_caps = _announce_all_caps;
 	dev->max_width = _max_width;
 	dev->max_height = _max_height;
 	dev->max_openers = _max_openers;
@@ -1998,7 +1942,6 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		conf.capture_nr = dev->capture.vdev.num;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
-		conf.announce_all_caps = dev->announce_all_caps;
 		conf.max_buffers = dev->buffers_number;
 		conf.max_openers = dev->max_openers;
 		conf.debug = debug;
@@ -2066,15 +2009,9 @@ static const struct v4l2_ioctl_ops output_ioctl_ops = {
 	.vidioc_try_fmt_vid_out		= vidioc_try_fmt_out,
 	.vidioc_s_fmt_vid_out		= vidioc_s_fmt_out,
 
-#ifdef V4L2L_OVERLAY
-	.vidioc_s_fmt_vid_overlay	= vidioc_s_fmt_overlay,
-	.vidioc_g_fmt_vid_overlay	= vidioc_g_fmt_overlay,
-#endif
-
 #ifdef V4L2LOOPBACK_WITH_STD
 	.vidioc_g_std			= vidioc_g_std,
 	.vidioc_s_std			= vidioc_s_std,
-	.vidioc_querystd		= vidioc_querystd,
 #endif /* V4L2LOOPBACK_WITH_STD */
 
 	.vidioc_g_parm			= vidioc_g_parm,
@@ -2233,7 +2170,6 @@ static int v4l2loopback_init_module(void)
 			.capture_nr		= video_nr[i],
 			.max_width		= max_width,
 			.max_height		= max_height,
-			.announce_all_caps	= (!exclusive_caps[i]),
 			.max_buffers		= max_buffers,
 			.max_openers		= max_openers,
 			.debug			= debug,
