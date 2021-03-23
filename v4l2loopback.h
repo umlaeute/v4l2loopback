@@ -60,12 +60,6 @@ struct v4l2_loopback_config {
 	int max_buffers;
 
 	/**
-         * how many consumers are allowed to open this device concurrently
-         * if set to <=0, default values are used
-         */
-	int max_openers;
-
-	/**
          * set the debugging level for this device
          */
 	int debug;

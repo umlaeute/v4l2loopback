@@ -249,7 +249,6 @@ static void help_add(const char *program, int brief, int argc, char **argv)
 		"\n\t -h <max_height>     : maximum allowed frame height"
 		"\n\t -x <exclusive_caps> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
 		"\n\t -b <buffers>        : buffers to queue"
-		"\n\t -o <max_openers>    : maximum allowed concurrent openers"
 		"\n\t -v                  : verbose mode (print properties of device after successfully creating it)"
 		"\n"
 		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
@@ -448,12 +447,11 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 	       "\n\tmax_height       : %d"
 	       "\n\tannounce_all_caps: %d"
 	       "\n\tmax_buffers      : %d"
-	       "\n\tmax_openers      : %d"
 	       "\n\tdebug            : %d"
 	       "\n",
 	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->max_width,
 	       cfg->max_height, cfg->announce_all_caps, cfg->max_buffers,
-	       cfg->max_openers, cfg->debug);
+	       cfg->debug);
 	MARK();
 }
 
@@ -477,7 +475,6 @@ make_conf(struct v4l2_loopback_config *cfg, const char *label, int max_width,
 	cfg->max_width = max_width;
 	cfg->announce_all_caps = (exclusive_caps < 0) ? -1 : !exclusive_caps;
 	cfg->max_buffers = buffers;
-	cfg->max_openers = openers;
 	cfg->debug = 0;
 	return cfg;
 }
