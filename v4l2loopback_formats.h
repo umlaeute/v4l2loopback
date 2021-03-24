@@ -2,7 +2,13 @@
 #include <linux/videodev2.h>
 #if defined(__KERNEL__)
 #include <media/v4l2-common.h>
+#else
+#include <linux/kernel.h>
+
+#ifndef WARN
+#define WARN(condition, fmt, ...)
 #endif
+#endif /* defined(__KERNEL__) */
 
 /* Fix build error: initializer element is not constant
  *
@@ -1007,10 +1013,9 @@ static const struct v4l2l_format formats[] = {
 };
 
 /* The last kernel version synced: v5.11 */
-#ifdef __KERNEL__
 // clang-format off
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
+#if !defined(__KERNEL__) || (LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0))
 static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 {
 	const unsigned sz = sizeof(fmt->description);
@@ -1265,7 +1270,6 @@ static void v4l_fill_fmtdesc(struct v4l2_fmtdesc *fmt)
 	}
 	fmt->flags |= flags;
 }
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0) */
+#endif /* !defined(__KERNEL__) || (LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)) */
 
 // clang-format on
-#endif /* __KERNEL__ */

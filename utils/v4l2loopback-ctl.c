@@ -316,11 +316,15 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 		const size_t num_formats = sizeof(formats) / sizeof(*formats);
 		size_t i = 0;
 		for (i = 0; i < num_formats; i++) {
-			const struct v4l2l_format *fmt = formats + i;
+			struct v4l2_fmtdesc f;
+
 			memset(fourcc, 0, 5);
+			memset(&f, 0, sizeof(f));
+			f.pixelformat = formats[i].fourcc;
+			v4l_fill_fmtdesc(&f);
 			dprintf(2, "%4s\t%d\t%s\n",
-				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
-				fmt->name);
+				fourcc2str(f.pixelformat, fourcc),
+				f.pixelformat, f.description);
 		}
 	}
 }
