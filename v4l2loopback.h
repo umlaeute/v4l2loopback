@@ -66,7 +66,7 @@ struct v4l2_loopback_config {
 	__u32 max_openers;
 
 	/**
-         * set the debugging level for this device
+         * set device debug flags. See V4L2_DEV_DEBUG_* for possible values.
          */
 	__u32 debug;
 };
