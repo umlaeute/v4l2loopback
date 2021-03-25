@@ -1982,7 +1982,7 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 }
 
 /* fills and register video device */
-static void init_vdev(struct video_device *vdev, int nr)
+static void init_vdev(struct video_device *vdev, int nr, int debug)
 {
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms = V4L2_STD_ALL;
@@ -1997,11 +1997,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
 			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
 #endif /* >=linux-4.7.0 */
-
-	if (debug > 1)
-		vdev->dev_debug =
-			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
-
+	vdev->dev_debug = debug;
 	vdev->vfl_dir = VFL_DIR_M2M;
 }
 
@@ -2177,7 +2173,7 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
 		->device_nr = nr;
 
-	init_vdev(dev->vdev, nr);
+	init_vdev(dev->vdev, nr, conf->debug);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
 	set_timeperframe(dev, &dev->capture_param.timeperframe);
@@ -2375,7 +2371,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		conf.announce_all_caps = dev->announce_all_caps;
 		conf.max_buffers = dev->buffers_number;
 		conf.max_openers = dev->max_openers;
-		conf.debug = debug;
+		conf.debug = dev->vdev->dev_debug;
 
 		if (copy_to_user((void *)parm, &conf, sizeof(conf))) {
 			ret = -EFAULT;
@@ -2545,7 +2541,7 @@ static int v4l2loopback_init_module(void)
 			.announce_all_caps	= (!exclusive_caps[i]),
 			.max_buffers		= max_buffers,
 			.max_openers		= max_openers,
-			.debug			= debug,
+			.debug			= 0,
 			// clang-format on
 		};
 		struct v4l2_loopback_device *dev;
@@ -2553,6 +2549,9 @@ static int v4l2loopback_init_module(void)
 		if (card_label[i])
 			snprintf(cfg.card_label, sizeof(cfg.card_label), "%s",
 				 card_label[i]);
+		if (debug > 1)
+			cfg.debug =
+				V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
 		dev = v4l2_loopback_add(&cfg);
 		if (IS_ERR(dev)) {
 			free_devices();

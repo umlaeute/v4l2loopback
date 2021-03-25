@@ -449,7 +449,7 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 	       "\n\tannounce_all_caps: %d"
 	       "\n\tmax_buffers      : %d"
 	       "\n\tmax_openers      : %d"
-	       "\n\tdebug            : %d"
+	       "\n\tdebug            : 0x%x"
 	       "\n",
 	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->max_width,
 	       cfg->max_height, cfg->announce_all_caps, cfg->max_buffers,
