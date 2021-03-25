@@ -60,13 +60,10 @@ MODULE_LICENSE("GPL");
 /*
  * helpers
  */
-#define STRINGIFY(s) #s
-#define STRINGIFY2(s) STRINGIFY(s)
-
 #define dprintk(fmt, args...)                                                  \
 	do {                                                                   \
 		if (debug > 0) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
+			printk(KERN_INFO "v4l2-loopback[" __stringify(         \
 				       __LINE__) "]: " fmt,                    \
 			       ##args);                                        \
 		}                                                              \
@@ -83,7 +80,7 @@ MODULE_LICENSE("GPL");
 #define dprintkrw(fmt, args...)                                                \
 	do {                                                                   \
 		if (debug > 2) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
+			printk(KERN_INFO "v4l2-loopback[" __stringify(         \
 				       __LINE__) "]: " fmt,                    \
 			       ##args);                                        \
 		}                                                              \
@@ -137,7 +134,7 @@ MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 static int max_buffers = V4L2LOOPBACK_DEFAULT_MAX_BUFFERS;
 module_param(max_buffers, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers,
-		 "how many buffers should be allocated [DEFAULT: " STRINGIFY2(
+		 "how many buffers should be allocated [DEFAULT: " __stringify(
 			 V4L2LOOPBACK_DEFAULT_MAX_BUFFERS) "]");
 
 /* how many times a device can be opened
@@ -153,7 +150,7 @@ static int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
 module_param(max_openers, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(
 	max_openers,
-	"how many users can open the loopback device [DEFAULT: " STRINGIFY2(
+	"how many users can open the loopback device [DEFAULT: " __stringify(
 		V4L2LOOPBACK_DEFAULT_MAX_OPENERS) "]");
 
 static int devices = -1;
@@ -176,7 +173,7 @@ module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
 MODULE_PARM_DESC(
 	exclusive_caps,
-	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not  [DEFAULT: " STRINGIFY2(
+	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not  [DEFAULT: " __stringify(
 		V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS) "]");
 
 /* format specifications */
@@ -190,12 +187,13 @@ MODULE_PARM_DESC(
 
 static int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 module_param(max_width, int, S_IRUGO);
-MODULE_PARM_DESC(max_width, "maximum allowed frame width [DEFAULT: " STRINGIFY2(
-				    V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
+MODULE_PARM_DESC(max_width,
+		 "maximum allowed frame width [DEFAULT: " __stringify(
+			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
 static int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 module_param(max_height, int, S_IRUGO);
 MODULE_PARM_DESC(max_height,
-		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
+		 "maximum allowed frame height [DEFAULT: " __stringify(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
 
 /* frame intervals */
