@@ -883,7 +883,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 	return 0;
 }
 
-/* returns current video format format fmt
+/* returns current video format
  * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
  */
 static int vidioc_g_fmt_cap(struct file *file, void *priv,
