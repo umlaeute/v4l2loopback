@@ -40,7 +40,7 @@ https://unix.stackexchange.com/questions/tagged/v4l2loopback
 In order to build (compile,...) anything, you must have a *working* build-environment
 (compiler, GNU make,...).
 The kernel can be somewhat picky if you try to load a module that was compiled with
-a different compiler than was used to compile the kernel itself.
+a different compiler as was used to compile the kernel itself.
 So make sure to have the right compiler in place.
 
 The v4l2loopback module is a *kernel module*.
@@ -48,8 +48,8 @@ In order to build it, you *must have* the kernel headers installed that match
 the linux kernel with which you want to use the module (in most cases this will
 be the kernel that you are currently running).
 Please note, that kernel headers and kernel image must have *exactly the same* version.
-For example, `3.18.0-trunk-rpi` is a different version that `3.18.7-v7+`, even though
-The first few number are the same.
+For example, `3.18.0-trunk-rpi` is a different version than `3.18.7-v7+`, even though
+the first few numbers are the same.
 (Modules will be incompatible if the versions don't match. If you are lucky, the module will
 simply refuse to load. If you are unlucky, your computer will spit in your eye or do worse.)
 
@@ -60,7 +60,7 @@ Please understand that we cannot provide support for questions regarding depende
 
 
 # BUILD
-To build the kernel module run:
+To build the kernel module, run:
 
     $ make
 
@@ -75,7 +75,7 @@ So run this *before* starting the build again:
     $ make clean
 
 # INSTALL
-To install the module run "make install" (you might have to be 'root' to have
+To install the module, run "make install" (you might have to be 'root' to have
 all necessary permissions to install the module).
 
 If your system has "sudo", do:
@@ -116,6 +116,7 @@ fed by various programs.
 Tested feeders:
 - GStreamer-1.0: using the  "v4l2sink" element
 - Gem(>=0.93) using the "recordV4L2" plugin
+
 In theory most programs capable of _writing to_ a v4l2 device should work.
 
 The data sent to the v4l2loopback device can then be read by any v4l2-capable
@@ -231,7 +232,7 @@ $ v4l2loopback-ctl set-timeout-image -t 3000 /dev/video0 service-unavailable.png
 ## DYNAMIC DEVICE MANAGEMENT
 You can create (and delete) loopback devices on the fly, using the `add` (resp. `delete`) commands of the `v4l2loopback-ctl` utility.
 
-When creating a new device, module options might be ignored. So you must specify them explicitely.
+When creating a new device, module options might be ignored. So you must specify them explicitly.
 
 To create a new device `/dev/video7` that has a label "loopy doopy", use:
 
