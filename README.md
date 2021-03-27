@@ -126,10 +126,11 @@ You can find a number of scenarios on the wiki at
 
 ## Troubleshooting
 If you have a secure-boot enabled kernel, you might not be able to simply build a kernel module and insert it.
+(You will get **SSL error**s when building the module.)
 This is actually a security feature (as it prevents malicious code to be inserted into kernel-space).
 
 If you are not allowed to insert the kernel module (running `modprobe`, or `insmod`), you have a few options
-(consult your distribution's documentation on how to perform any of these steps)_
+(consult your distribution's documentation on how to perform any of these steps):
 - disable secure-boot and reboot
 - sign the module binary with a whitelisted key (this probably only applies if you are creating a distribution)
 
