@@ -1017,6 +1017,10 @@ static const struct v4l2_format_info formats[] = {
 	{ .format = V4L2_PIX_FMT_RGB565,  .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 	{ .format = V4L2_PIX_FMT_RGB555,  .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 	{ .format = V4L2_PIX_FMT_BGR666,  .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 4, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_RGB332,  .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_RGB444,  .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_RGB555X, .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_RGB565X, .pixel_enc = V4L2_PIXEL_ENC_RGB, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 
 	/* YUV packed formats */
 	{ .format = V4L2_PIX_FMT_YUYV,    .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 2, .vdiv = 1 },
@@ -1038,7 +1042,6 @@ static const struct v4l2_format_info formats[] = {
 	{ .format = V4L2_PIX_FMT_YUV420,  .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 3, .bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2 },
 	{ .format = V4L2_PIX_FMT_YVU420,  .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 3, .bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2 },
 	{ .format = V4L2_PIX_FMT_YUV422P, .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 3, .bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 1 },
-	{ .format = V4L2_PIX_FMT_GREY,    .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 
 	/* YUV planar formats, non contiguous variant */
 	{ .format = V4L2_PIX_FMT_YUV420M, .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 3, .comp_planes = 3, .bpp = { 1, 1, 1, 0 }, .hdiv = 2, .vdiv = 2 },
@@ -1052,6 +1055,16 @@ static const struct v4l2_format_info formats[] = {
 	{ .format = V4L2_PIX_FMT_NV21M,   .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 2, .comp_planes = 2, .bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 2 },
 	{ .format = V4L2_PIX_FMT_NV16M,   .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 2, .comp_planes = 2, .bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1 },
 	{ .format = V4L2_PIX_FMT_NV61M,   .pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 2, .comp_planes = 2, .bpp = { 1, 2, 0, 0 }, .hdiv = 2, .vdiv = 1 },
+
+	/* YUV luma-only formats */
+	{ .format = V4L2_PIX_FMT_GREY,		.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_Y10,		.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_Y10BPACK,	.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 10, 0, 0, 0 }, .hdiv = 8, .vdiv = 1, .block_w = { 2, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_Y10P,		.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_Y12,		.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_Y14,		.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_Y16,		.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+	{ .format = V4L2_PIX_FMT_Y16_BE,	.pixel_enc = V4L2_PIXEL_ENC_YUV, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 
 	/* Bayer RGB formats */
 	{ .format = V4L2_PIX_FMT_SBGGR8,	.pixel_enc = V4L2_PIXEL_ENC_BAYER, .mem_planes = 1, .comp_planes = 1, .bpp = { 1, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
@@ -1074,6 +1087,22 @@ static const struct v4l2_format_info formats[] = {
 	{ .format = V4L2_PIX_FMT_SGBRG12,	.pixel_enc = V4L2_PIXEL_ENC_BAYER, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 	{ .format = V4L2_PIX_FMT_SGRBG12,	.pixel_enc = V4L2_PIXEL_ENC_BAYER, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
 	{ .format = V4L2_PIX_FMT_SRGGB12,	.pixel_enc = V4L2_PIXEL_ENC_BAYER, .mem_planes = 1, .comp_planes = 1, .bpp = { 2, 0, 0, 0 }, .hdiv = 1, .vdiv = 1 },
+
+	/* Compressed formats. */
+	{ .format = V4L2_PIX_FMT_H263,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_H264,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_H264_MVC,	.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_H264_NO_SC,	.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_HEVC,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_MPEG,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_MPEG1,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_MPEG2,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_MPEG4,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_VC1_ANNEX_G,	.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_VC1_ANNEX_L,	.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_VP8,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_VP9,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
+	{ .format = V4L2_PIX_FMT_XVID,		.pixel_enc = V4L2_PIXEL_ENC_UNKNOWN, .mem_planes = 1, .comp_planes = 1, .bpp = { 3, 0, 0, 0 }, .hdiv = 2, .vdiv = 2, .block_w = { 32, 0, 0, 0 }, .block_h = { 32, 0, 0, 0 } },
 	// clang-format on
 };
 
