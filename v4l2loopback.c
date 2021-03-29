@@ -134,8 +134,8 @@ module_param(debug, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
 #define V4L2LOOPBACK_DEFAULT_MAX_BUFFERS 2
-static int max_buffers = V4L2LOOPBACK_DEFAULT_MAX_BUFFERS;
-module_param(max_buffers, int, S_IRUGO);
+static unsigned int max_buffers = V4L2LOOPBACK_DEFAULT_MAX_BUFFERS;
+module_param(max_buffers, uint, S_IRUGO);
 MODULE_PARM_DESC(max_buffers,
 		 "how many buffers should be allocated [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_DEFAULT_MAX_BUFFERS) "]");
@@ -149,8 +149,8 @@ MODULE_PARM_DESC(max_buffers,
  *   however, we leave that to the user
  */
 #define V4L2LOOPBACK_DEFAULT_MAX_OPENERS 10
-static int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
-module_param(max_openers, int, S_IRUGO | S_IWUSR);
+static unsigned int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
+module_param(max_openers, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(
 	max_openers,
 	"how many users can open the loopback device [DEFAULT: " STRINGIFY2(
@@ -188,12 +188,12 @@ MODULE_PARM_DESC(
 #define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH 640
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT 480
 
-static int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
-module_param(max_width, int, S_IRUGO);
+static unsigned int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
+module_param(max_width, uint, S_IRUGO);
 MODULE_PARM_DESC(max_width, "maximum allowed frame width [DEFAULT: " STRINGIFY2(
 				    V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
-static int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
-module_param(max_height, int, S_IRUGO);
+static unsigned int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
+module_param(max_height, uint, S_IRUGO);
 MODULE_PARM_DESC(max_height,
 		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
@@ -301,7 +301,7 @@ struct v4l2_loopback_device {
 	int buffers_number; /* should not be big, 4 is a good choice */
 	struct v4l2l_buffer buffers[MAX_BUFFERS]; /* inner driver buffers */
 	int used_buffers; /* number of the actually used buffers */
-	int max_openers; /* how many times can this device be opened */
+	unsigned int max_openers; /* how many times can this device be opened */
 
 	int write_position; /* number of last written frame + 1 */
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
@@ -335,8 +335,8 @@ struct v4l2_loopback_device {
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
 
-	int max_width;
-	int max_height;
+	unsigned int max_width;
+	unsigned int max_height;
 
 	char card_label[32];
 
@@ -505,7 +505,7 @@ static ssize_t attr_show_maxopeners(struct device *cd,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 
-	return sprintf(buf, "%d\n", dev->max_openers);
+	return sprintf(buf, "%u\n", dev->max_openers);
 }
 
 static ssize_t attr_store_maxopeners(struct device *cd,
@@ -528,7 +528,7 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 		return -EINVAL;
 	}
 
-	dev->max_openers = (int)curr;
+	dev->max_openers = curr;
 
 	return len;
 }
@@ -2153,16 +2153,15 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 
 	int err = -ENOMEM;
 
-	int _max_width = DEFAULT_FROM_CONF(
+	u32 _max_width = DEFAULT_FROM_CONF(
 		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
-	int _max_height = DEFAULT_FROM_CONF(
+	u32 _max_height = DEFAULT_FROM_CONF(
 		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
-	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
-						(conf->announce_all_caps) :
-						V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
+	bool _announce_all_caps = DEFAULT_FROM_CONF(
+		announce_all_caps, == 0, V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS);
 
-	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
-	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
+	u32 _max_buffers = DEFAULT_FROM_CONF(max_buffers, == 0, max_buffers);
+	u32 _max_openers = DEFAULT_FROM_CONF(max_openers, == 0, max_openers);
 
 	int nr = -1;
 	if (conf) {
@@ -2581,32 +2580,32 @@ static int v4l2loopback_init_module(void)
 	if (devices > MAX_DEVICES) {
 		devices = MAX_DEVICES;
 		printk(KERN_INFO
-		       "v4l2loopback: number of initial devices is limited to: %d\n",
+		       "v4l2loopback: number of initial devices is limited to: %u\n",
 		       MAX_DEVICES);
 	}
 
-	if (max_buffers > MAX_BUFFERS) {
+	if ((max_buffers < 2) || (max_buffers > MAX_BUFFERS)) {
 		max_buffers = MAX_BUFFERS;
 		printk(KERN_INFO
-		       "v4l2loopback: number of buffers is limited to: %d\n",
+		       "v4l2loopback: number of buffers is limited to: %u\n",
 		       MAX_BUFFERS);
 	}
 
-	if (max_openers < 0) {
+	if (max_openers < 2) {
 		printk(KERN_INFO
-		       "v4l2loopback: allowing %d openers rather than %d\n",
-		       2, max_openers);
-		max_openers = 2;
+		       "v4l2loopback: allowing %u openers rather than %u\n",
+		       V4L2LOOPBACK_DEFAULT_MAX_OPENERS, max_openers);
+		max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
 	}
 
-	if (max_width < 1) {
+	if (max_width < V4L2LOOPBACK_SIZE_MIN_WIDTH) {
 		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
-		printk(KERN_INFO "v4l2loopback: using max_width %d\n",
+		printk(KERN_INFO "v4l2loopback: using max_width %u\n",
 		       max_width);
 	}
-	if (max_height < 1) {
+	if (max_height < V4L2LOOPBACK_SIZE_MIN_HEIGHT) {
 		max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
-		printk(KERN_INFO "v4l2loopback: using max_height %d\n",
+		printk(KERN_INFO "v4l2loopback: using max_height %u\n",
 		       max_height);
 	}
 
