@@ -22,14 +22,6 @@
 #define MARK()
 #endif
 
-struct v4l2l_format {
-	char *name;
-	int fourcc; /* video4linux 2 */
-	int depth; /* bit/pixel */
-	int flags;
-};
-#define FORMAT_FLAGS_PLANAR 0x01
-#define FORMAT_FLAGS_COMPRESSED 0x02
 #include "../v4l2loopback_formats.h"
 
 /********************/
@@ -316,11 +308,15 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 		const size_t num_formats = sizeof(formats) / sizeof(*formats);
 		size_t i = 0;
 		for (i = 0; i < num_formats; i++) {
-			const struct v4l2l_format *fmt = formats + i;
+			struct v4l2_fmtdesc f;
+
 			memset(fourcc, 0, 5);
+			memset(&f, 0, sizeof(f));
+			f.pixelformat = formats[i].format;
+			v4l_fill_fmtdesc(&f);
 			dprintf(2, "%4s\t%d\t%s\n",
-				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
-				fmt->name);
+				fourcc2str(f.pixelformat, fourcc),
+				f.pixelformat, f.description);
 		}
 	}
 }

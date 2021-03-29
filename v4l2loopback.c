@@ -368,20 +368,7 @@ struct v4l2_loopback_opener {
 
 #define fh_to_opener(ptr) container_of((ptr), struct v4l2_loopback_opener, fh)
 
-/* this is heavily inspired by the bttv driver found in the linux kernel */
-struct v4l2l_format {
-	char *name;
-	int fourcc; /* video4linux 2 */
-	int depth; /* bit/pixel */
-	int flags;
-};
-/* set the v4l2l_format.flags to PLANAR for non-packed formats */
-#define FORMAT_FLAGS_PLANAR 0x01
-#define FORMAT_FLAGS_COMPRESSED 0x02
-
 #include "v4l2loopback_formats.h"
-
-static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
 static char *fourcc2str(unsigned int fourcc, char buf[4])
 {
@@ -391,41 +378,6 @@ static char *fourcc2str(unsigned int fourcc, char buf[4])
 	buf[3] = (fourcc >> 24) & 0xFF;
 
 	return buf;
-}
-
-static const struct v4l2l_format *format_by_fourcc(int fourcc)
-{
-	unsigned int i;
-
-	for (i = 0; i < FORMATS; i++) {
-		if (formats[i].fourcc == fourcc)
-			return formats + i;
-	}
-
-	dprintk("unsupported format '%c%c%c%c'\n", (fourcc >> 0) & 0xFF,
-		(fourcc >> 8) & 0xFF, (fourcc >> 16) & 0xFF,
-		(fourcc >> 24) & 0xFF);
-	return NULL;
-}
-
-static void pix_format_set_size(struct v4l2_pix_format *f,
-				const struct v4l2l_format *fmt,
-				unsigned int width, unsigned int height)
-{
-	f->width = width;
-	f->height = height;
-
-	if (fmt->flags & FORMAT_FLAGS_PLANAR) {
-		f->bytesperline = width; /* Y plane */
-		f->sizeimage = (width * height * fmt->depth) >> 3;
-	} else if (fmt->flags & FORMAT_FLAGS_COMPRESSED) {
-		/* doesn't make sense for compressed formats */
-		f->bytesperline = 0;
-		f->sizeimage = (width * height * fmt->depth) >> 3;
-	} else {
-		f->bytesperline = (width * fmt->depth) >> 3;
-		f->sizeimage = height * f->bytesperline;
-	}
 }
 
 static int set_timeperframe(struct v4l2_loopback_device *dev,
@@ -722,7 +674,7 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 	} else {
 		/* if the format has not been negotiated yet, we accept anything
 		 */
-		if (NULL == format_by_fourcc(argp->pixel_format))
+		if (NULL == backport_v4l2_format_info(argp->pixel_format))
 			return -EINVAL;
 
 		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
@@ -764,7 +716,7 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 		    argp->width > dev->max_width ||
 		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
 		    argp->height > dev->max_height ||
-		    NULL == format_by_fourcc(argp->pixel_format))
+		    NULL == backport_v4l2_format_info(argp->pixel_format))
 			return -EINVAL;
 
 		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
@@ -795,17 +747,13 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 	if (f->index)
 		return -EINVAL;
 	if (dev->ready_for_capture) {
-		const __u32 format = dev->pix_format.pixelformat;
-
-		snprintf(f->description, sizeof(f->description), "[%c%c%c%c]",
-			 (format >> 0) & 0xFF, (format >> 8) & 0xFF,
-			 (format >> 16) & 0xFF, (format >> 24) & 0xFF);
-
 		f->pixelformat = dev->pix_format.pixelformat;
 	} else {
 		return -EINVAL;
 	}
-	f->flags = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
+	v4l_fill_fmtdesc(f);
+#endif
 	MARK();
 	return 0;
 }
@@ -879,39 +827,32 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
 	struct v4l2_loopback_device *dev;
-	const struct v4l2l_format *fmt;
 
 	dev = v4l2loopback_getdevice(file);
 
 	if (dev->ready_for_capture) {
-		const __u32 format = dev->pix_format.pixelformat;
+		const struct v4l2_format_info *fmt;
 
 		/* format has been fixed by the writer, so only one single format is supported */
 		if (f->index)
 			return -EINVAL;
 
-		fmt = format_by_fourcc(format);
+		fmt = backport_v4l2_format_info(dev->pix_format.pixelformat);
 		if (NULL == fmt)
 			return -EINVAL;
 
-		/* f->flags = ??; */
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
-
-		f->pixelformat = dev->pix_format.pixelformat;
+		f->pixelformat = fmt->format;
 	} else {
 		/* fill in a dummy format */
 		/* coverity[unsigned_compare] */
-		if (f->index < 0 || f->index >= FORMATS)
+		if (f->index < 0 || f->index >= ARRAY_SIZE(formats))
 			return -EINVAL;
 
-		fmt = &formats[f->index];
-
-		f->pixelformat = fmt->fourcc;
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
+		f->pixelformat = formats[f->index].format;
 	}
-	f->flags = 0;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 2, 0)
+	v4l_fill_fmtdesc(f);
+#endif
 
 	return 0;
 }
@@ -962,7 +903,8 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 		__u32 w = fmt->fmt.pix.width;
 		__u32 h = fmt->fmt.pix.height;
 		__u32 pixfmt = fmt->fmt.pix.pixelformat;
-		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
+		const struct v4l2_format_info *format =
+			backport_v4l2_format_info(pixfmt);
 
 		w = w ? clamp_val(w, V4L2LOOPBACK_SIZE_MIN_WIDTH,
 				  dev->max_width) :
@@ -975,9 +917,9 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 		if (NULL == format)
 			format = &formats[0];
 
-		pix_format_set_size(&fmt->fmt.pix, format, w, h);
+		if (v4l2_fill_pixfmt(&fmt->fmt.pix, format->format, w, h))
+			return -EINVAL;
 
-		fmt->fmt.pix.pixelformat = format->fourcc;
 		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 
 		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
@@ -2312,7 +2254,7 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	/* Set initial format */
 	dev->pix_format.width = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
 	dev->pix_format.height = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
-	dev->pix_format.pixelformat = formats[0].fourcc;
+	dev->pix_format.pixelformat = formats[0].format;
 	dev->pix_format.colorspace =
 		V4L2_COLORSPACE_SRGB; /* do we need to set this ? */
 	dev->pix_format.field = V4L2_FIELD_NONE;
