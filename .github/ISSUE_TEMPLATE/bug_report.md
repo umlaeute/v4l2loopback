@@ -15,7 +15,7 @@ To help us making the most of your feedback (so we can e.g. fix bugs more quickl
 Also make sure to remove any non-relevant parts (so we can focus on the essential problem).
 
 Please keep in mind that the development of `v4l2loopback` is done by volunteers.
-They are spending their spare time to give you a hopfully nice product and to help you if you have troubles - for free.
+They are spending their spare time to give you a hopefully nice product and to help you if you have troubles - for free.
 
 Please look through the list of issues (*open* and **closed** ones alike), to see whether you problem has been reported before. Probably you can find a solution to your problem without having to create a new ticket.
 
@@ -33,7 +33,7 @@ Please *remove* these instructions (and other non-relevant information) from you
 If your report looks like a copy of the template, it might get closed immediately.
 
 #### Title
-Please chose an apropriate title: "*does not work*" or "*found a bug*" are way too generic.
+Please chose an appropriate title: "*does not work*" or "*found a bug*" are way too generic.
 Try to find a one-liner that says what is not working (e.g. "*module fails to load*").
 
 Also try not to use relative terms.
