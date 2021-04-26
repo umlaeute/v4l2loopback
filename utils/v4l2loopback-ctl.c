@@ -438,7 +438,7 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 {
 	MARK();
 	if (!cfg) {
-		printf("configuration: %s\n", cfg);
+		printf("configuration: %p\n", cfg);
 		return;
 	}
 	MARK();
@@ -657,7 +657,7 @@ static int parse_caps(const char *buffer, t_caps *caps)
 	if (!(buffer && *buffer))
 		return 1;
 
-	if (sscanf(buffer, "%4c:%dx%d@%d/%d", &fourcc, &caps->width,
+	if (sscanf(buffer, "%4c:%dx%d@%d/%d", fourcc, &caps->width,
 		   &caps->height, &caps->fps_num, &caps->fps_denom) <= 0) {
 	}
 	caps->fourcc = str2fourcc(fourcc);
