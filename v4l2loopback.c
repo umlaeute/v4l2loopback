@@ -434,7 +434,6 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int vidioc_enum_frameintervals_calls;
 	int read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
@@ -835,16 +834,14 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 
 	if (dev->ready_for_capture) {
-		if (opener->vidioc_enum_frameintervals_calls > 0)
+		if (argp->index > 0)
 			return -EINVAL;
 		if (argp->width == dev->pix_format.width &&
 		    argp->height == dev->pix_format.height) {
 			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 			argp->discrete = dev->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
 			return 0;
 		}
 		return -EINVAL;
