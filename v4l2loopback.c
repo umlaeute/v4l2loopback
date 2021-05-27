@@ -1817,6 +1817,7 @@ static int v4l2_loopback_open(struct file *file)
 
 		if (r < 0) {
 			dprintk("timeout image allocation failed\n");
+			kfree(opener);
 			return r;
 		}
 	}
