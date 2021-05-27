@@ -2072,6 +2072,8 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 {
 	MARK();
 	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
+	if (!dev)
+		return 0;
 	if (dev->image) {
 		vfree(dev->image);
 		dev->image = NULL;
@@ -2317,7 +2319,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	init_vdev(dev->vdev, nr);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
-	set_timeperframe(dev, &dev->capture_param.timeperframe);
+	ret = set_timeperframe(dev, &dev->capture_param.timeperframe);
+	if (ret)
+		goto error;
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
 	dev->buffers_number = max_buffers;
@@ -2380,7 +2384,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
-	allocate_buffers(dev);
+	ret = allocate_buffers(dev);
+	if (ret)
+		goto error;
 
 	init_waitqueue_head(&dev->read_event);
 
