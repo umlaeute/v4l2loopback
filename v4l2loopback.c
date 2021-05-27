@@ -1935,6 +1935,8 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 {
 	MARK();
 	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
+	if (!dev)
+		return 0;
 	if (dev->image) {
 		vfree(dev->image);
 		dev->image = NULL;
