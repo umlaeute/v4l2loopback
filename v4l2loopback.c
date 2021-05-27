@@ -1015,7 +1015,7 @@ static int vidioc_s_fmt_out(struct file *file, void *fh,
 	if (!dev->ready_for_capture) {
 		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 		fmt->fmt.pix.sizeimage = dev->buffer_size;
-		allocate_buffers(dev);
+		ret = allocate_buffers(dev);
 	}
 	return ret;
 }
