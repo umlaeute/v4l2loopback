@@ -554,6 +554,9 @@ static ssize_t attr_store_format(struct device *cd,
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 	int fps_num = 0, fps_den = 1;
 
+	if (!dev)
+		return -ENODEV;
+
 	/* only fps changing is supported */
 	if (sscanf(buf, "@%d/%d", &fps_num, &fps_den) > 0) {
 		struct v4l2_fract f = { .numerator = fps_den,
@@ -573,6 +576,9 @@ static ssize_t attr_show_buffers(struct device *cd,
 				 struct device_attribute *attr, char *buf)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+
+	if (!dev)
+		return -ENODEV;
 
 	return sprintf(buf, "%d\n", dev->used_buffers);
 }
