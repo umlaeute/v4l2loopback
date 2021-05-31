@@ -2448,7 +2448,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	init_vdev(dev->vdev, nr);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
-	set_timeperframe(dev, &dev->capture_param.timeperframe);
+	err = set_timeperframe(dev, &dev->capture_param.timeperframe);
+	if (err)
+		goto out_unregister;
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
 
@@ -2505,6 +2507,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->v4l2_dev.ctrl_handler = hdl;
 
 	err = v4l2_ctrl_handler_setup(hdl);
+	if (err)
+		goto out_free_handler;
 
 	/* FIXME set buffers to 0 */
 
@@ -2519,7 +2523,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
-	allocate_buffers(dev);
+	err = allocate_buffers(dev);
+	if (err)
+		goto out_free_handler;
 
 	init_waitqueue_head(&dev->read_event);
 
