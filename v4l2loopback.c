@@ -785,7 +785,6 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
 	struct v4l2_loopback_device *dev;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -803,7 +802,7 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 		return -EINVAL;
 	}
 	f->flags = 0;
-	MARK();
+
 	return 0;
 }
 
@@ -814,7 +813,6 @@ static int vidioc_g_fmt_cap(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -822,7 +820,7 @@ static int vidioc_g_fmt_cap(struct file *file, void *fh,
 		return -EINVAL;
 
 	fmt->fmt.pix = dev->pix_format;
-	MARK();
+
 	return 0;
 }
 
@@ -836,7 +834,6 @@ static int vidioc_try_fmt_cap(struct file *file, void *fh,
 			      struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	char buf[5];
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -850,8 +847,6 @@ static int vidioc_try_fmt_cap(struct file *file, void *fh,
 
 	fmt->fmt.pix = dev->pix_format;
 
-	buf[4] = 0;
-	dprintk("capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf));
 	return 0;
 }
 
@@ -923,7 +918,6 @@ static int vidioc_g_fmt_out(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -947,7 +941,6 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 			      struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -967,7 +960,6 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 		h = h ? clamp_val(h, V4L2LOOPBACK_SIZE_MIN_HEIGHT,
 				  dev->max_height) :
 			      V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
-		dprintk("trying image %ux%u\n", w, h);
 
 		if (NULL == format)
 			format = &formats[0];
@@ -992,19 +984,10 @@ static int vidioc_s_fmt_out(struct file *file, void *fh,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	char buf[5];
 	int ret;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 	ret = vidioc_try_fmt_out(file, fh, fmt);
-
-	dprintk("s_fmt_out(%d) %d...%u\n", ret, dev->ready_for_capture,
-		fmt->fmt.pix.sizeimage);
-
-	buf[4] = 0;
-	dprintk("outFOURCC=%s\n", fourcc2str(fmt->fmt.pix.pixelformat, buf));
-
 	if (ret < 0)
 		return ret;
 
@@ -1029,7 +1012,6 @@ static int vidioc_g_parm(struct file *file, void *fh,
 	/* do not care about type of opener, hope these enums would always be
 	 * compatible */
 	struct v4l2_loopback_device *dev;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 	parm->parm.capture = dev->capture_param;
@@ -1045,12 +1027,8 @@ static int vidioc_s_parm(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	int err = 0;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
-	dprintk("vidioc_s_parm called frate=%u/%u\n",
-		parm->parm.capture.timeperframe.numerator,
-		parm->parm.capture.timeperframe.denominator);
 
 	switch (parm->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -1168,7 +1146,6 @@ static int vidioc_enum_output(struct file *file, void *fh,
 {
 	__u32 index = outp->index;
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	MARK();
 
 	if (!dev->announce_all_caps && !dev->ready_for_output)
 		return -ENOTTY;
@@ -1228,7 +1205,6 @@ static int vidioc_enum_input(struct file *file, void *fh,
 			     struct v4l2_input *inp)
 {
 	__u32 index = inp->index;
-	MARK();
 
 	if (0 != index)
 		return -EINVAL;
@@ -1288,14 +1264,11 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	unsigned int i;
-	MARK();
+	int i;
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
 
-	dprintk("reqbufs: %u\t%u=%u\n", b->memory, b->count,
-		dev->buffers_number);
 	if (opener->timeout_image_io) {
 		if (b->memory != V4L2_MEMORY_MMAP)
 			return -EINVAL;
@@ -1365,8 +1338,6 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
 
-	MARK();
-
 	type = b->type;
 	index = b->index;
 	dev = v4l2loopback_getdevice(file);
@@ -1386,8 +1357,6 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 
 	b->type = type;
 	b->index = index;
-	dprintkrw("buffer type: %u (of %u with size=%ld)\n", b->memory,
-		  dev->buffers_number, dev->buffer_size);
 
 	/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
             https://github.com/umlaeute/v4l2loopback/issues/60 */
@@ -1575,7 +1544,6 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
@@ -1609,8 +1577,6 @@ static int vidioc_streamoff(struct file *file, void *fh,
 			    enum v4l2_buf_type type)
 {
 	struct v4l2_loopback_device *dev;
-	MARK();
-	dprintk("%d\n", type);
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -1642,7 +1608,6 @@ static int vidioc_subscribe_event(struct v4l2_fh *fh,
 static void vm_open(struct vm_area_struct *vma)
 {
 	struct v4l2l_buffer *buf;
-	MARK();
 
 	buf = vma->vm_private_data;
 	buf->use_count++;
@@ -1651,7 +1616,6 @@ static void vm_open(struct vm_area_struct *vma)
 static void vm_close(struct vm_area_struct *vma)
 {
 	struct v4l2l_buffer *buf;
-	MARK();
 
 	buf = vma->vm_private_data;
 	buf->use_count--;
@@ -1670,7 +1634,6 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
 	struct v4l2l_buffer *buffer = NULL;
-	MARK();
 
 	start = (unsigned long)vma->vm_start;
 	size = (unsigned long)(vma->vm_end - vma->vm_start);
@@ -1738,7 +1701,6 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 
 	vm_open(vma);
 
-	MARK();
 	return 0;
 }
 
@@ -1749,7 +1711,6 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 	struct v4l2_loopback_device *dev;
 	__poll_t req_events = poll_requested_events(pts);
 	int ret_mask = 0;
-	MARK();
 
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
@@ -1783,7 +1744,6 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 		break;
 	}
 
-	MARK();
 	return ret_mask;
 }
 
@@ -1793,7 +1753,7 @@ static int v4l2_loopback_open(struct file *file)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	MARK();
+
 	dev = v4l2loopback_getdevice(file);
 	if (dev->open_count.counter >= dev->max_openers)
 		return -EBUSY;
@@ -1821,7 +1781,6 @@ static int v4l2_loopback_open(struct file *file)
 
 	v4l2_fh_add(&opener->fh);
 	dprintk("opened dev:%p with image:%p\n", dev, dev ? dev->image : NULL);
-	MARK();
 	return 0;
 }
 
@@ -1830,7 +1789,6 @@ static int v4l2_loopback_close(struct file *file)
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	int iswriter = 0;
-	MARK();
 
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
@@ -1852,7 +1810,6 @@ static int v4l2_loopback_close(struct file *file)
 	if (iswriter) {
 		dev->ready_for_output = 1;
 	}
-	MARK();
 	return 0;
 }
 
@@ -1862,7 +1819,6 @@ static ssize_t v4l2_loopback_read(struct file *file, char __user *buf,
 	int read_index;
 	struct v4l2_loopback_device *dev;
 	struct v4l2_buffer *b;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -1880,7 +1836,7 @@ static ssize_t v4l2_loopback_read(struct file *file, char __user *buf,
 		       "v4l2-loopback: failed copy_to_user() in read buf\n");
 		return -EFAULT;
 	}
-	dprintkrw("leave v4l2_loopback_read()\n");
+
 	return count;
 }
 
@@ -1890,7 +1846,6 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 	struct v4l2_loopback_device *dev;
 	int write_index;
 	struct v4l2_buffer *b;
-	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -1903,7 +1858,7 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 			return ret;
 		dev->ready_for_capture = 1;
 	}
-	dprintkrw("v4l2_loopback_write() trying to write %zu bytes\n", count);
+
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
 
@@ -1922,7 +1877,7 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 	b->sequence = dev->write_position;
 	buffer_written(dev, &dev->buffers[write_index]);
 	wake_up_all(&dev->read_event);
-	dprintkrw("leave v4l2_loopback_write()\n");
+
 	return count;
 }
 
@@ -1930,7 +1885,6 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 /* frees buffers, if already allocated */
 static int free_buffers(struct v4l2_loopback_device *dev)
 {
-	MARK();
 	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
 	if (!dev)
 		return 0;
@@ -1949,7 +1903,6 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 /* frees buffers, if they are no longer needed */
 static void try_free_buffers(struct v4l2_loopback_device *dev)
 {
-	MARK();
 	if (0 == dev->open_count.counter && !dev->keep_format) {
 		free_buffers(dev);
 		dev->ready_for_capture = 0;
@@ -1960,7 +1913,6 @@ static void try_free_buffers(struct v4l2_loopback_device *dev)
 /* allocates buffers, if buffer_size is set */
 static int allocate_buffers(struct v4l2_loopback_device *dev)
 {
-	MARK();
 	/* vfree on close file operation in case no open handles left */
 	if (0 == dev->buffer_size)
 		return -EINVAL;
@@ -1991,7 +1943,6 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 	if (dev->image == NULL)
 		return -ENOMEM;
 	dprintk("vmallocated %ld bytes\n", dev->imagesize);
-	MARK();
 	init_buffers(dev);
 	return 0;
 }
@@ -2003,7 +1954,6 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 	int i;
 	int buffer_size;
 	int bytesused;
-	MARK();
 
 	buffer_size = dev->buffer_size;
 	bytesused = dev->pix_format.sizeimage;
@@ -2026,12 +1976,10 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 	}
 	dev->timeout_image_buffer = dev->buffers[0];
 	dev->timeout_image_buffer.buffer.m.offset = MAX_BUFFERS * buffer_size;
-	MARK();
 }
 
 static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 {
-	MARK();
 	if (dev->buffer_size <= 0)
 		return -EINVAL;
 
@@ -2046,8 +1994,6 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 /* fills and register video device */
 static void init_vdev(struct video_device *vdev, int nr)
 {
-	MARK();
-
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
@@ -2067,14 +2013,11 @@ static void init_vdev(struct video_device *vdev, int nr)
 			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
 
 	vdev->vfl_dir = VFL_DIR_M2M;
-
-	MARK();
 }
 
 /* init default capture parameters, only fps may be changed in future */
 static void init_capture_param(struct v4l2_captureparm *capture_param)
 {
-	MARK();
 	capture_param->capability = 0;
 	capture_param->capturemode = 0;
 	capture_param->extendedmode = 0;
@@ -2224,7 +2167,6 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	err = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (err)
 		goto out_free_idr;
-	MARK();
 
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL) {
@@ -2239,7 +2181,6 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 		goto out_unregister;
 	}
 
-	MARK();
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
 
 	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
@@ -2260,7 +2201,6 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 
 	dev->write_position = 0;
 
-	MARK();
 	spin_lock_init(&dev->lock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
@@ -2332,7 +2272,6 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	}
 	v4l2loopback_create_sysfs(dev->vdev);
 
-	MARK();
 	return dev;
 
 out_free_device:
@@ -2411,35 +2350,34 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	case V4L2LOOPBACK_CTL_QUERY:
 		if (!parm)
 			break;
+
 		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
 		    0)
 			break;
+
 		device_nr =
 			(conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
-		MARK();
 		/* get the device from either capture_nr or output_nr (whatever is valid) */
 		if ((ret = v4l2loopback_lookup(device_nr, &dev)) < 0)
 			break;
-		MARK();
+
 		/* if we got the device from output_nr and there is a valid capture_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
 		if ((device_nr != conf.capture_nr) && (conf.capture_nr >= 0) &&
 		    (ret != v4l2loopback_lookup(conf.capture_nr, 0)))
 			break;
-		MARK();
+
 		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
 		if ((device_nr != conf.output_nr) && (conf.output_nr >= 0) &&
 		    (ret != v4l2loopback_lookup(conf.output_nr, 0)))
 			break;
-		MARK();
 
 		/* v4l2_loopback_config identified a single device, so fetch the data */
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
-		MARK();
 		conf.output_nr = conf.capture_nr = dev->vdev->num;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
@@ -2447,20 +2385,17 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		conf.max_buffers = dev->buffers_number;
 		conf.max_openers = dev->max_openers;
 		conf.debug = debug;
-		MARK();
+
 		if (copy_to_user((void *)parm, &conf, sizeof(conf))) {
 			ret = -EFAULT;
 			break;
 		}
-		MARK();
+
 		ret = 0;
-		;
 		break;
 	}
 
-	MARK();
 	mutex_unlock(&v4l2loopback_ctl_mutex);
-	MARK();
 	return ret;
 }
 
@@ -2559,7 +2494,6 @@ static int v4l2loopback_init_module(void)
 {
 	int err;
 	int i;
-	MARK();
 
 	err = misc_register(&v4l2loopback_misc);
 	if (err < 0)
@@ -2637,9 +2571,7 @@ static int v4l2loopback_init_module(void)
 		video_nr[i] = dev->vdev->num;
 	}
 
-	dprintk("module installed\n");
-
-	printk(KERN_INFO "v4l2loopback driver version %u.%u.%u loaded\n",
+	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
 	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
@@ -2654,7 +2586,6 @@ error:
 
 static void v4l2loopback_cleanup_module(void)
 {
-	MARK();
 	/* unregister the device -> it deletes /dev/video* */
 	free_devices();
 	/* and get rid of /dev/v4l2loopback */
