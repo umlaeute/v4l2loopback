@@ -137,22 +137,6 @@ MODULE_PARM_DESC(max_buffers,
 		 "how many buffers should be allocated [DEFAULT: " __stringify(
 			 V4L2LOOPBACK_DEFAULT_MAX_BUFFERS) "]");
 
-/* how many times a device can be opened
- * the per-module default value can be overridden on a per-device basis using
- * the /sys/devices interface
- *
- * note that max_openers should be at least 2 in order to get a working system:
- *   one opener for the producer and one opener for the consumer
- *   however, we leave that to the user
- */
-#define V4L2LOOPBACK_DEFAULT_MAX_OPENERS 10
-static unsigned int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
-module_param(max_openers, uint, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC(
-	max_openers,
-	"how many users can open the loopback device [DEFAULT: " __stringify(
-		V4L2LOOPBACK_DEFAULT_MAX_OPENERS) "]");
-
 static int devices = -1;
 module_param(devices, int, 0);
 MODULE_PARM_DESC(devices, "how many devices should be created");
@@ -187,8 +171,9 @@ MODULE_PARM_DESC(
 
 static unsigned int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 module_param(max_width, uint, S_IRUGO);
-MODULE_PARM_DESC(max_width, "maximum allowed frame width [DEFAULT: " __stringify(
-				    V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
+MODULE_PARM_DESC(max_width,
+		 "maximum allowed frame width [DEFAULT: " __stringify(
+			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
 static unsigned int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 module_param(max_height, uint, S_IRUGO);
 MODULE_PARM_DESC(max_height,
@@ -298,7 +283,6 @@ struct v4l2_loopback_device {
 	unsigned int buffers_number; /* should not be big, 4 is a good choice */
 	struct v4l2l_buffer buffers[MAX_BUFFERS]; /* inner driver buffers */
 	unsigned int used_buffers; /* number of the actually used buffers */
-	unsigned int max_openers; /* how many times can this device be opened */
 
 	unsigned int write_position; /* number of last written frame + 1 */
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
@@ -497,42 +481,6 @@ static ssize_t attr_show_buffers(struct device *cd,
 
 static DEVICE_ATTR(buffers, S_IRUGO, attr_show_buffers, NULL);
 
-static ssize_t attr_show_maxopeners(struct device *cd,
-				    struct device_attribute *attr, char *buf)
-{
-	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
-
-	return sprintf(buf, "%u\n", dev->max_openers);
-}
-
-static ssize_t attr_store_maxopeners(struct device *cd,
-				     struct device_attribute *attr,
-				     const char *buf, size_t len)
-{
-	struct v4l2_loopback_device *dev = NULL;
-	unsigned long curr = 0;
-
-	if (kstrtoul(buf, 0, &curr))
-		return -EINVAL;
-
-	dev = v4l2loopback_cd2dev(cd);
-
-	if (dev->max_openers == curr)
-		return len;
-
-	if (dev->open_count.counter > curr) {
-		/* request to limit to less openers as are currently attached to us */
-		return -EINVAL;
-	}
-
-	dev->max_openers = curr;
-
-	return len;
-}
-
-static DEVICE_ATTR(max_openers, S_IRUGO | S_IWUSR, attr_show_maxopeners,
-		   attr_store_maxopeners);
-
 static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 {
 #define V4L2_SYSFS_DESTROY(x) device_remove_file(&vdev->dev, &dev_attr_##x)
@@ -540,7 +488,6 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 	if (vdev) {
 		V4L2_SYSFS_DESTROY(format);
 		V4L2_SYSFS_DESTROY(buffers);
-		V4L2_SYSFS_DESTROY(max_openers);
 		/* ... */
 	}
 }
@@ -558,7 +505,6 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 	do {
 		V4L2_SYSFS_CREATE(format);
 		V4L2_SYSFS_CREATE(buffers);
-		V4L2_SYSFS_CREATE(max_openers);
 		/* ... */
 	} while (0);
 
@@ -1264,7 +1210,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int i;
+	unsigned int i;
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
@@ -1755,8 +1701,6 @@ static int v4l2_loopback_open(struct file *file)
 	struct v4l2_loopback_opener *opener;
 
 	dev = v4l2loopback_getdevice(file);
-	if (dev->open_count.counter >= dev->max_openers)
-		return -EBUSY;
 	/* kfree on close */
 	opener = kzalloc(sizeof(*opener), GFP_KERNEL);
 	if (opener == NULL)
@@ -1992,7 +1936,7 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 }
 
 /* fills and register video device */
-static void init_vdev(struct video_device *vdev, int nr, int debug)
+static void init_vdev(struct video_device *vdev, int nr, u32 debug)
 {
 #ifdef V4L2LOOPBACK_WITH_STD
 	vdev->tvnorms = V4L2_STD_ALL;
@@ -2100,7 +2044,6 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 		announce_all_caps, == 0, V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS);
 
 	u32 _max_buffers = DEFAULT_FROM_CONF(max_buffers, == 0, max_buffers);
-	u32 _max_openers = DEFAULT_FROM_CONF(max_openers, == 0, max_openers);
 
 	int nr = -1;
 	if (conf) {
@@ -2192,7 +2135,6 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	dev->announce_all_caps = _announce_all_caps;
 	dev->max_width = _max_width;
 	dev->max_height = _max_height;
-	dev->max_openers = _max_openers;
 	dev->buffers_number = dev->used_buffers = _max_buffers;
 
 	dev->write_position = 0;
@@ -2379,7 +2321,6 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		conf.max_height = dev->max_height;
 		conf.announce_all_caps = dev->announce_all_caps;
 		conf.max_buffers = dev->buffers_number;
-		conf.max_openers = dev->max_openers;
 		conf.debug = dev->vdev->dev_debug;
 
 		if (copy_to_user((void *)parm, &conf, sizeof(conf))) {
@@ -2521,13 +2462,6 @@ static int v4l2loopback_init_module(void)
 		       MAX_BUFFERS);
 	}
 
-	if (max_openers < 2) {
-		printk(KERN_INFO
-		       "v4l2loopback: allowing %u openers rather than %u\n",
-		       V4L2LOOPBACK_DEFAULT_MAX_OPENERS, max_openers);
-		max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
-	}
-
 	if (max_width < V4L2LOOPBACK_SIZE_MIN_WIDTH) {
 		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 		printk(KERN_INFO "v4l2loopback: using max_width %u\n",
@@ -2549,7 +2483,6 @@ static int v4l2loopback_init_module(void)
 			.max_height		= max_height,
 			.announce_all_caps	= (!exclusive_caps[i]),
 			.max_buffers		= max_buffers,
-			.max_openers		= max_openers,
 			.debug			= 0,
 			// clang-format on
 		};
@@ -2570,7 +2503,7 @@ static int v4l2loopback_init_module(void)
 		video_nr[i] = dev->vdev->num;
 	}
 
-	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
+	printk(KERN_INFO "v4l2loopback driver version %u.%u.%u loaded\n",
 	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
