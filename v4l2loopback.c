@@ -134,8 +134,8 @@ module_param(debug, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
 #define V4L2LOOPBACK_DEFAULT_MAX_BUFFERS 2
-static int max_buffers = V4L2LOOPBACK_DEFAULT_MAX_BUFFERS;
-module_param(max_buffers, int, S_IRUGO);
+static unsigned int max_buffers = V4L2LOOPBACK_DEFAULT_MAX_BUFFERS;
+module_param(max_buffers, uint, S_IRUGO);
 MODULE_PARM_DESC(max_buffers,
 		 "how many buffers should be allocated [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_DEFAULT_MAX_BUFFERS) "]");
@@ -149,8 +149,8 @@ MODULE_PARM_DESC(max_buffers,
  *   however, we leave that to the user
  */
 #define V4L2LOOPBACK_DEFAULT_MAX_OPENERS 10
-static int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
-module_param(max_openers, int, S_IRUGO | S_IWUSR);
+static unsigned int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
+module_param(max_openers, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(
 	max_openers,
 	"how many users can open the loopback device [DEFAULT: " STRINGIFY2(
@@ -188,12 +188,12 @@ MODULE_PARM_DESC(
 #define V4L2LOOPBACK_SIZE_DEFAULT_WIDTH 640
 #define V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT 480
 
-static int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
-module_param(max_width, int, S_IRUGO);
+static unsigned int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
+module_param(max_width, uint, S_IRUGO);
 MODULE_PARM_DESC(max_width, "maximum allowed frame width [DEFAULT: " STRINGIFY2(
 				    V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
-static int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
-module_param(max_height, int, S_IRUGO);
+static unsigned int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
+module_param(max_height, uint, S_IRUGO);
 MODULE_PARM_DESC(max_height,
 		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
@@ -298,14 +298,14 @@ struct v4l2_loopback_device {
 	/* buffers stuff */
 	u8 *image; /* pointer to actual buffers data */
 	unsigned long int imagesize; /* size of buffers data */
-	int buffers_number; /* should not be big, 4 is a good choice */
+	unsigned int buffers_number; /* should not be big, 4 is a good choice */
 	struct v4l2l_buffer buffers[MAX_BUFFERS]; /* inner driver buffers */
-	int used_buffers; /* number of the actually used buffers */
-	int max_openers; /* how many times can this device be opened */
+	unsigned int used_buffers; /* number of the actually used buffers */
+	unsigned int max_openers; /* how many times can this device be opened */
 
-	int write_position; /* number of last written frame + 1 */
+	unsigned int write_position; /* number of last written frame + 1 */
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
-	int bufpos2index
+	unsigned int bufpos2index
 		[MAX_BUFFERS]; /* mapping of (read/write_position % used_buffers)
                         * to inner buffer index */
 	long buffer_size;
@@ -335,8 +335,8 @@ struct v4l2_loopback_device {
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
 
-	int max_width;
-	int max_height;
+	unsigned int max_width;
+	unsigned int max_height;
 
 	char card_label[32];
 
@@ -360,7 +360,7 @@ struct v4l2_loopback_opener {
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
 	struct v4l2_buffer *buffers;
-	int buffers_number; /* should not be big, 4 is a good choice */
+	unsigned int buffers_number; /* should not be big, 4 is a good choice */
 	int timeout_image_io;
 
 	struct v4l2_fh fh;
@@ -460,11 +460,11 @@ static ssize_t attr_show_format(struct device *cd,
 	fourcc2str(dev->pix_format.pixelformat, buf4cc);
 	buf4cc[4] = 0;
 	if (tpf->numerator == 1)
-		snprintf(buf_fps, sizeof(buf_fps), "%d", tpf->denominator);
+		snprintf(buf_fps, sizeof(buf_fps), "%u", tpf->denominator);
 	else
-		snprintf(buf_fps, sizeof(buf_fps), "%d/%d", tpf->denominator,
+		snprintf(buf_fps, sizeof(buf_fps), "%u/%u", tpf->denominator,
 			 tpf->numerator);
-	return sprintf(buf, "%4s:%dx%d@%s\n", buf4cc, dev->pix_format.width,
+	return sprintf(buf, "%4s:%ux%u@%s\n", buf4cc, dev->pix_format.width,
 		       dev->pix_format.height, buf_fps);
 }
 
@@ -473,10 +473,10 @@ static ssize_t attr_store_format(struct device *cd,
 				 size_t len)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
-	int fps_num = 0, fps_den = 1;
+	unsigned int fps_num = 0, fps_den = 1;
 
 	/* only fps changing is supported */
-	if (sscanf(buf, "@%d/%d", &fps_num, &fps_den) > 0) {
+	if (sscanf(buf, "@%u/%u", &fps_num, &fps_den) > 0) {
 		struct v4l2_fract f = { .numerator = fps_den,
 					.denominator = fps_num };
 		int err = 0;
@@ -495,7 +495,7 @@ static ssize_t attr_show_buffers(struct device *cd,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 
-	return sprintf(buf, "%d\n", dev->used_buffers);
+	return sprintf(buf, "%u\n", dev->used_buffers);
 }
 
 static DEVICE_ATTR(buffers, S_IRUGO, attr_show_buffers, NULL);
@@ -505,7 +505,7 @@ static ssize_t attr_show_maxopeners(struct device *cd,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 
-	return sprintf(buf, "%d\n", dev->max_openers);
+	return sprintf(buf, "%u\n", dev->max_openers);
 }
 
 static ssize_t attr_store_maxopeners(struct device *cd,
@@ -528,7 +528,7 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 		return -EINVAL;
 	}
 
-	dev->max_openers = (int)curr;
+	dev->max_openers = curr;
 
 	return len;
 }
@@ -970,7 +970,7 @@ static int vidioc_try_fmt_out(struct file *file, void *fh,
 		h = h ? clamp_val(h, V4L2LOOPBACK_SIZE_MIN_HEIGHT,
 				  dev->max_height) :
 			      V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
-		dprintk("trying image %dx%d\n", w, h);
+		dprintk("trying image %ux%u\n", w, h);
 
 		if (NULL == format)
 			format = &formats[0];
@@ -1002,7 +1002,7 @@ static int vidioc_s_fmt_out(struct file *file, void *fh,
 	dev = v4l2loopback_getdevice(file);
 	ret = vidioc_try_fmt_out(file, fh, fmt);
 
-	dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
+	dprintk("s_fmt_out(%d) %d...%u\n", ret, dev->ready_for_capture,
 		fmt->fmt.pix.sizeimage);
 
 	buf[4] = 0;
@@ -1051,7 +1051,7 @@ static int vidioc_s_parm(struct file *file, void *fh,
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
-	dprintk("vidioc_s_parm called frate=%d/%d\n",
+	dprintk("vidioc_s_parm called frate=%u/%u\n",
 		parm->parm.capture.timeperframe.numerator,
 		parm->parm.capture.timeperframe.denominator);
 
@@ -1291,13 +1291,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int i;
+	unsigned int i;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
 
-	dprintk("reqbufs: %d\t%d=%d\n", b->memory, b->count,
+	dprintk("reqbufs: %u\t%u=%u\n", b->memory, b->count,
 		dev->buffers_number);
 	if (opener->timeout_image_io) {
 		if (b->memory != V4L2_MEMORY_MMAP)
@@ -1310,7 +1310,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	switch (b->memory) {
 	case V4L2_MEMORY_MMAP:
 		/* do nothing here, buffers are always allocated */
-		if (b->count < 1 || dev->buffers_number < 1)
+		if (b->count < 1 || !dev->buffers_number)
 			return 0;
 
 		if (b->count > dev->buffers_number)
@@ -1389,7 +1389,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 
 	b->type = type;
 	b->index = index;
-	dprintkrw("buffer type: %d (of %d with size=%ld)\n", b->memory,
+	dprintkrw("buffer type: %u (of %u with size=%ld)\n", b->memory,
 		  dev->buffers_number, dev->buffer_size);
 
 	/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
@@ -1425,7 +1425,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
 	struct v4l2l_buffer *b;
-	int index;
+	unsigned int index;
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
@@ -1440,11 +1440,11 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		dprintkrw("capture QBUF index: %d\n", index);
+		dprintkrw("capture QBUF index: %u\n", index);
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dprintkrw("output QBUF pos: %d index: %d\n",
+		dprintkrw("output QBUF pos: %u index: %u\n",
 			  dev->write_position, index);
 		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
 			v4l2l_get_timestamp(&b->buffer);
@@ -1545,7 +1545,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		index = get_capture_buffer(file);
 		if (index < 0)
 			return index;
-		dprintkrw("capture DQBUF pos: %d index: %d\n",
+		dprintkrw("capture DQBUF pos: %u index: %d\n",
 			  opener->read_position - 1, index);
 		if (!(dev->buffers[index].buffer.flags &
 		      V4L2_BUF_FLAG_MAPPED)) {
@@ -1559,7 +1559,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		b = list_entry(dev->outbufs_list.prev, struct v4l2l_buffer,
 			       list_head);
 		list_move_tail(&b->list_head, &dev->outbufs_list);
-		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
+		dprintkrw("output DQBUF index: %u\n", b->buffer.index);
 		unset_flags(b);
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -1984,7 +1984,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 
 	dev->imagesize = dev->buffer_size * dev->buffers_number;
 
-	dprintk("allocating %ld = %ldx%d\n", dev->imagesize, dev->buffer_size,
+	dprintk("allocating %ld = %ldx%u\n", dev->imagesize, dev->buffer_size,
 		dev->buffers_number);
 
 	dev->image = vmalloc(dev->imagesize);
@@ -2110,7 +2110,7 @@ static void sustain_timer_clb(unsigned long nr)
 	spin_lock(&dev->lock);
 	if (dev->sustain_framerate) {
 		dev->reread_count++;
-		dprintkrw("reread: %d %d\n", dev->write_position,
+		dprintkrw("reread: %u %u\n", dev->write_position,
 			  dev->reread_count);
 		if (dev->reread_count == 1)
 			mod_timer(&dev->sustain_timer,
@@ -2156,16 +2156,15 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 
 	int err = -ENOMEM;
 
-	int _max_width = DEFAULT_FROM_CONF(
+	u32 _max_width = DEFAULT_FROM_CONF(
 		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
-	int _max_height = DEFAULT_FROM_CONF(
+	u32 _max_height = DEFAULT_FROM_CONF(
 		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
-	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
-						(conf->announce_all_caps) :
-						V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
+	bool _announce_all_caps = DEFAULT_FROM_CONF(
+		announce_all_caps, == 0, V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS);
 
-	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
-	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
+	u32 _max_buffers = DEFAULT_FROM_CONF(max_buffers, == 0, max_buffers);
+	u32 _max_openers = DEFAULT_FROM_CONF(max_openers, == 0, max_openers);
 
 	int nr = -1;
 	if (conf) {
@@ -2321,7 +2320,7 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	dev->pix_format.field = V4L2_FIELD_NONE;
 
 	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
+	dprintk("buffer_size = %ld (=%u)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
 	allocate_buffers(dev);
 
@@ -2584,32 +2583,32 @@ static int v4l2loopback_init_module(void)
 	if (devices > MAX_DEVICES) {
 		devices = MAX_DEVICES;
 		printk(KERN_INFO
-		       "v4l2loopback: number of initial devices is limited to: %d\n",
+		       "v4l2loopback: number of initial devices is limited to: %u\n",
 		       MAX_DEVICES);
 	}
 
-	if (max_buffers > MAX_BUFFERS) {
+	if ((max_buffers < 2) || (max_buffers > MAX_BUFFERS)) {
 		max_buffers = MAX_BUFFERS;
 		printk(KERN_INFO
-		       "v4l2loopback: number of buffers is limited to: %d\n",
+		       "v4l2loopback: number of buffers is limited to: %u\n",
 		       MAX_BUFFERS);
 	}
 
-	if (max_openers < 0) {
+	if (max_openers < 2) {
 		printk(KERN_INFO
-		       "v4l2loopback: allowing %d openers rather than %d\n",
-		       2, max_openers);
-		max_openers = 2;
+		       "v4l2loopback: allowing %u openers rather than %u\n",
+		       V4L2LOOPBACK_DEFAULT_MAX_OPENERS, max_openers);
+		max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
 	}
 
-	if (max_width < 1) {
+	if (max_width < V4L2LOOPBACK_SIZE_MIN_WIDTH) {
 		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
-		printk(KERN_INFO "v4l2loopback: using max_width %d\n",
+		printk(KERN_INFO "v4l2loopback: using max_width %u\n",
 		       max_width);
 	}
-	if (max_height < 1) {
+	if (max_height < V4L2LOOPBACK_SIZE_MIN_HEIGHT) {
 		max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
-		printk(KERN_INFO "v4l2loopback: using max_height %d\n",
+		printk(KERN_INFO "v4l2loopback: using max_height %u\n",
 		       max_height);
 	}
 
@@ -2643,7 +2642,7 @@ static int v4l2loopback_init_module(void)
 
 	dprintk("module installed\n");
 
-	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
+	printk(KERN_INFO "v4l2loopback driver version %u.%u.%u loaded\n",
 	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,

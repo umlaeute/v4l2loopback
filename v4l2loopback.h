@@ -29,8 +29,8 @@ struct v4l2_loopback_config {
          * or one (and only one) of them must be -1
          *
          */
-	int output_nr;
-	int capture_nr;
+	__s32 output_nr;
+	__s32 capture_nr;
 
 	/**
          * a nice name for your device
@@ -42,8 +42,8 @@ struct v4l2_loopback_config {
          * maximum allowed frame size
          * if too low, default values are used
          */
-	int max_width;
-	int max_height;
+	__u32 max_width;
+	__u32 max_height;
 
 	/**
          * whether to announce OUTPUT/CAPTURE capabilities exclusively
@@ -51,24 +51,24 @@ struct v4l2_loopback_config {
          * (!exclusive_caps)
          * FIXXME: this ought to be removed (if superseded by output_nr vs capture_nr)
          */
-	int announce_all_caps;
+	__u32 announce_all_caps;
 
 	/**
          * number of buffers to allocate for the queue
-         * if set to <=0, default values are used
+         * if set to <=2, default values are used
          */
-	int max_buffers;
+	__u32 max_buffers;
 
 	/**
          * how many consumers are allowed to open this device concurrently
-         * if set to <=0, default values are used
+         * if set to <=2, default values are used
          */
-	int max_openers;
+	__u32 max_openers;
 
 	/**
          * set the debugging level for this device
          */
-	int debug;
+	__u32 debug;
 };
 
 /* a pointer to a (struct v4l2_loopback_config) that has all values you wish to impose on the
