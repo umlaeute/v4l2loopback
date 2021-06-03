@@ -1623,7 +1623,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			v4l2l_get_timestamp(&b->buffer);
 		else
 			b->buffer.timestamp = buf->timestamp;
-		b->buffer.bytesused = buf->bytesused;
+		b->buffer.bytesused = dev->pix_format.sizeimage;
 		set_done(b);
 		buffer_written(dev, b);
 
