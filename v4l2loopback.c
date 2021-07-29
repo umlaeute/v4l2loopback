@@ -2396,7 +2396,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
 	ret = allocate_buffers(dev);
-	if (ret)
+	if (ret && dev->buffer_size)
 		goto error;
 
 	init_waitqueue_head(&dev->read_event);
