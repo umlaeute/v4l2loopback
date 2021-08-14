@@ -40,8 +40,8 @@ struct yuv_setup
 process_args(int argc, char **argv)
 {
 	prog = argv[0];
-	struct yuv_setup setup;	
-	if (argc != 6){
+	struct yuv_setup setup;
+	if (argc != 6) {
 		fail("invalid argument");
 	} else {
 		setup.device = argv[1];
@@ -59,7 +59,7 @@ copy_frames(struct yuv_setup setup, int dev_fd)
 {	
 
 	FILE * yuv_file = fopen (setup.file_name,"rb");
-	if (yuv_file == NULL){
+	if (yuv_file == NULL) {
 		fail("can not open yuv file");
 	}
 
@@ -72,9 +72,9 @@ copy_frames(struct yuv_setup setup, int dev_fd)
 	while (1) {
 		int read_size = fread(frame, 1, setup.frame_bytes, yuv_file);
 		usleep(1.0f/setup.fps * 1000000.0f);
-		if (read_size == setup.frame_bytes){
+		if (read_size == setup.frame_bytes) {
 			write(dev_fd, frame, setup.frame_bytes);
-		} else if (read_size == 0){
+		} else if (read_size == 0) {
 			fclose(yuv_file);
 			yuv_file = fopen (setup.file_name,"rb");
 		} else {
@@ -96,7 +96,7 @@ open_video(struct yuv_setup setup)
 		fail("cannot open video device");
 	}
 	v.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	if (ioctl(dev_fd, VIDIOC_G_FMT, &v) == -1){
+	if (ioctl(dev_fd, VIDIOC_G_FMT, &v) == -1) {
 		fail("cannot setup video device");
 	}
 	v.fmt.pix.width = setup.frame_width;
@@ -104,7 +104,7 @@ open_video(struct yuv_setup setup)
 	v.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;
 	v.fmt.pix.sizeimage = setup.frame_bytes;
 	v.fmt.pix.field = V4L2_FIELD_NONE;
-	if (ioctl(dev_fd, VIDIOC_S_FMT, &v) == -1){
+	if (ioctl(dev_fd, VIDIOC_S_FMT, &v) == -1) {
 		fail("cannot setup video device");
 	}
 

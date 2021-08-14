@@ -51,7 +51,7 @@
 # define FRAME_FORMAT V4L2_PIX_FMT_YVU420
 #endif
 
-static int debug=0;
+static int debug = 0;
 
 
 int format_properties(const unsigned int format,
