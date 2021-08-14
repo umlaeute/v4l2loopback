@@ -268,14 +268,14 @@ This means, that it is also part of Debian-derived distributions, including
 Ubuntu (starting with natty).
 The most convenient way is to install the package "v4l2loopback-dkms":
 
-    # aptitude install v4l2loopback-dkms
+    # apt-get install v4l2loopback-dkms
 
 This should automatically build and install the module for your current kernel
 (provided you have the matching kernel-headers installed).
 Another option is to install the "v4l2loopback-source" package.
 In this case you should be able to simply do (as root):
 
-    # aptitude install v4l2loopback-source module-assistant
+    # apt-get install v4l2loopback-source module-assistant
     # module-assistant auto-install v4l2loopback-source
 
 # DKMS
