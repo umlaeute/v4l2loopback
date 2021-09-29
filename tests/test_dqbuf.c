@@ -117,7 +117,7 @@ main (int argc, char **argv)
     i = buf.index;
 
     if ((bufs[i].flags & V4L2_BUF_FLAG_QUEUED) == 0) {
-      printf ("BUG #2: Driver should not dequeue a buffer that was not intially queued\n");
+      printf ("BUG #2: Driver should not dequeue a buffer that was not initially queued\n");
     }
 
 #if 0

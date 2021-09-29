@@ -1,4 +1,4 @@
-/* Read a yuv file directly and play with infinte loop
+/* Read a yuv file directly and play with infinite loop
  *
  * Example:
  * $ ./yuv420_infiniteloop /dev/video1 akiyo_qcif.yuv 176 144 30
