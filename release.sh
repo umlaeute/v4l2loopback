@@ -38,8 +38,8 @@ getgitbranch() {
   git rev-parse --abbrev-ref HEAD
 }
 
-if [ "$(getgitbranch)" != "master" ]; then
- fatal "current branch '$(getgitbranch)' is not 'master'"
+if [ "$(getgitbranch)" != "main" ]; then
+ fatal "current branch '$(getgitbranch)' is not 'main'"
 fi
 
 if [ "x$2" = "x" ]; then
