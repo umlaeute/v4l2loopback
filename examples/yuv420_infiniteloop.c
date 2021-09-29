@@ -4,8 +4,8 @@
  * $ ./yuv420_infiniteloop /dev/video1 akiyo_qcif.yuv 176 144 30
 
  * This will loop a yuv file named akiyo_qcif.yuv over video 1
- * 
- * Modified by T. Xu <x.tongda@nyu.edu> from yuv4mpeg_to_v4l2 example, 
+ *
+ * Modified by T. Xu <x.tongda@nyu.edu> from yuv4mpeg_to_v4l2 example,
  * original Copyright (C) 2011  Eric C. Cooper <ecc@cmu.edu>
  * Released under the GNU General Public License
  */
@@ -36,7 +36,7 @@ fail(char *msg)
 	exit(1);
 }
 
-struct yuv_setup 
+struct yuv_setup
 process_args(int argc, char **argv)
 {
 	prog = argv[0];
@@ -56,7 +56,7 @@ process_args(int argc, char **argv)
 
 void
 copy_frames(struct yuv_setup setup, int dev_fd)
-{	
+{
 
 	FILE * yuv_file = fopen (setup.file_name,"rb");
 	if (yuv_file == NULL) {

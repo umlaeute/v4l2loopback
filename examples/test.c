@@ -76,7 +76,7 @@ size_t lw, fw;
 
 	if(linewidth)*linewidth=lw;
 	if(framewidth)*framewidth=fw;
-	
+
 	return 1;
 }
 
