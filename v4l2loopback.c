@@ -1494,8 +1494,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		if (b->count < 1 || dev->buffers_number < 1)
 			return 0;
 
-		if (!dev->ready_for_capture)
-			init_buffers(dev);
+		/* don't change the num of bufs if ready_for_capture */
+		if (dev->ready_for_capture) {
+			b->count = opener->buffers_number = dev->used_buffers;
+			return 0;
+		}
+
+		init_buffers(dev);
 
 		if (b->count > dev->buffers_number)
 			b->count = dev->buffers_number;
