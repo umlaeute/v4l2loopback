@@ -61,6 +61,7 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Stefan Diewald,"
 	      "Anton Novikov"
 	      "et al.");
+MODULE_VERSION("0.12.5");	      
 MODULE_LICENSE("GPL");
 
 /*
