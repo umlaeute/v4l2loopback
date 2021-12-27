@@ -71,6 +71,22 @@ struct v4l2_loopback_config {
 	int debug;
 };
 
+/* For reads of v4l2 buffers, allow userspace to get hints from
+ * the kernel, to produce buffers on demand or to spawn permission dialogs.
+ */
+enum v4l2_loopback_hint_type {
+	HINT_UNKNOWN = 0,
+	HINT_OPEN,
+	HINT_CLOSE
+};
+
+struct v4l2_loopback_hint {
+	enum v4l2_loopback_hint_type type;
+	uid_t uid;
+	pid_t pid;
+	int node;
+};
+
 /* a pointer to a (struct v4l2_loopback_config) that has all values you wish to impose on the
  * to-be-created device set.
  * if the ptr is NULL, a new device is created with default values at the driver's discretion.
