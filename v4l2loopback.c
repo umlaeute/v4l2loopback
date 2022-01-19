@@ -61,7 +61,7 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Stefan Diewald,"
 	      "Anton Novikov"
 	      "et al.");
-MODULE_VERSION("0.12.5");	      
+MODULE_VERSION("0.12.5");
 MODULE_LICENSE("GPL");
 
 /*
@@ -750,7 +750,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
-				     sizeof(cap->card) :
+			       sizeof(cap->card) :
 				     sizeof(dev->card_label);
 	int device_nr =
 		((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
@@ -2353,7 +2353,7 @@ static void timeout_timer_clb(unsigned long nr)
 /* init loopback main structure */
 #define DEFAULT_FROM_CONF(confmember, default_condition, default_value)        \
 	((conf) ?                                                              \
-		       ((conf->confmember default_condition) ? (default_value) :     \
+		 ((conf->confmember default_condition) ? (default_value) :     \
 							       (conf->confmember)) : \
 		       default_value)
 
@@ -2369,7 +2369,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	int _max_height = DEFAULT_FROM_CONF(
 		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
 	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
-						(conf->announce_all_caps) :
+					  (conf->announce_all_caps) :
 						V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
 
 	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);

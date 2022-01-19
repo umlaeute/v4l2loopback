@@ -313,8 +313,7 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 			   "\n------------------"
 			   "\n");
 		char fourcc[5];
-		const size_t num_formats =
-			sizeof(formats) / sizeof(*formats);
+		const size_t num_formats = sizeof(formats) / sizeof(*formats);
 		size_t i = 0;
 		for (i = 0; i < num_formats; i++) {
 			const struct v4l2l_format *fmt = formats + i;
