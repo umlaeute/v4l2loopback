@@ -78,7 +78,7 @@ main (int argc, char **argv)
 
     for (p = 0; p < (bufs[i].bytesused >> 2); p++)
       ((unsigned int*)data[i])[p] = 0xFF00FF00;
-  } 
+  }
 
   if (ioctl (fd, VIDIOC_QBUF, &bufs[0]) < 0)
     sysfail ("QBUF");
@@ -99,7 +99,7 @@ main (int argc, char **argv)
       sysfail ("QBUF");
 
 
-    printf ("\tQUEUED=%d\tDONE=%d\n", 
+    printf ("\tQUEUED=%d\tDONE=%d\n",
 	    bufs[i].flags & V4L2_BUF_FLAG_QUEUED,
 	    bufs[i].flags & V4L2_BUF_FLAG_DONE);
 
@@ -117,7 +117,7 @@ main (int argc, char **argv)
     i = buf.index;
 
     if ((bufs[i].flags & V4L2_BUF_FLAG_QUEUED) == 0) {
-      printf ("BUG #2: Driver should not dequeue a buffer that was not intially queued\n");
+      printf ("BUG #2: Driver should not dequeue a buffer that was not initially queued\n");
     }
 
 #if 0
