@@ -57,6 +57,7 @@ jobs:
           done | xargs apt-get install --yes --no-install-recommends || true
 
           failed=""
+          succeeded=""
           for kver in /lib/modules/*/build; do
             test -d $kver || continue
             kver=${kver%/build}
@@ -64,6 +65,7 @@ jobs:
             echo "=== Testing ${kver} ===";
             ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
             if [ ${ret} -eq 0 ]; then
+              succeeded="${succeeded} ${kver}"
               modinfo v4l2loopback.ko;
             else
               case " ${JOB_KNOWN_FAILURES} " in
@@ -82,3 +84,4 @@ jobs:
             echo "#### Failed kernels: ${failed}";
             exit 1
           fi
+          echo "#### Successful builds for kernels: ${succeeded}";
