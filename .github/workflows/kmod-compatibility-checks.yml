@@ -57,7 +57,10 @@ jobs:
           done | xargs apt-get install --yes --no-install-recommends || true
 
           failed=""
-          for kver in $(dpkg -l | egrep "linux-headers-.*-(generic|${arch})" | awk '{print $2}' | cut -d- -f3-); do
+          for kver in /lib/modules/*/build; do
+            test -d $kver || continue
+            kver=${kver%/build}
+            kver=${kver##*/}
             echo "=== Testing ${kver} ===";
             ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
             if [ ${ret} -eq 0 ]; then
