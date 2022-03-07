@@ -1372,6 +1372,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		else
 			b->buffer.timestamp = buf->timestamp;
 		b->buffer.bytesused = buf->bytesused;
+		b->buffer.sequence = dev->write_position;
 		set_done(b);
 		buffer_written(dev, b);
 
