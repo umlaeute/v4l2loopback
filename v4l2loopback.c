@@ -55,6 +55,7 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Stefan Diewald,"
 	      "Anton Novikov"
 	      "et al.");
+MODULE_VERSION("0.12.5");
 MODULE_LICENSE("GPL");
 
 /*
@@ -459,6 +460,9 @@ static ssize_t attr_store_format(struct device *cd,
 	if (!dev)
 		return -ENODEV;
 
+	if (!dev)
+		return -ENODEV;
+
 	/* only fps changing is supported */
 	if (sscanf(buf, "@%u/%u", &fps_num, &fps_den) > 0) {
 		struct v4l2_fract f = { .numerator = fps_den,
@@ -613,7 +617,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
-				     sizeof(cap->card) :
+			       sizeof(cap->card) :
 				     sizeof(dev->card_label);
 	int device_nr =
 		((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
@@ -2034,7 +2038,7 @@ static void timeout_timer_clb(unsigned long nr)
 /* init loopback main structure */
 #define DEFAULT_FROM_CONF(confmember, default_condition, default_value)        \
 	((conf) ?                                                              \
-		       ((conf->confmember default_condition) ? (default_value) :     \
+		 ((conf->confmember default_condition) ? (default_value) :     \
 							       (conf->confmember)) : \
 		       default_value)
 

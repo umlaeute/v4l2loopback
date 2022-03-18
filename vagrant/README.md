@@ -13,7 +13,7 @@ Replace the host's `/PATH/TO/v4l2loopback` to the full path to the v4l2loopback 
 
       apt install virtualbox-guest-dkms virtualbox-guest-dkms virtualbox-guest-utils
 
-- Make the VM up-to-date `apt update && apt dist-upgrade ` or similar
+- Make the VM up-to-date `apt update && apt dist-upgrade` or similar
 - Drop the unused stuff with `apt autoremove; apt-get clean` or similar
 - Power the VM off, and create an *offline snapshot*
 

@@ -49,7 +49,7 @@ vm=$1
 
 if test "x${auto_vm}" = "xyes" && test "x${vm}" = "x"; then
     vm=$(vboxmanage list runningvms | grep -c .)
-    if [ ${vm} -eq 1 ]; then
+    if [ "${vm}" -eq 1 ]; then
         vboxmanage list runningvms
         vm=$(vboxmanage list runningvms | awk '{print $2}' | tail -1)
     else

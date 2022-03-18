@@ -102,7 +102,7 @@ read_header(char *magic)
     free(p0);
     return 0;
   }
-  
+
 	q = p = p0;
 	first = 1;
 	done = 0;

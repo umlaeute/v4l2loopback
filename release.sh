@@ -25,8 +25,8 @@ usage() {
  fatal "usage: $0 [<LASTVERSION>] <CURVERSION>" 1>&2
 }
 
-getoldversion () {
-  dpkg-parsechangelog --count 1 -l${CHANGELOG} |  egrep "^Version:" | head -1 | cut -f2 -d' '
+getoldversion() {
+  dpkg-parsechangelog --count 1 -l${CHANGELOG} | grep -E "^Version:" | head -1 | cut -f2 -d' '
 }
 getmoduleversion() {
   grep "^#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION" v4l2loopback.c \
@@ -38,8 +38,8 @@ getgitbranch() {
   git rev-parse --abbrev-ref HEAD
 }
 
-if [ "$(getgitbranch)" != "master" ]; then
- fatal "current branch '$(getgitbranch)' is not 'master'"
+if [ "$(getgitbranch)" != "main" ]; then
+ fatal "current branch '$(getgitbranch)' is not 'main'"
 fi
 
 if [ "x$2" = "x" ]; then
@@ -81,7 +81,7 @@ echo "updating to ${NEWVERSION}"
 
 OK=false
 mkdir debian
-cp ${CHANGELOG} debian/changelog
+cp "${CHANGELOG}" debian/changelog
 gbp dch -R --since "v${OLDVERSION}" -N "${NEWVERSION}" && cat debian/changelog > ${CHANGELOG} && OK=true
 rm -rf debian
 

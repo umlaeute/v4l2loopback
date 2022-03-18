@@ -47,8 +47,8 @@ $ vlc v4l2:///dev/videoX # X is same device as above
 yuv420_infiniteloop
 -------------------
 
-A simple example for looping over frames of a raw yuv420 video file without 
-bothering other video players. Download and unzip an example sequence 
+A simple example for looping over frames of a raw yuv420 video file without
+bothering other video players. Download and unzip an example sequence
 akiyo_qcif.yuv from [here](http://trace.eas.asu.edu/yuv/akiyo/akiyo_qcif.7z).
 
 Usage
@@ -63,8 +63,8 @@ $ ./yuv420_infiniteloop /dev/video1 akiyo_qcif.yuv 176 144 30
 It can be viewed with:
 $ ffplay devicename
 
-The YUV format is for raw sequences, more samples can be obtained 
-from [here](http://trace.eas.asu.edu/yuv/). And they can be created using 
+The YUV format is for raw sequences, more samples can be obtained
+from [here](http://trace.eas.asu.edu/yuv/). And they can be created using
 ffmpeg like this:
 
 $ ffmpeg -i inputfile.mp4 -c:v rawvideo outputfile.yuv
