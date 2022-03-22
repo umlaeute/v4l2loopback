@@ -10,11 +10,33 @@ on:
       - main
 
 jobs:
+  get_debuntu_releases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install curl jq
+      - name: calculate available releases
+        # the following does:
+        # - fetch all available tags for the "buildpack-deps" Docker image
+        # - fetch all available Ubuntu and Debian releases (that are still hosted on the distros' archive servers)
+        # - get the intersection of the tags and the releaess
+        # - drop some releases (e.g. 'oldstable')
+        # - format as a JSON array
+        run: |
+          echo ::set-output name=matrix::$(true; (curl -s "https://hub.docker.com/v2/repositories/library/buildpack-deps/tags?page_size=1000" | jq -r '.results[] | .name' | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u; for url in http://archive.ubuntu.com/ubuntu http://deb.debian.org/debian; do curl -s "${url}/dists/" | grep "href=" | sed -e 's|.*a href="||' -e 's|".*||' -e 's|/$||'; done | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u) | sort | uniq -d | while read x; do echo -n '"'${x}'" '; done | sed -e 's|^ *|[|' -e 's| *$|]|' -e 's|  *|,|g')
+        id: set-matrix
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+
   kmod-compile:
     runs-on: ubuntu-latest
+    needs: get_debuntu_releases
     strategy:
       matrix:
-        series: [trusty, xenial, bionic, focal, groovy]
+        series: ${{ fromJson(needs.get_debuntu_releases.outputs.matrix) }}
+      fail-fast: false
     container: buildpack-deps:${{ matrix.series }}
     env:
       JOB_KNOWN_FAILURES: "3.13 3.16 3.19 4.2"
@@ -24,16 +46,26 @@ jobs:
       - name: Compile against all available kernel header versions
         shell: bash
         run: |
+          arch=$(dpkg --print-architecture)
           apt-get update --quiet;
+          apt-get install --yes --no-install-recommends kmod
           for kver in $(apt-cache search 'linux-headers-.*-generic' | cut -d- -f3 | sort -u -V); do
             apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | tail -n 1 | awk '{print $1}';
-          done | xargs apt-get install --yes --no-install-recommends kmod
+          done | xargs apt-get install --yes --no-install-recommends || true
+          for kver in $(apt-cache search "linux-headers-.*-${arch}" | cut -d- -f3 | sort -u -V); do
+            apt-cache search 'linux-headers-'"${kver}"'-.*-'"${arch}" | sort -V | tail -n 1 | awk '{print $1}';
+          done | xargs apt-get install --yes --no-install-recommends || true
 
           failed=""
-          for kver in $(dpkg -l | grep 'linux-headers-.*-generic' | awk '{print $2}' | cut -d- -f3-); do
+          succeeded=""
+          for kver in /lib/modules/*/build; do
+            test -d $kver || continue
+            kver=${kver%/build}
+            kver=${kver##*/}
             echo "=== Testing ${kver} ===";
             ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
             if [ ${ret} -eq 0 ]; then
+              succeeded="${succeeded} ${kver}"
               modinfo v4l2loopback.ko;
             else
               case " ${JOB_KNOWN_FAILURES} " in
@@ -52,3 +84,4 @@ jobs:
             echo "#### Failed kernels: ${failed}";
             exit 1
           fi
+          echo "#### Successful builds for kernels: ${succeeded}";

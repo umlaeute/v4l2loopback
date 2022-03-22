@@ -110,9 +110,16 @@ Using `sudo` use:
 
     $ sudo modprobe v4l2loopback
 
-This will create an additional video-device, e.g. /dev/video0 (the number
-depends on whether you already had video devices on your system), which can be
-fed by various programs.
+You can check which loopback devices are created by listing contents of
+`/sys/devices/virtual/video4linux` directory. E.g. if there are two
+`v4l2loopback` devices `/dev/video0` and `/dev/video3` you would get:
+
+    $ ls -1 /sys/devices/virtual/video4linux
+    video0
+    video3
+
+These devices are ready to accept contents to show.
+
 Tested feeders:
 - GStreamer-1.0: using the  "v4l2sink" element
 - Gem(>=0.93) using the "recordV4L2" plugin
@@ -268,14 +275,14 @@ This means, that it is also part of Debian-derived distributions, including
 Ubuntu (starting with natty).
 The most convenient way is to install the package "v4l2loopback-dkms":
 
-    # aptitude install v4l2loopback-dkms
+    # apt-get install v4l2loopback-dkms
 
 This should automatically build and install the module for your current kernel
 (provided you have the matching kernel-headers installed).
 Another option is to install the "v4l2loopback-source" package.
 In this case you should be able to simply do (as root):
 
-    # aptitude install v4l2loopback-source module-assistant
+    # apt-get install v4l2loopback-source module-assistant
     # module-assistant auto-install v4l2loopback-source
 
 # DKMS

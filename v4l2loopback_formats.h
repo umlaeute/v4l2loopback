@@ -6,13 +6,13 @@ static const struct v4l2l_format formats[] = {
 #define V4L2_PIX_FMT_HEVC v4l2_fourcc('H', 'E', 'V', 'C')
 #endif
 
-/* here come the packed formats */
-{
-	.name = "32 bpp RGB, le",
-	.fourcc = V4L2_PIX_FMT_BGR32,
-	.depth = 32,
-	.flags = 0,
-},
+	/* here come the packed formats */
+	{
+		.name = "32 bpp RGB, le",
+		.fourcc = V4L2_PIX_FMT_BGR32,
+		.depth = 32,
+		.flags = 0,
+	},
 	{
 		.name = "32 bpp RGB, be",
 		.fourcc = V4L2_PIX_FMT_RGB32,
@@ -31,6 +31,14 @@ static const struct v4l2l_format formats[] = {
 		.depth = 24,
 		.flags = 0,
 	},
+#ifdef V4L2_PIX_FMT_RGBA32
+	{
+		.name = "32 bpp RGBA",
+		.fourcc = V4L2_PIX_FMT_RGBA32,
+		.depth = 32,
+		.flags = 0,
+	},
+#endif
 #ifdef V4L2_PIX_FMT_RGB332
 	{
 		.name = "8 bpp RGB-3-3-2",

@@ -17,7 +17,7 @@
 /* /dev/v4l2loopback interface */
 
 struct v4l2_loopback_config {
-	/** 
+	/**
          * the device-number (/dev/video<nr>)
          * V4L2LOOPBACK_CTL_ADD:
          * setting this to a value<0, will allocate an available one
