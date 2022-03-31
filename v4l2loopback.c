@@ -2523,11 +2523,17 @@ static int v4l2loopback_init_module(void)
 		video_nr[i] = dev->vdev->num;
 	}
 
-	printk(KERN_INFO "v4l2loopback driver version %u.%u.%u loaded\n",
+	printk(KERN_INFO "v4l2loopback driver version %u.%u.%u%s loaded\n",
 	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
-	       (V4L2LOOPBACK_VERSION_CODE      ) & 0xff);
+	       (V4L2LOOPBACK_VERSION_CODE      ) & 0xff,
+#ifdef SNAPSHOT_VERSION
+	       " (" __stringify(SNAPSHOT_VERSION) ")"
+#else
+	       ""
+#endif
+	       );
 	// clang-format on
 
 	return 0;
