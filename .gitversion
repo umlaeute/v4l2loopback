@@ -1,0 +1,3 @@
+this file is a dummy marker to notify the build-process
+that we are building from a development version of v4l2loopback.
+(that is: directly from a git-clone, rather than from a released tarball)

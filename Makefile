@@ -1,3 +1,8 @@
+ifneq ($(wildcard .gitversion),)
+# building a snapshot version
+override KCPPFLAGS += -DSNAPSHOT_VERSION='"$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot)"'
+endif
+
 include Kbuild
 ifeq ($(KBUILD_MODULES),)
 
@@ -43,7 +48,7 @@ all: v4l2loopback.ko utils
 v4l2loopback: v4l2loopback.ko
 v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
-	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
+	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) KCPPFLAGS="$(KCPPFLAGS)" modules
 
 install-all: install install-utils install-man
 install:

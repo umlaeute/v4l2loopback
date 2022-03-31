@@ -2865,11 +2865,17 @@ static int __init v4l2loopback_init_module(void)
 
 	dprintk("module installed\n");
 
-	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d loaded\n",
+	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d%s loaded\n",
 	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
-	       (V4L2LOOPBACK_VERSION_CODE      ) & 0xff);
+	       (V4L2LOOPBACK_VERSION_CODE      ) & 0xff,
+#ifdef SNAPSHOT_VERSION
+	       " (" STRINGIFY2(SNAPSHOT_VERSION) ")"
+#else
+	       ""
+#endif
+	       );
 	// clang-format on
 
 	return 0;
