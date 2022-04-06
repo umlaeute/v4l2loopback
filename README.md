@@ -207,7 +207,7 @@ also there are some V4L2 controls that you can list with
 # CHANGING THE RUNTIME BEHAVIOUR
 ## FORCING FPS
 
-    $ v4l2loopback-ctl set-fps /dev/video0 25
+    $ v4l2loopback-ctl set-fps 25 /dev/video0
 
 or
 
