@@ -2447,6 +2447,10 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	}
 
 	video_set_drvdata(dev->vdev, vdev_priv);
+	if (video_get_drvdata(dev->vdev) == NULL) {
+		err = -ENOMEM;
+		goto out_unregister;
+	}
 
 	MARK();
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
