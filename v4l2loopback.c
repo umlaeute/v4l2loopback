@@ -2827,12 +2827,12 @@ static int __init v4l2loopback_init_module(void)
 		max_openers = 2;
 	}
 
-	if (max_width < 1) {
+	if (max_width < V4L2LOOPBACK_SIZE_MIN_WIDTH) {
 		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 		printk(KERN_INFO "v4l2loopback: using max_width %d\n",
 		       max_width);
 	}
-	if (max_height < 1) {
+	if (max_height < V4L2LOOPBACK_SIZE_MIN_HEIGHT) {
 		max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 		printk(KERN_INFO "v4l2loopback: using max_height %d\n",
 		       max_height);
