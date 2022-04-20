@@ -2366,9 +2366,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	int err = -ENOMEM;
 
 	int _max_width = DEFAULT_FROM_CONF(
-		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
+		max_width, < V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
 	int _max_height = DEFAULT_FROM_CONF(
-		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
+		max_height, < V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
 	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
 					  (conf->announce_all_caps) :
 						V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
