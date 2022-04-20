@@ -2361,6 +2361,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
+	struct v4l2loopback_private *vdev_priv = NULL;
 
 	int err = -ENOMEM;
 
@@ -2438,19 +2439,19 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 		err = -ENOMEM;
 		goto out_unregister;
 	}
-	video_set_drvdata(dev->vdev,
-			  kzalloc(sizeof(struct v4l2loopback_private),
-				  GFP_KERNEL));
-	if (video_get_drvdata(dev->vdev) == NULL) {
+
+	vdev_priv = kzalloc(sizeof(struct v4l2loopback_private), GFP_KERNEL);
+	if (vdev_priv == NULL) {
 		err = -ENOMEM;
 		goto out_unregister;
 	}
 
+	video_set_drvdata(dev->vdev, vdev_priv);
+
 	MARK();
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
 
-	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
-		->device_nr = nr;
+	vdev_priv->device_nr = nr;
 
 	init_vdev(dev->vdev, nr);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
@@ -2555,6 +2556,9 @@ out_free_device:
 out_free_handler:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 out_unregister:
+	video_set_drvdata(dev->vdev, NULL);
+	if (vdev_priv != NULL)
+		kfree(vdev_priv);
 	v4l2_device_unregister(&dev->v4l2_dev);
 out_free_idr:
 	idr_remove(&v4l2loopback_index_idr, nr);
