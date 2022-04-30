@@ -2552,7 +2552,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
 	err = allocate_buffers(dev);
-	if (err && dev->buffer_size)
+	if (err < 0)
 		goto out_free_handler;
 
 	init_waitqueue_head(&dev->read_event);
