@@ -2176,6 +2176,8 @@ static void try_free_buffers(struct v4l2_loopback_device *dev)
 /* allocates buffers, if buffer_size is set */
 static int allocate_buffers(struct v4l2_loopback_device *dev)
 {
+	int err;
+
 	MARK();
 	/* vfree on close file operation in case no open handles left */
 	if (0 == dev->buffer_size)
@@ -2206,17 +2208,27 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 
 	dprintk("allocating %ld = %ldx%d\n", dev->imagesize, dev->buffer_size,
 		dev->buffers_number);
+	err = -ENOMEM;
+
+	if (dev->timeout_jiffies > 0) {
+		err = allocate_timeout_image(dev);
+		if (err < 0)
+			goto error;
+	}
 
 	dev->image = vmalloc(dev->imagesize);
-	if (dev->timeout_jiffies > 0)
-		allocate_timeout_image(dev);
-
 	if (dev->image == NULL)
-		return -ENOMEM;
+		goto error;
+
 	dprintk("vmallocated %ld bytes\n", dev->imagesize);
 	MARK();
+
 	init_buffers(dev);
 	return 0;
+
+error:
+	free_buffers(dev);
+	return err;
 }
 
 /* init inner buffers, they are capture mode and flags are set as
