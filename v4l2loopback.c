@@ -2160,7 +2160,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 {
 	MARK();
 	/* vfree on close file operation in case no open handles left */
-	if (0 == dev->buffer_size)
+	if (0 <= dev->buffer_size)
 		return -EINVAL;
 
 	if (dev->image) {
