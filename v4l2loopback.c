@@ -712,7 +712,7 @@ static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 /* forward declarations */
 static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
-static int free_buffers(struct v4l2_loopback_device *dev);
+static void free_buffers(struct v4l2_loopback_device *dev);
 static void try_free_buffers(struct v4l2_loopback_device *dev);
 static int allocate_timeout_image(struct v4l2_loopback_device *dev);
 static void check_timers(struct v4l2_loopback_device *dev);
@@ -2128,7 +2128,7 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 
 /* init functions */
 /* frees buffers, if already allocated */
-static int free_buffers(struct v4l2_loopback_device *dev)
+static void free_buffers(struct v4l2_loopback_device *dev)
 {
 	MARK();
 	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
@@ -2141,8 +2141,6 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 		dev->timeout_image = NULL;
 	}
 	dev->imagesize = 0;
-
-	return 0;
 }
 /* frees buffers, if they are no longer needed */
 static void try_free_buffers(struct v4l2_loopback_device *dev)
