@@ -2087,15 +2087,17 @@ static ssize_t v4l2_loopback_read(struct file *file, char __user *buf,
 static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 				   size_t count, loff_t *ppos)
 {
+	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	int write_index;
 	struct v4l2_buffer *b;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
+	opener = fh_to_opener(file->private_data);
 
-	/* there's at least one writer, so don't stop announcing output capabilities */
-	dev->ready_for_output = 0;
+	if (WRITER != opener->type)
+		return -EINVAL;
 
 	if (!dev->ready_for_capture) {
 		int ret = allocate_buffers(dev);
