@@ -1695,6 +1695,10 @@ static int get_capture_buffer(struct file *file)
 
 	ret = dev->bufpos2index[pos];
 	if (timeout_happened) {
+		if (ret < 0) {
+			dprintk("trying to return not mapped buf[%d]\n", ret);
+			return -EFAULT;
+		}
 		/* although allocated on-demand, timeout_image is freed only
 		 * in free_buffers(), so we don't need to worry about it being
 		 * deallocated suddenly */
