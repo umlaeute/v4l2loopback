@@ -2175,7 +2175,13 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 			return -EINVAL;
 	}
 
-	dev->imagesize = dev->buffer_size * dev->buffers_number;
+	if (dev->buffer_size > 0 && dev->buffers_number > 0) {
+		if ((__LONG_MAX__ / dev->buffer_size) > dev->buffers_number)
+			dev->imagesize = (unsigned long)dev->buffer_size * (unsigned long)dev->buffers_number;
+		else
+			return -ENOSPC;
+	} else
+		return -EINVAL;
 
 	dprintk("allocating %ld = %ldx%d\n", dev->imagesize, dev->buffer_size,
 		dev->buffers_number);
