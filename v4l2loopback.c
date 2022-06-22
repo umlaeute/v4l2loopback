@@ -1766,19 +1766,19 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		opener->type = WRITER;
-		dev->ready_for_output = 0;
 		if (!dev->ready_for_capture) {
 			int ret = allocate_buffers(dev);
 			if (ret < 0)
 				return ret;
 		}
+		opener->type = WRITER;
+		dev->ready_for_output = 0;
 		dev->ready_for_capture++;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		opener->type = READER;
 		if (!dev->ready_for_capture)
 			return -EIO;
+		opener->type = READER;
 		return 0;
 	default:
 		return -EINVAL;
@@ -2089,10 +2089,25 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 	struct v4l2_loopback_device *dev;
 	int write_index;
 	struct v4l2_buffer *b;
+	int err = 0;
+
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(file->private_data);
+
+	if (UNNEGOTIATED == opener->type) {
+		spin_lock(&dev->lock);
+
+		if (dev->ready_for_output) {
+			err = vidioc_streamon(file, file->private_data, V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		}
+
+		spin_unlock(&dev->lock);
+
+		if (err < 0)
+			return err;
+	}
 
 	if (WRITER != opener->type)
 		return -EINVAL;
