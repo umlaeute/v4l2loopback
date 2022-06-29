@@ -1867,7 +1867,7 @@ static struct vm_operations_struct vm_ops = {
 
 static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned long addr;
+	u8 *addr;
 	unsigned long start;
 	unsigned long size;
 	struct v4l2_loopback_device *dev;
@@ -1905,7 +1905,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (opener->timeout_image_io) {
 		buffer = &dev->timeout_image_buffer;
-		addr = (unsigned long)dev->timeout_image;
+		addr = dev->timeout_image;
 	} else {
 		int i;
 		for (i = 0; i < dev->buffers_number; ++i) {
@@ -1918,14 +1918,13 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		if (NULL == buffer)
 			return -EINVAL;
 
-		addr = (unsigned long)dev->image +
-		       (vma->vm_pgoff << PAGE_SHIFT);
+		addr = dev->image + (vma->vm_pgoff << PAGE_SHIFT);
 	}
 
 	while (size > 0) {
 		struct page *page;
 
-		page = (void *)vmalloc_to_page((void *)addr);
+		page = vmalloc_to_page(addr);
 
 		if (vm_insert_page(vma, start, page) < 0)
 			return -EAGAIN;
