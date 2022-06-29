@@ -2005,8 +2005,6 @@ static int v4l2_loopback_open(struct file *file)
 	if (opener == NULL)
 		return -ENOMEM;
 
-	v4l2_fh_init(&opener->fh, video_devdata(file));
-	file->private_data = &opener->fh;
 	atomic_inc(&dev->open_count);
 
 	opener->timeout_image_io = dev->timeout_image_io;
@@ -2017,9 +2015,16 @@ static int v4l2_loopback_open(struct file *file)
 
 		if (r < 0) {
 			dprintk("timeout image allocation failed\n");
+
+			atomic_dec(&dev->open_count);
+
+			kfree(opener);
 			return r;
 		}
 	}
+
+	v4l2_fh_init(&opener->fh, video_devdata(file));
+	file->private_data = &opener->fh;
 
 	v4l2_fh_add(&opener->fh);
 	dprintk("opened dev:%p with image:%p\n", dev, dev ? dev->image : NULL);
