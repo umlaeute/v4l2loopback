@@ -609,7 +609,7 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 	if (dev->max_openers == curr)
 		return len;
 
-	if (dev->open_count.counter > curr) {
+	if (curr > __INT_MAX__ || dev->open_count.counter > curr) {
 		/* request to limit to less openers as are currently attached to us */
 		return -EINVAL;
 	}
