@@ -570,9 +570,7 @@ static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 
 static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 {
-	struct video_device *loopdev = video_devdata(f);
-	struct v4l2loopback_private *ptr =
-		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
+	struct v4l2loopback_private *ptr = video_drvdata(f);
 	int nr = ptr->device_nr;
 
 	return idr_find(&v4l2loopback_index_idr, nr);
@@ -581,7 +579,7 @@ static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 /* forward declarations */
 static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
-static int free_buffers(struct v4l2_loopback_device *dev);
+static void free_buffers(struct v4l2_loopback_device *dev);
 static void try_free_buffers(struct v4l2_loopback_device *dev);
 static int allocate_timeout_image(struct v4l2_loopback_device *dev);
 static void check_timers(struct v4l2_loopback_device *dev);
@@ -1440,6 +1438,10 @@ static int get_capture_buffer(struct file *file)
 
 	ret = dev->bufpos2index[pos];
 	if (timeout_happened) {
+		if (ret < 0) {
+			dprintk("trying to return not mapped buf[%d]\n", ret);
+			return -EFAULT;
+		}
 		/* although allocated on-demand, timeout_image is freed only
 		 * in free_buffers(), so we don't need to worry about it being
 		 * deallocated suddenly */
@@ -1510,19 +1512,19 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		opener->type = WRITER;
-		dev->ready_for_output = 0;
 		if (!dev->ready_for_capture) {
 			int ret = allocate_buffers(dev);
 			if (ret < 0)
 				return ret;
 		}
+		opener->type = WRITER;
+		dev->ready_for_output = 0;
 		dev->ready_for_capture++;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		opener->type = READER;
 		if (!dev->ready_for_capture)
 			return -EIO;
+		opener->type = READER;
 		return 0;
 	default:
 		return -EINVAL;
@@ -1801,14 +1803,33 @@ static ssize_t v4l2_loopback_read(struct file *file, char __user *buf,
 static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 				   size_t count, loff_t *ppos)
 {
+	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	int write_index;
 	struct v4l2_buffer *b;
+	int err = 0;
+
+	MARK();
 
 	dev = v4l2loopback_getdevice(file);
+	opener = fh_to_opener(file->private_data);
 
-	/* there's at least one writer, so don't stop announcing output capabilities */
-	dev->ready_for_output = 0;
+	if (UNNEGOTIATED == opener->type) {
+		spin_lock(&dev->lock);
+
+		if (dev->ready_for_output) {
+			err = vidioc_streamon(file, file->private_data,
+					      V4L2_BUF_TYPE_VIDEO_OUTPUT);
+		}
+
+		spin_unlock(&dev->lock);
+
+		if (err < 0)
+			return err;
+	}
+
+	if (WRITER != opener->type)
+		return -EINVAL;
 
 	if (!dev->ready_for_capture) {
 		int ret = allocate_buffers(dev);
@@ -1841,11 +1862,11 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 
 /* init functions */
 /* frees buffers, if already allocated */
-static int free_buffers(struct v4l2_loopback_device *dev)
+static void free_buffers(struct v4l2_loopback_device *dev)
 {
 	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
 	if (!dev)
-		return 0;
+		return;
 	if (dev->image) {
 		vfree(dev->image);
 		dev->image = NULL;
@@ -1855,8 +1876,6 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 		dev->timeout_image = NULL;
 	}
 	dev->imagesize = 0;
-
-	return 0;
 }
 /* frees buffers, if they are no longer needed */
 static void try_free_buffers(struct v4l2_loopback_device *dev)
@@ -1871,9 +1890,16 @@ static void try_free_buffers(struct v4l2_loopback_device *dev)
 /* allocates buffers, if buffer_size is set */
 static int allocate_buffers(struct v4l2_loopback_device *dev)
 {
+	int err;
+
+	MARK();
 	/* vfree on close file operation in case no open handles left */
-	if (0 == dev->buffer_size)
+
+	if (dev->buffer_size < 1 || dev->buffers_number < 1)
 		return -EINVAL;
+
+	if ((__LONG_MAX__ / dev->buffer_size) < dev->buffers_number)
+		return -ENOSPC;
 
 	if (dev->image) {
 		dprintk("allocating buffers again: %ld %ld\n",
@@ -1889,20 +1915,32 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 			return -EINVAL;
 	}
 
-	dev->imagesize = dev->buffer_size * dev->buffers_number;
+	dev->imagesize = (unsigned long)dev->buffer_size *
+			 (unsigned long)dev->buffers_number;
 
 	dprintk("allocating %ld = %ldx%u\n", dev->imagesize, dev->buffer_size,
 		dev->buffers_number);
+	err = -ENOMEM;
+
+	if (dev->timeout_jiffies > 0) {
+		err = allocate_timeout_image(dev);
+		if (err < 0)
+			goto error;
+	}
 
 	dev->image = vmalloc(dev->imagesize);
-	if (dev->timeout_jiffies > 0)
-		allocate_timeout_image(dev);
-
 	if (dev->image == NULL)
-		return -ENOMEM;
+		goto error;
+
 	dprintk("vmallocated %ld bytes\n", dev->imagesize);
+	MARK();
+
 	init_buffers(dev);
 	return 0;
+
+error:
+	free_buffers(dev);
+	return err;
 }
 
 /* init inner buffers, they are capture mode and flags are set as
@@ -2047,19 +2085,23 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
+	struct v4l2loopback_private *vdev_priv = NULL;
 
 	int err = -ENOMEM;
 
 	u32 _max_width = DEFAULT_FROM_CONF(
-		max_width, <= V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
+		max_width, < V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
 	u32 _max_height = DEFAULT_FROM_CONF(
-		max_height, <= V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
+		max_height, < V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
 	bool _announce_all_caps = DEFAULT_FROM_CONF(
-		announce_all_caps, == 0, V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS);
+		announce_all_caps, < 0, V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS);
 
-	u32 _max_buffers = DEFAULT_FROM_CONF(max_buffers, == 0, max_buffers);
+	u32 _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
 
 	int nr = -1;
+
+	_announce_all_caps = (!!_announce_all_caps);
+
 	if (conf) {
 		if (conf->capture_nr >= 0 &&
 		    conf->output_nr == conf->capture_nr) {
@@ -2126,9 +2168,14 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 		err = -ENOMEM;
 		goto out_unregister;
 	}
-	video_set_drvdata(dev->vdev,
-			  kzalloc(sizeof(struct v4l2loopback_private),
-				  GFP_KERNEL));
+
+	vdev_priv = kzalloc(sizeof(struct v4l2loopback_private), GFP_KERNEL);
+	if (vdev_priv == NULL) {
+		err = -ENOMEM;
+		goto out_unregister;
+	}
+
+	video_set_drvdata(dev->vdev, vdev_priv);
 	if (video_get_drvdata(dev->vdev) == NULL) {
 		err = -ENOMEM;
 		goto out_unregister;
@@ -2136,8 +2183,7 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
 
-	((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
-		->device_nr = nr;
+	vdev_priv->device_nr = nr;
 
 	init_vdev(dev->vdev, nr, conf->debug);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
@@ -2215,8 +2261,8 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 	dprintk("buffer_size = %ld (=%u)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
-	err = allocate_buffers(dev);
-	if (err && dev->buffer_size)
+
+	if (dev->buffer_size && ((err = allocate_buffers(dev)) < 0))
 		goto out_free_handler;
 
 	init_waitqueue_head(&dev->read_event);
@@ -2237,6 +2283,9 @@ out_free_device:
 out_free_handler:
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 out_unregister:
+	video_set_drvdata(dev->vdev, NULL);
+	if (vdev_priv != NULL)
+		kfree(vdev_priv);
 	v4l2_device_unregister(&dev->v4l2_dev);
 out_free_idr:
 	idr_remove(&v4l2loopback_index_idr, nr);
