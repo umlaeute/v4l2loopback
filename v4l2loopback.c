@@ -2572,8 +2572,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
 	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
 		dev->pix_format.sizeimage);
-	err = allocate_buffers(dev);
-	if (err && dev->buffer_size)
+
+	if (dev->buffer_size && ((err = allocate_buffers(dev)) < 0))
 		goto out_free_handler;
 
 	init_waitqueue_head(&dev->read_event);
