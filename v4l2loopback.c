@@ -2008,8 +2008,6 @@ static int v4l2_loopback_open(struct file *file)
 	atomic_inc(&dev->open_count);
 
 	opener->timeout_image_io = dev->timeout_image_io;
-	dev->timeout_image_io = 0;
-
 	if (opener->timeout_image_io) {
 		int r = allocate_timeout_image(dev);
 
@@ -2022,6 +2020,8 @@ static int v4l2_loopback_open(struct file *file)
 			return r;
 		}
 	}
+
+	dev->timeout_image_io = 0;
 
 	v4l2_fh_init(&opener->fh, video_devdata(file));
 	file->private_data = &opener->fh;
