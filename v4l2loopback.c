@@ -2104,7 +2104,8 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 		spin_lock(&dev->lock);
 
 		if (dev->ready_for_output) {
-			err = vidioc_streamon(file, file->private_data, V4L2_BUF_TYPE_VIDEO_OUTPUT);
+			err = vidioc_streamon(file, file->private_data,
+					      V4L2_BUF_TYPE_VIDEO_OUTPUT);
 		}
 
 		spin_unlock(&dev->lock);
@@ -2401,7 +2402,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	int nr = -1;
 
-        _announce_all_caps = (!!_announce_all_caps);
+	_announce_all_caps = (!!_announce_all_caps);
 
 	if (conf) {
 		if (conf->capture_nr >= 0 &&
