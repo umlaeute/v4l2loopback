@@ -2460,7 +2460,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	nr = err;
 	err = -ENOMEM;
 
-	if (conf && conf->card_label && *(conf->card_label)) {
+	if (conf && conf->card_label[0]) {
 		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
 			 conf->card_label);
 	} else {
