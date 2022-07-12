@@ -1915,7 +1915,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 				break;
 		}
 
-		if (NULL == buffer)
+		if (i >= dev->buffers_number)
 			return -EINVAL;
 
 		addr = (unsigned long)dev->image +
