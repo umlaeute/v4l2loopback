@@ -2491,7 +2491,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	}
 
 	MARK();
-	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
+	snprintf(dev->vdev->name, sizeof(dev->vdev->name), "%s", dev->card_label);
 
 	vdev_priv->device_nr = nr;
 
