@@ -614,16 +614,13 @@ static int vidioc_querycap(struct file *file, void *priv,
 			   struct v4l2_capability *cap)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	int labellen = (sizeof(cap->card) < sizeof(dev->card_label)) ?
-			       sizeof(cap->card) :
-				     sizeof(dev->card_label);
 	int device_nr =
 		((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
 			->device_nr;
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
-	snprintf(cap->card, labellen, dev->card_label);
+	snprintf(cap->card, sizeof(cap->card), "%s", dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", device_nr);
 
@@ -1590,7 +1587,7 @@ static struct vm_operations_struct vm_ops = {
 
 static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 {
-	unsigned long addr;
+	u8 *addr;
 	unsigned long start;
 	unsigned long size;
 	struct v4l2_loopback_device *dev;
@@ -1627,7 +1624,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (opener->timeout_image_io) {
 		buffer = &dev->timeout_image_buffer;
-		addr = (unsigned long)dev->timeout_image;
+		addr = dev->timeout_image;
 	} else {
 		int i;
 		for (i = 0; i < dev->buffers_number; ++i) {
@@ -1640,14 +1637,13 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		if (NULL == buffer)
 			return -EINVAL;
 
-		addr = (unsigned long)dev->image +
-		       (vma->vm_pgoff << PAGE_SHIFT);
+		addr = dev->image + (vma->vm_pgoff << PAGE_SHIFT);
 	}
 
 	while (size > 0) {
 		struct page *page;
 
-		page = (void *)vmalloc_to_page((void *)addr);
+		page = vmalloc_to_page(addr);
 
 		if (vm_insert_page(vma, start, page) < 0)
 			return -EAGAIN;
@@ -1722,22 +1718,26 @@ static int v4l2_loopback_open(struct file *file)
 	if (opener == NULL)
 		return -ENOMEM;
 
-	v4l2_fh_init(&opener->fh, video_devdata(file));
-	file->private_data = &opener->fh;
 	atomic_inc(&dev->open_count);
 
 	opener->timeout_image_io = dev->timeout_image_io;
-	dev->timeout_image_io = 0;
-
 	if (opener->timeout_image_io) {
 		int r = allocate_timeout_image(dev);
 
 		if (r < 0) {
 			dprintk("timeout image allocation failed\n");
+
+			atomic_dec(&dev->open_count);
+
 			kfree(opener);
 			return r;
 		}
 	}
+
+	dev->timeout_image_io = 0;
+
+	v4l2_fh_init(&opener->fh, video_devdata(file));
+	file->private_data = &opener->fh;
 
 	v4l2_fh_add(&opener->fh);
 	dprintk("opened dev:%p with image:%p\n", dev, dev ? dev->image : NULL);
@@ -2181,7 +2181,8 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 		goto out_unregister;
 	}
 
-	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
+	MARK();
+	snprintf(dev->vdev->name, sizeof(dev->vdev->name), "%s", dev->card_label);
 
 	vdev_priv->device_nr = nr;
 
