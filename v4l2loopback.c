@@ -435,7 +435,6 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int vidioc_enum_frameintervals_calls;
 	int read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
@@ -836,21 +835,25 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	struct v4l2_loopback_device *dev;
 
-	if (dev->ready_for_capture) {
-		if (opener->vidioc_enum_frameintervals_calls > 0)
-			return -EINVAL;
-		if (argp->width == dev->pix_format.width &&
-		    argp->height == dev->pix_format.height) {
-			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-			argp->discrete = dev->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
-			return 0;
-		}
+	/* LATER: what does the index really  mean?
+	 * if it's about enumerating formats, we can safely ignore it
+	 * (CHECK)
+	 */
+
+	/* there can be only one... */
+	if (argp->index)
 		return -EINVAL;
-	}
+
+	dev = v4l2loopback_getdevice(file);
+	if (!dev->ready_for_capture ||
+	    argp->width != dev->pix_format.width ||
+	    argp->height != dev->pix_format.height)
+		return -EINVAL;
+
+	argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
+	argp->discrete = dev->capture_param.timeperframe;
 	return 0;
 }
 
