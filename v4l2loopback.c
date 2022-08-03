@@ -756,7 +756,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
-	snprintf(cap->card, labellen, dev->card_label);
+	snprintf(cap->card, labellen, "%s", dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", device_nr);
 
@@ -2494,7 +2494,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	}
 
 	MARK();
-	snprintf(dev->vdev->name, sizeof(dev->vdev->name), dev->card_label);
+	snprintf(dev->vdev->name, sizeof(dev->vdev->name), "%s", dev->card_label);
 
 	vdev_priv->device_nr = nr;
 
