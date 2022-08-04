@@ -2456,19 +2456,8 @@ static void v4l2loopback_cleanup_module(void)
 	dprintk("module removed\n");
 }
 
-#ifdef MODULE
-int __init init_module(void)
-{
-        return v4l2loopback_init_module();
-}
-void __exit cleanup_module(void) {
-        return v4l2loopback_cleanup_module();
-}
-#else
 late_initcall(v4l2loopback_init_module);
-#endif
-
-
+module_exit(v4l2loopback_cleanup_module);
 
 /*
  * fake usage of unused functions
