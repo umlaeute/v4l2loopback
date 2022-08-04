@@ -13,6 +13,7 @@
 CHANGELOG=ChangeLog
 AUTHORS=AUTHORS
 NEWS=NEWS
+: ${mainbranch:=release}
 
 error() {
   echo "$@" 1>&2
@@ -38,8 +39,8 @@ getgitbranch() {
   git rev-parse --abbrev-ref HEAD
 }
 
-if [ "$(getgitbranch)" != "master" ]; then
- fatal "current branch '$(getgitbranch)' is not 'master'"
+if [ "$(getgitbranch)" != "${mainbranch}" ]; then
+ fatal "current branch '$(getgitbranch)' is not '${mainbranch}'"
 fi
 
 if [ "x$2" = "x" ]; then
@@ -82,7 +83,7 @@ echo "updating to ${NEWVERSION}"
 OK=false
 mkdir debian
 cp ${CHANGELOG} debian/changelog
-gbp dch -R --since "v${OLDVERSION}" -N "${NEWVERSION}" && cat debian/changelog > ${CHANGELOG} && OK=true
+gbp dch -R --since "v${OLDVERSION}" -N "${NEWVERSION}" --debian-branch="${mainbranch}" && cat debian/changelog > ${CHANGELOG} && OK=true
 rm -rf debian
 
 if [ "x${OK}" = "xtrue" ]; then
