@@ -188,6 +188,10 @@ MODULE_PARM_DESC(max_height,
 static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
+/* frame intervals */
+#define V4L2LOOPBACK_FPS_MIN 1
+#define V4L2LOOPBACK_FPS_MAX 1000
+
 /* control IDs */
 #define V4L2LOOPBACK_CID_BASE (V4L2_CID_USER_BASE | 0xf000)
 #define CID_KEEP_FORMAT (V4L2LOOPBACK_CID_BASE + 0)
@@ -1634,7 +1638,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 				break;
 		}
 
-		if (NULL == buffer)
+		if (i >= dev->buffers_number)
 			return -EINVAL;
 
 		addr = dev->image + (vma->vm_pgoff << PAGE_SHIFT);
@@ -2149,7 +2153,7 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	nr = err;
 	err = -ENOMEM;
 
-	if (conf && conf->card_label && *(conf->card_label)) {
+	if (conf && conf->card_label[0]) {
 		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
 			 conf->card_label);
 	} else {
@@ -2182,7 +2186,8 @@ v4l2_loopback_add(struct v4l2_loopback_config *conf)
 	}
 
 	MARK();
-	snprintf(dev->vdev->name, sizeof(dev->vdev->name), "%s", dev->card_label);
+	snprintf(dev->vdev->name, sizeof(dev->vdev->name), "%s",
+		 dev->card_label);
 
 	vdev_priv->device_nr = nr;
 
