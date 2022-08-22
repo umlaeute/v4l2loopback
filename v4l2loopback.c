@@ -70,30 +70,30 @@ MODULE_LICENSE("GPL");
 #define STRINGIFY(s) #s
 #define STRINGIFY2(s) STRINGIFY(s)
 
-#define dprintk(fmt, args...)                                                  \
-	do {                                                                   \
-		if (debug > 0) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
-				       __LINE__) "]: " fmt,                    \
-			       ##args);                                        \
-		}                                                              \
+#define dprintk(fmt, args...)                                         \
+	do {                                                          \
+		if (debug > 0) {                                      \
+			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2( \
+				       __LINE__) "]: " fmt,           \
+			       ##args);                               \
+		}                                                     \
 	} while (0)
 
-#define MARK()                                                                 \
-	do {                                                                   \
-		if (debug > 1) {                                               \
-			printk(KERN_INFO "%s:%d[%s]\n", __FILE__, __LINE__,    \
-			       __func__);                                      \
-		}                                                              \
+#define MARK()                                                              \
+	do {                                                                \
+		if (debug > 1) {                                            \
+			printk(KERN_INFO "%s:%d[%s]\n", __FILE__, __LINE__, \
+			       __func__);                                   \
+		}                                                           \
 	} while (0)
 
-#define dprintkrw(fmt, args...)                                                \
-	do {                                                                   \
-		if (debug > 2) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
-				       __LINE__) "]: " fmt,                    \
-			       ##args);                                        \
-		}                                                              \
+#define dprintkrw(fmt, args...)                                       \
+	do {                                                          \
+		if (debug > 2) {                                      \
+			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2( \
+				       __LINE__) "]: " fmt,           \
+			       ##args);                               \
+		}                                                     \
 	} while (0)
 
 /*
@@ -646,9 +646,9 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 {
 	int res = 0;
 
-#define V4L2_SYSFS_CREATE(x)                                                   \
-	res = device_create_file(&vdev->dev, &dev_attr_##x);                   \
-	if (res < 0)                                                           \
+#define V4L2_SYSFS_CREATE(x)                                 \
+	res = device_create_file(&vdev->dev, &dev_attr_##x); \
+	if (res < 0)                                         \
 	break
 	if (!vdev)
 		return;
@@ -1528,8 +1528,8 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		if (b->count < dev->used_buffers) {
 			struct v4l2l_buffer *pos, *n;
 
-			list_for_each_entry_safe (pos, n, &dev->outbufs_list,
-						  list_head) {
+			list_for_each_entry_safe(pos, n, &dev->outbufs_list,
+						 list_head) {
 				if (pos->buffer.index >= b->count)
 					list_del(&pos->list_head);
 			}
@@ -1537,8 +1537,8 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 			/* after we update dev->used_buffers, buffers in outbufs_list will
 			 * correspond to dev->write_position + [0;b->count-1] range */
 			i = dev->write_position;
-			list_for_each_entry (pos, &dev->outbufs_list,
-					     list_head) {
+			list_for_each_entry(pos, &dev->outbufs_list,
+					    list_head) {
 				dev->bufpos2index[i % b->count] =
 					pos->buffer.index;
 				++i;
@@ -2326,8 +2326,8 @@ static void init_vdev(struct video_device *vdev, int nr)
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 20, 0)
 		vdev->debug = V4L2_DEBUG_IOCTL | V4L2_DEBUG_IOCTL_ARG;
 #else
-		vdev->dev_debug =
-			V4L2_DEV_DEBUG_IOCTL | V4L2_DEV_DEBUG_IOCTL_ARG;
+		vdev->dev_debug = V4L2_DEV_DEBUG_IOCTL |
+				  V4L2_DEV_DEBUG_IOCTL_ARG;
 #endif
 
 		/* since kernel-3.7, there is a new field 'vfl_dir' that has to be
@@ -2693,8 +2693,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
 		    0)
 			break;
-		device_nr =
-			(conf.output_nr < 0) ? conf.capture_nr : conf.output_nr;
+		device_nr = (conf.output_nr < 0) ? conf.capture_nr :
+						   conf.output_nr;
 		MARK();
 		/* get the device from either capture_nr or output_nr (whatever is valid) */
 		if ((ret = v4l2loopback_lookup(device_nr, &dev)) < 0)
