@@ -310,7 +310,9 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 		"\n");
 	if (!argc) {
 		dprintf(2, "\nknown fourcc-codes"
-			   "\n------------------"
+			   "\n=================="
+			   "\nFOURCC\thex       \tdec         \tdescription"
+			   "\n------\t----------\t------------\t-----------"
 			   "\n");
 		char fourcc[5];
 		const size_t num_formats = sizeof(formats) / sizeof(*formats);
@@ -318,8 +320,8 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 		for (i = 0; i < num_formats; i++) {
 			const struct v4l2l_format *fmt = formats + i;
 			memset(fourcc, 0, 5);
-			dprintf(2, "%4s\t%d\t%s\n",
-				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
+			dprintf(2, "'%4s'\t0x%08X\t%12d\t%s\n",
+				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc, fmt->fourcc,
 				fmt->name);
 		}
 	}
