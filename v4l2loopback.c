@@ -73,8 +73,8 @@ MODULE_LICENSE("GPL");
 #define dprintk(fmt, args...)                                                  \
 	do {                                                                   \
 		if (debug > 0) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
-				       __LINE__) "]: " fmt,                    \
+			printk(KERN_INFO "pid(%d): v4l2-loopback[" STRINGIFY2(          \
+				       __LINE__) "]: " fmt, task_pid_nr(current),                     \
 			       ##args);                                        \
 		}                                                              \
 	} while (0)
@@ -82,7 +82,7 @@ MODULE_LICENSE("GPL");
 #define MARK()                                                                 \
 	do {                                                                   \
 		if (debug > 1) {                                               \
-			printk(KERN_INFO "%s:%d[%s]\n", __FILE__, __LINE__,    \
+			printk(KERN_INFO "pid(%d): %s:%d[%s]\n", task_pid_nr(current), __FILE__, __LINE__,    \
 			       __func__);                                      \
 		}                                                              \
 	} while (0)
@@ -90,8 +90,8 @@ MODULE_LICENSE("GPL");
 #define dprintkrw(fmt, args...)                                                \
 	do {                                                                   \
 		if (debug > 2) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
-				       __LINE__) "]: " fmt,                    \
+			printk(KERN_INFO "pid(%d): v4l2-loopback[" STRINGIFY2(          \
+				       __LINE__) "]: " fmt, task_pid_nr(current),                    \
 			       ##args);                                        \
 		}                                                              \
 	} while (0)
