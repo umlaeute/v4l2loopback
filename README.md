@@ -312,6 +312,9 @@ dkms install -m v4l2loopback -v ${version}
 | Debian, Ubuntu,... | dkms                  |
 
 
+Note that using this method will NOT install the v4l2loopback-ctl tool, you will have to do it yourself!
+
+
 # LOAD THE MODULE AT BOOT
 
 One can avoid manually loading the module by letting systemd load the module
