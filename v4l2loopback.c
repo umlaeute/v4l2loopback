@@ -667,7 +667,11 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 
 /* Event APIs */
 
-#define V4L2_EVENT_PRI_CLIENT_USAGE  V4L2_EVENT_PRIVATE_START
+#define V4L2LOOPBACK_EVENT_BASE (V4L2_EVENT_PRIVATE_START)
+#define V4L2LOOPBACK_EVENT_OFFSET 0x08E00000
+#define V4L2_EVENT_PRI_CLIENT_USAGE (V4L2LOOPBACK_EVENT_BASE + \
+				     V4L2LOOPBACK_EVENT_OFFSET + \
+				     1)
 
 struct v4l2_event_client_usage {
 	__u32 count;
