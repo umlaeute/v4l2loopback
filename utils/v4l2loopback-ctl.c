@@ -1127,8 +1127,12 @@ int main(int argc, char **argv)
 		}
 		break;
 	case VERSION:
+#ifdef SNAPSHOT_VERSION
+		printf("%s %s\n", argv[0], SNAPSHOT_VERSION);
+#else
 		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
 		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
+#endif
 		break;
 	default:
 		dprintf(2, "not implemented '%s'\n", argv[1]);

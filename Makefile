@@ -1,6 +1,7 @@
 ifneq ($(wildcard .gitversion),)
 # building a snapshot version
-override KCPPFLAGS += -DSNAPSHOT_VERSION='"$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot)"'
+V4L2LOOPBACK_SNAPSHOT_VERSION=$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot)
+override KCPPFLAGS += -DSNAPSHOT_VERSION='"$(V4L2LOOPBACK_SNAPSHOT_VERSION)"'
 endif
 
 include Kbuild
@@ -87,7 +88,7 @@ man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 
 utils: utils/v4l2loopback-ctl
 utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
-	$(MAKE) -C utils
+	$(MAKE) -C utils V4L2LOOPBACK_SNAPSHOT_VERSION=$(V4L2LOOPBACK_SNAPSHOT_VERSION)
 
 .clang-format:
 	curl "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.clang-format" > $@
