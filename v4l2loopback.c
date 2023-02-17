@@ -414,6 +414,7 @@ struct v4l2_loopback_device {
 	int ready_for_output; /* set to true when no writer is currently attached
 			       * this differs slightly from !ready_for_capture,
 			       * e.g. when using fallback images */
+	int active_readers;   /* increase if any reader starts streaming */
 	int announce_all_caps; /* set to false, if device caps (OUTPUT/CAPTURE)
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
@@ -664,6 +665,18 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 	dev_err(&vdev->dev, "%s error: %d\n", __func__, res);
 }
 
+/* Event APIs */
+
+#define V4L2LOOPBACK_EVENT_BASE (V4L2_EVENT_PRIVATE_START)
+#define V4L2LOOPBACK_EVENT_OFFSET 0x08E00000
+#define V4L2_EVENT_PRI_CLIENT_USAGE (V4L2LOOPBACK_EVENT_BASE + \
+				     V4L2LOOPBACK_EVENT_OFFSET + \
+				     1)
+
+struct v4l2_event_client_usage {
+	__u32 count;
+};
+
 /* global module data */
 /* find a device based on it's device-number (e.g. '3' for /dev/video3) */
 struct v4l2loopback_lookup_cb_data {
@@ -718,6 +731,7 @@ static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 }
 
 /* forward declarations */
+static void client_usage_queue_event(struct video_device *vdev);
 static void init_buffers(struct v4l2_loopback_device *dev);
 static int allocate_buffers(struct v4l2_loopback_device *dev);
 static void free_buffers(struct v4l2_loopback_device *dev);
@@ -1800,6 +1814,8 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 		if (!dev->ready_for_capture)
 			return -EIO;
 		opener->type = READER;
+		dev->active_readers++;
+		client_usage_queue_event(dev->vdev);
 		return 0;
 	default:
 		return -EINVAL;
@@ -1814,17 +1830,24 @@ static int vidioc_streamoff(struct file *file, void *fh,
 			    enum v4l2_buf_type type)
 {
 	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_opener *opener;
+
 	MARK();
 	dprintk("%d\n", type);
 
 	dev = v4l2loopback_getdevice(file);
-
+	opener = fh_to_opener(fh);
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		if (dev->ready_for_capture > 0)
 			dev->ready_for_capture--;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		if (opener->type == READER) {
+			opener->type = 0;
+			dev->active_readers--;
+			client_usage_queue_event(dev->vdev);
+		}
 		return 0;
 	default:
 		return -EINVAL;
@@ -1847,12 +1870,60 @@ static int vidiocgmbuf(struct file *file, void *fh, struct video_mbuf *p)
 }
 #endif
 
+static void client_usage_queue_event(struct video_device *vdev)
+{
+	struct v4l2_event ev;
+	struct v4l2_loopback_device *dev;
+
+	dev = container_of(vdev->v4l2_dev,
+			   struct v4l2_loopback_device, v4l2_dev);
+
+	memset(&ev, 0, sizeof(ev));
+	ev.type = V4L2_EVENT_PRI_CLIENT_USAGE;
+	((struct v4l2_event_client_usage*)&ev.u)->count =
+		dev->active_readers;
+
+	v4l2_event_queue(vdev, &ev);
+}
+
+static int client_usage_ops_add(struct v4l2_subscribed_event *sev,
+				unsigned elems)
+{
+	if (!(sev->flags & V4L2_EVENT_SUB_FL_SEND_INITIAL))
+		return 0;
+
+	client_usage_queue_event(sev->fh->vdev);
+	return 0;
+}
+
+static void client_usage_ops_replace(struct v4l2_event *old,
+				     const struct v4l2_event *new)
+{
+	*((struct v4l2_event_client_usage*)&old->u) =
+		*((struct v4l2_event_client_usage*)&new->u);
+}
+
+static void client_usage_ops_merge(const struct v4l2_event *old,
+				   struct v4l2_event *new)
+{
+	*((struct v4l2_event_client_usage*)&new->u) =
+		*((struct v4l2_event_client_usage*)&old->u);
+}
+
+const struct v4l2_subscribed_event_ops client_usage_ops = {
+	.add = client_usage_ops_add,
+	.replace = client_usage_ops_replace,
+	.merge = client_usage_ops_merge,
+};
+
 static int vidioc_subscribe_event(struct v4l2_fh *fh,
 				  const struct v4l2_event_subscription *sub)
 {
 	switch (sub->type) {
 	case V4L2_EVENT_CTRL:
 		return v4l2_ctrl_subscribe_event(fh, sub);
+	case V4L2_EVENT_PRI_CLIENT_USAGE:
+		return v4l2_event_subscribe(fh, sub, 0, &client_usage_ops);
 	}
 
 	return -EINVAL;
@@ -2052,14 +2123,16 @@ static int v4l2_loopback_close(struct file *file)
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
-	int iswriter = 0;
+	int is_writer = 0, is_reader = 0;
 	MARK();
 
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
 
 	if (WRITER == opener->type)
-		iswriter = 1;
+		is_writer = 1;
+	if (READER == opener->type)
+		is_reader = 1;
 
 	atomic_dec(&dev->open_count);
 	if (dev->open_count.counter == 0) {
@@ -2072,8 +2145,11 @@ static int v4l2_loopback_close(struct file *file)
 	v4l2_fh_exit(&opener->fh);
 
 	kfree(opener);
-	if (iswriter) {
-		dev->ready_for_output = 1;
+	if (is_writer)
+ 		dev->ready_for_output = 1;
+	if (is_reader) {
+ 		dev->active_readers--;
+		client_usage_queue_event(dev->vdev);
 	}
 	MARK();
 	return 0;
