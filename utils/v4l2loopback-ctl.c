@@ -923,6 +923,8 @@ static t_command get_command(const char *command)
 		return HELP;
 	if (!strncmp(command, "-v", 2))
 		return VERSION;
+	if (!strncmp(command, "--version", 9))
+		return VERSION;
 	if (!strncmp(command, "add", 4))
 		return ADD;
 	if (!strncmp(command, "del", 3))
