@@ -39,6 +39,12 @@
 #include <linux/miscdevice.h>
 #include "v4l2loopback.h"
 
+/*
+ * helpers
+ */
+#define STRINGIFY(s) #s
+#define STRINGIFY2(s) STRINGIFY(s)
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
 #define kstrtoul strict_strtoul
 #endif
@@ -61,15 +67,17 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Stefan Diewald,"
 	      "Anton Novikov"
 	      "et al.");
-MODULE_VERSION("0.12.5");
+#ifdef SNAPSHOT_VERSION
+MODULE_VERSION(STRINGIFY2(SNAPSHOT_VERSION));
+#else
+MODULE_VERSION("" STRINGIFY2(V4L2LOOPBACK_VERSION_MAJOR) "." STRINGIFY2(
+	V4L2LOOPBACK_VERSION_MINOR) "." STRINGIFY2(V4L2LOOPBACK_VERSION_BUGFIX));
+#endif
 MODULE_LICENSE("GPL");
 
 /*
  * helpers
  */
-#define STRINGIFY(s) #s
-#define STRINGIFY2(s) STRINGIFY(s)
-
 #define dprintk(fmt, args...)                                                  \
 	do {                                                                   \
 		if (debug > 0) {                                               \
