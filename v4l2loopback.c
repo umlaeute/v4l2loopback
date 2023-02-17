@@ -414,7 +414,7 @@ struct v4l2_loopback_device {
 	int ready_for_output; /* set to true when no writer is currently attached
 			       * this differs slightly from !ready_for_capture,
 			       * e.g. when using fallback images */
-	int active_readers;   /* increase if any reader starts streaming */
+	int active_readers; /* increase if any reader starts streaming */
 	int announce_all_caps; /* set to false, if device caps (OUTPUT/CAPTURE)
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
@@ -669,9 +669,8 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 
 #define V4L2LOOPBACK_EVENT_BASE (V4L2_EVENT_PRIVATE_START)
 #define V4L2LOOPBACK_EVENT_OFFSET 0x08E00000
-#define V4L2_EVENT_PRI_CLIENT_USAGE (V4L2LOOPBACK_EVENT_BASE + \
-				     V4L2LOOPBACK_EVENT_OFFSET + \
-				     1)
+#define V4L2_EVENT_PRI_CLIENT_USAGE                                            \
+	(V4L2LOOPBACK_EVENT_BASE + V4L2LOOPBACK_EVENT_OFFSET + 1)
 
 struct v4l2_event_client_usage {
 	__u32 count;
@@ -1875,13 +1874,12 @@ static void client_usage_queue_event(struct video_device *vdev)
 	struct v4l2_event ev;
 	struct v4l2_loopback_device *dev;
 
-	dev = container_of(vdev->v4l2_dev,
-			   struct v4l2_loopback_device, v4l2_dev);
+	dev = container_of(vdev->v4l2_dev, struct v4l2_loopback_device,
+			   v4l2_dev);
 
 	memset(&ev, 0, sizeof(ev));
 	ev.type = V4L2_EVENT_PRI_CLIENT_USAGE;
-	((struct v4l2_event_client_usage*)&ev.u)->count =
-		dev->active_readers;
+	((struct v4l2_event_client_usage *)&ev.u)->count = dev->active_readers;
 
 	v4l2_event_queue(vdev, &ev);
 }
@@ -1899,15 +1897,15 @@ static int client_usage_ops_add(struct v4l2_subscribed_event *sev,
 static void client_usage_ops_replace(struct v4l2_event *old,
 				     const struct v4l2_event *new)
 {
-	*((struct v4l2_event_client_usage*)&old->u) =
-		*((struct v4l2_event_client_usage*)&new->u);
+	*((struct v4l2_event_client_usage *)&old->u) =
+		*((struct v4l2_event_client_usage *)&new->u);
 }
 
 static void client_usage_ops_merge(const struct v4l2_event *old,
 				   struct v4l2_event *new)
 {
-	*((struct v4l2_event_client_usage*)&new->u) =
-		*((struct v4l2_event_client_usage*)&old->u);
+	*((struct v4l2_event_client_usage *)&new->u) =
+		*((struct v4l2_event_client_usage *)&old->u);
 }
 
 const struct v4l2_subscribed_event_ops client_usage_ops = {
@@ -2146,9 +2144,9 @@ static int v4l2_loopback_close(struct file *file)
 
 	kfree(opener);
 	if (is_writer)
- 		dev->ready_for_output = 1;
+		dev->ready_for_output = 1;
 	if (is_reader) {
- 		dev->active_readers--;
+		dev->active_readers--;
 		client_usage_queue_event(dev->vdev);
 	}
 	MARK();

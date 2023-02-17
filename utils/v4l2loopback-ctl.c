@@ -321,8 +321,8 @@ static void help_setcaps(const char *program, int brief, int argc, char **argv)
 			const struct v4l2l_format *fmt = formats + i;
 			memset(fourcc, 0, 5);
 			dprintf(2, "'%4s'\t0x%08X\t%12d\t%s\n",
-				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc, fmt->fourcc,
-				fmt->name);
+				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
+				fmt->fourcc, fmt->name);
 		}
 	}
 }
