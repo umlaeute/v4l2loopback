@@ -281,7 +281,7 @@ static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
 /* frame intervals */
-#define V4L2LOOPBACK_FPS_MIN 1
+#define V4L2LOOPBACK_FPS_MIN 0
 #define V4L2LOOPBACK_FPS_MAX 1000
 
 /* control IDs */
