@@ -23,6 +23,9 @@ struct v4l2_loopback_config {
          * setting this to a value<0, will allocate an available one
          * if nr>=0 and the device already exists, the ioctl will EEXIST
          * if output_nr and capture_nr are the same, only a single device will be created
+	 * NOTE: currently split-devices (where output_nr and capture_nr differ)
+	 *   are not implemented yet.
+	 *   until then, requesting different device-IDs will result in EINVAL.
          *
          * V4L2LOOPBACK_CTL_QUERY:
          * either both output_nr and capture_nr must refer to the same loopback,
@@ -46,14 +49,6 @@ struct v4l2_loopback_config {
 	int max_height;
 
 	/**
-         * whether to announce OUTPUT/CAPTURE capabilities exclusively
-         * for this device or not
-         * (!exclusive_caps)
-         * FIXXME: this ought to be removed (if superseded by output_nr vs capture_nr)
-         */
-	int announce_all_caps;
-
-	/**
          * number of buffers to allocate for the queue
          * if set to <=0, default values are used
          */
@@ -69,6 +64,15 @@ struct v4l2_loopback_config {
          * set the debugging level for this device
          */
 	int debug;
+
+	/**
+         * whether to announce OUTPUT/CAPTURE capabilities exclusively
+         * for this device or not
+         * (!exclusive_caps)
+	 * NOTE: this is going to be removed once separate output/capture
+	 *       devices are implemented
+         */
+	int announce_all_caps;
 };
 
 /* a pointer to a (struct v4l2_loopback_config) that has all values you wish to impose on the
