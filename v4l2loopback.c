@@ -39,12 +39,6 @@
 #include <linux/miscdevice.h>
 #include "v4l2loopback.h"
 
-/*
- * helpers
- */
-#define STRINGIFY(s) #s
-#define STRINGIFY2(s) STRINGIFY(s)
-
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 6, 1)
 #define kstrtoul strict_strtoul
 #endif
@@ -68,10 +62,10 @@ MODULE_AUTHOR("Vasily Levin, "
 	      "Anton Novikov"
 	      "et al.");
 #ifdef SNAPSHOT_VERSION
-MODULE_VERSION(STRINGIFY2(SNAPSHOT_VERSION));
+MODULE_VERSION(__stringify(SNAPSHOT_VERSION));
 #else
-MODULE_VERSION("" STRINGIFY2(V4L2LOOPBACK_VERSION_MAJOR) "." STRINGIFY2(
-	V4L2LOOPBACK_VERSION_MINOR) "." STRINGIFY2(V4L2LOOPBACK_VERSION_BUGFIX));
+MODULE_VERSION("" __stringify(V4L2LOOPBACK_VERSION_MAJOR) "." __stringify(
+	V4L2LOOPBACK_VERSION_MINOR) "." __stringify(V4L2LOOPBACK_VERSION_BUGFIX));
 #endif
 MODULE_LICENSE("GPL");
 
@@ -81,7 +75,7 @@ MODULE_LICENSE("GPL");
 #define dprintk(fmt, args...)                                                  \
 	do {                                                                   \
 		if (debug > 0) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
+			printk(KERN_INFO "v4l2-loopback[" __stringify(         \
 				       __LINE__) "]: " fmt,                    \
 			       ##args);                                        \
 		}                                                              \
@@ -98,7 +92,7 @@ MODULE_LICENSE("GPL");
 #define dprintkrw(fmt, args...)                                                \
 	do {                                                                   \
 		if (debug > 2) {                                               \
-			printk(KERN_INFO "v4l2-loopback[" STRINGIFY2(          \
+			printk(KERN_INFO "v4l2-loopback[" __stringify(         \
 				       __LINE__) "]: " fmt,                    \
 			       ##args);                                        \
 		}                                                              \
@@ -224,7 +218,7 @@ MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 static int max_buffers = V4L2LOOPBACK_DEFAULT_MAX_BUFFERS;
 module_param(max_buffers, int, S_IRUGO);
 MODULE_PARM_DESC(max_buffers,
-		 "how many buffers should be allocated [DEFAULT: " STRINGIFY2(
+		 "how many buffers should be allocated [DEFAULT: " __stringify(
 			 V4L2LOOPBACK_DEFAULT_MAX_BUFFERS) "]");
 
 /* how many times a device can be opened
@@ -240,7 +234,7 @@ static int max_openers = V4L2LOOPBACK_DEFAULT_MAX_OPENERS;
 module_param(max_openers, int, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(
 	max_openers,
-	"how many users can open the loopback device [DEFAULT: " STRINGIFY2(
+	"how many users can open the loopback device [DEFAULT: " __stringify(
 		V4L2LOOPBACK_DEFAULT_MAX_OPENERS) "]");
 
 static int devices = -1;
@@ -263,7 +257,7 @@ module_param_array(exclusive_caps, bool, NULL, 0444);
 /* FIXXME: wording */
 MODULE_PARM_DESC(
 	exclusive_caps,
-	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not  [DEFAULT: " STRINGIFY2(
+	"whether to announce OUTPUT/CAPTURE capabilities exclusively or not  [DEFAULT: " __stringify(
 		V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS) "]");
 
 /* format specifications */
@@ -277,12 +271,13 @@ MODULE_PARM_DESC(
 
 static int max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 module_param(max_width, int, S_IRUGO);
-MODULE_PARM_DESC(max_width, "maximum allowed frame width [DEFAULT: " STRINGIFY2(
-				    V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
+MODULE_PARM_DESC(max_width,
+		 "maximum allowed frame width [DEFAULT: " __stringify(
+			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH) "]");
 static int max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 module_param(max_height, int, S_IRUGO);
 MODULE_PARM_DESC(max_height,
-		 "maximum allowed frame height [DEFAULT: " STRINGIFY2(
+		 "maximum allowed frame height [DEFAULT: " __stringify(
 			 V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT) "]");
 
 static DEFINE_IDR(v4l2loopback_index_idr);
@@ -3020,7 +3015,7 @@ static int __init v4l2loopback_init_module(void)
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE      ) & 0xff,
 #ifdef SNAPSHOT_VERSION
-	       " (" STRINGIFY2(SNAPSHOT_VERSION) ")"
+	       " (" __stringify(SNAPSHOT_VERSION) ")"
 #else
 	       ""
 #endif
