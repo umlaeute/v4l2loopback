@@ -1,6 +1,6 @@
 ifneq ($(wildcard .gitversion),)
 # building a snapshot version
-V4L2LOOPBACK_SNAPSHOT_VERSION=$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot)
+V4L2LOOPBACK_SNAPSHOT_VERSION=$(patsubst v%,%,$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot))
 override KCPPFLAGS += -DSNAPSHOT_VERSION='"$(V4L2LOOPBACK_SNAPSHOT_VERSION)"'
 endif
 
