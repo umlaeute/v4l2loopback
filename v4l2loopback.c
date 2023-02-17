@@ -149,6 +149,17 @@ static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev)
 }
 #endif /*  HAVE__V4L2_DEVICE */
 
+/* TODO: Make sure that function is never interrupted. */
+static inline int mod_inc(int *number, int mod)
+{
+	int result;
+	result = (*number + 1) % mod;
+	if (unlikely(result < 0))
+		result += mod;
+	*number = result;
+	return result;
+}
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
 #define v4l2_file_operations file_operations
 #endif
@@ -1555,9 +1566,8 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 			i = dev->write_position;
 			list_for_each_entry (pos, &dev->outbufs_list,
 					     list_head) {
-				dev->bufpos2index[i % b->count] =
+				dev->bufpos2index[mod_inc(&i, b->count)] =
 					pos->buffer.index;
-				++i;
 			}
 		}
 
@@ -1621,10 +1631,9 @@ static void buffer_written(struct v4l2_loopback_device *dev,
 	del_timer_sync(&dev->timeout_timer);
 	spin_lock_bh(&dev->lock);
 
-	dev->bufpos2index[dev->write_position % dev->used_buffers] =
+	dev->bufpos2index[mod_inc(&dev->write_position, dev->used_buffers)] =
 		buf->buffer.index;
 	list_move_tail(&buf->list_head, &dev->outbufs_list);
-	++dev->write_position;
 	dev->reread_count = 0;
 
 	check_timers(dev);
@@ -1719,8 +1728,7 @@ static int get_capture_buffer(struct file *file)
 		if (dev->write_position >
 		    opener->read_position + dev->used_buffers)
 			opener->read_position = dev->write_position - 1;
-		pos = opener->read_position % dev->used_buffers;
-		++opener->read_position;
+		pos = mod_inc(&opener->read_position, dev->used_buffers);
 	}
 	timeout_happened = dev->timeout_happened;
 	dev->timeout_happened = 0;
