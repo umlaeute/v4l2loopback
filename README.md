@@ -265,7 +265,7 @@ Support:
 - >= <kbd>4.0.0</kbd>		should work
 - >= <kbd>3.0.0</kbd>		might work
 - << <kbd>3.0.0</kbd>		may work (has not been tested in ages)
-- <= <kbd>2.6.27</kbd>		will definitely NOT work
+- <= <kbd>2.6.37</kbd>		will definitely NOT work
 
 # DISTRIBUTIONS
 v4l2loopack is now (since 2010-10-13) available as a Debian-package.

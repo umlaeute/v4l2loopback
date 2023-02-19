@@ -26,14 +26,8 @@
 #include <linux/eventpoll.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-common.h>
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
-#define HAVE__V4L2_DEVICE
 #include <media/v4l2-device.h>
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
-#define HAVE__V4L2_CTRLS
 #include <media/v4l2-ctrls.h>
-#endif
 #include <media/v4l2-event.h>
 
 #include <linux/miscdevice.h>
@@ -98,57 +92,6 @@ MODULE_LICENSE("GPL");
 		}                                                              \
 	} while (0)
 
-/*
- * compatibility hacks
- */
-
-#ifndef HAVE__V4L2_CTRLS
-struct v4l2_ctrl_handler {
-	int error;
-};
-struct v4l2_ctrl_config {
-	void *ops;
-	u32 id;
-	const char *name;
-	int type;
-	s32 min;
-	s32 max;
-	u32 step;
-	s32 def;
-};
-int v4l2_ctrl_handler_init(struct v4l2_ctrl_handler *hdl,
-			   unsigned nr_of_controls_hint)
-{
-	hdl->error = 0;
-	return 0;
-}
-void v4l2_ctrl_handler_free(struct v4l2_ctrl_handler *hdl)
-{
-}
-void *v4l2_ctrl_new_custom(struct v4l2_ctrl_handler *hdl,
-			   const struct v4l2_ctrl_config *conf, void *priv)
-{
-	return NULL;
-}
-#endif /* HAVE__V4L2_CTRLS */
-
-#ifndef HAVE__V4L2_DEVICE
-/* dummy v4l2_device struct/functions */
-#define V4L2_DEVICE_NAME_SIZE (20 + 16)
-struct v4l2_device {
-	char name[V4L2_DEVICE_NAME_SIZE];
-	struct v4l2_ctrl_handler *ctrl_handler;
-};
-static inline int v4l2_device_register(void *dev, void *v4l2_dev)
-{
-	return 0;
-}
-static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev)
-{
-	return;
-}
-#endif /*  HAVE__V4L2_DEVICE */
-
 /* TODO: Make sure that function is never interrupted. */
 static inline int mod_inc(int *number, int mod)
 {
@@ -159,21 +102,6 @@ static inline int mod_inc(int *number, int mod)
 	*number = result;
 	return result;
 }
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 29)
-#define v4l2_file_operations file_operations
-#endif
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 37)
-void *v4l2l_vzalloc(unsigned long size)
-{
-	void *data = vmalloc(size);
-
-	memset(data, 0, size);
-	return data;
-}
-#else
-#define v4l2l_vzalloc vzalloc
-#endif
 
 static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 {
@@ -299,11 +227,7 @@ static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 #define V4L2LOOPBACK_FPS_MAX 1000
 
 /* control IDs */
-#ifndef HAVE__V4L2_CTRLS
-#define V4L2LOOPBACK_CID_BASE (V4L2_CID_PRIVATE_BASE)
-#else
 #define V4L2LOOPBACK_CID_BASE (V4L2_CID_USER_BASE | 0xf000)
-#endif
 #define CID_KEEP_FORMAT (V4L2LOOPBACK_CID_BASE + 0)
 #define CID_SUSTAIN_FRAMERATE (V4L2LOOPBACK_CID_BASE + 1)
 #define CID_TIMEOUT (V4L2LOOPBACK_CID_BASE + 2)
@@ -1272,67 +1196,6 @@ static int vidioc_querystd(struct file *file, void *fh, v4l2_std_id *norm)
 }
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-/* get ctrls info
- * called on VIDIOC_QUERYCTRL
- */
-static int vidioc_queryctrl(struct file *file, void *fh,
-			    struct v4l2_queryctrl *q)
-{
-	const struct v4l2_ctrl_config *cnf = 0;
-	switch (q->id) {
-	case CID_KEEP_FORMAT:
-		cnf = &v4l2loopback_ctrl_keepformat;
-		break;
-	case CID_SUSTAIN_FRAMERATE:
-		cnf = &v4l2loopback_ctrl_sustainframerate;
-		break;
-	case CID_TIMEOUT:
-		cnf = &v4l2loopback_ctrl_timeout;
-		break;
-	case CID_TIMEOUT_IMAGE_IO:
-		cnf = &v4l2loopback_ctrl_timeoutimageio;
-		break;
-	default:
-		return -EINVAL;
-	}
-	if (!cnf)
-		BUG();
-
-	strlcpy(q->name, cnf->name, sizeof(q->name));
-	q->default_value = cnf->def;
-	q->type = cnf->type;
-	q->minimum = cnf->min;
-	q->maximum = cnf->max;
-	q->step = cnf->step;
-
-	memset(q->reserved, 0, sizeof(q->reserved));
-	return 0;
-}
-
-static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-{
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-
-	switch (c->id) {
-	case CID_KEEP_FORMAT:
-		c->value = dev->keep_format;
-		break;
-	case CID_SUSTAIN_FRAMERATE:
-		c->value = dev->sustain_framerate;
-		break;
-	case CID_TIMEOUT:
-		c->value = jiffies_to_msecs(dev->timeout_jiffies);
-		break;
-	case CID_TIMEOUT_IMAGE_IO:
-		c->value = dev->timeout_image_io;
-		break;
-	default:
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
 static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 				 s64 val)
 {
@@ -1377,11 +1240,6 @@ static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 	struct v4l2_loopback_device *dev = container_of(
 		ctrl->handler, struct v4l2_loopback_device, ctrl_handler);
 	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val);
-}
-static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-{
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	return v4l2loopback_set_ctrl(dev, c->id, c->value);
 }
 
 /* returns set of device outputs, in our case there is only one
@@ -2384,7 +2242,7 @@ static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 		return -EINVAL;
 
 	if (dev->timeout_image == NULL) {
-		dev->timeout_image = v4l2l_vzalloc(dev->buffer_size);
+		dev->timeout_image = vzalloc(dev->buffer_size);
 		if (dev->timeout_image == NULL)
 			return -ENOMEM;
 	}
@@ -2868,16 +2726,8 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	// clang-format off
 	.vidioc_querycap		= &vidioc_querycap,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29)
 	.vidioc_enum_framesizes		= &vidioc_enum_framesizes,
 	.vidioc_enum_frameintervals	= &vidioc_enum_frameintervals,
-#endif
-
-#ifndef HAVE__V4L2_CTRLS
-	.vidioc_queryctrl		= &vidioc_queryctrl,
-	.vidioc_g_ctrl			= &vidioc_g_ctrl,
-	.vidioc_s_ctrl			= &vidioc_s_ctrl,
-#endif /* HAVE__V4L2_CTRLS */
 
 	.vidioc_enum_output		= &vidioc_enum_output,
 	.vidioc_g_output		= &vidioc_g_output,
@@ -3054,15 +2904,3 @@ MODULE_ALIAS_MISCDEV(MISC_DYNAMIC_MINOR);
 
 module_init(v4l2loopback_init_module);
 module_exit(v4l2loopback_cleanup_module);
-
-/*
- * fake usage of unused functions
- */
-#ifdef HAVE__V4L2_CTRLS
-static int vidioc_queryctrl(struct file *file, void *fh,
-			    struct v4l2_queryctrl *q) __attribute__((unused));
-static int vidioc_g_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-	__attribute__((unused));
-static int vidioc_s_ctrl(struct file *file, void *fh, struct v4l2_control *c)
-	__attribute__((unused));
-#endif /* HAVE__V4L2_CTRLS */
