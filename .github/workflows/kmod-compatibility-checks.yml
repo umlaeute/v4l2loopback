@@ -25,7 +25,7 @@ jobs:
         # - drop some releases (e.g. 'oldstable')
         # - format as a JSON array
         run: |
-          echo ::set-output name=matrix::$(true; (curl -s "https://hub.docker.com/v2/repositories/library/buildpack-deps/tags?page_size=1000" | jq -r '.results[] | .name' | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u; for url in http://archive.ubuntu.com/ubuntu http://deb.debian.org/debian; do curl -s "${url}/dists/" | grep "href=" | sed -e 's|.*a href="||' -e 's|".*||' -e 's|/$||'; done | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u) | sort | uniq -d | while read x; do echo -n '"'${x}'" '; done | sed -e 's|^ *|[|' -e 's| *$|]|' -e 's|  *|,|g')
+          echo matrix=$(true; (curl -s "https://hub.docker.com/v2/repositories/library/buildpack-deps/tags?page_size=1000" | jq -r '.results[] | .name' | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u; for url in http://archive.ubuntu.com/ubuntu http://deb.debian.org/debian; do curl -s "${url}/dists/" | grep "href=" | sed -e 's|.*a href="||' -e 's|".*||' -e 's|/$||'; done | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u) | sort | uniq -d | while read x; do echo -n '"'${x}'" '; done | sed -e 's|^ *|[|' -e 's| *$|]|' -e 's|  *|,|g') | tee -a $GITHUB_OUTPUT
         id: set-matrix
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
