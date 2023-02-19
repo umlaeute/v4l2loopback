@@ -1130,11 +1130,21 @@ int main(int argc, char **argv)
 		break;
 	case VERSION:
 #ifdef SNAPSHOT_VERSION
-		printf("%s %s\n", argv[0], SNAPSHOT_VERSION);
+		printf("%s v%s\n", argv[0], SNAPSHOT_VERSION);
 #else
 		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
 		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
 #endif
+		fd = open("/sys/module/v4l2loopback/version", O_RDONLY);
+		if (fd >= 0) {
+			char buf[1024];
+			int len = read(fd, buf, sizeof(buf));
+			if (len > 0) {
+				if (len < sizeof(buf))
+					buf[len] = 0;
+				printf("v4l2loopback module v%s", buf);
+			}
+		}
 		break;
 	default:
 		dprintf(2, "not implemented '%s'\n", argv[1]);
