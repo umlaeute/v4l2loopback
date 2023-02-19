@@ -1946,6 +1946,8 @@ static void vm_open(struct vm_area_struct *vma)
 
 	buf = vma->vm_private_data;
 	buf->use_count++;
+
+	buf->buffer.flags |= V4L2_BUF_FLAG_MAPPED;
 }
 
 static void vm_close(struct vm_area_struct *vma)
@@ -1955,6 +1957,9 @@ static void vm_close(struct vm_area_struct *vma)
 
 	buf = vma->vm_private_data;
 	buf->use_count--;
+
+	if (buf->use_count <= 0)
+		buf->buffer.flags &= ~V4L2_BUF_FLAG_MAPPED;
 }
 
 static struct vm_operations_struct vm_ops = {
@@ -2033,7 +2038,6 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 
 	vma->vm_ops = &vm_ops;
 	vma->vm_private_data = buffer;
-	buffer->buffer.flags |= V4L2_BUF_FLAG_MAPPED;
 
 	vm_open(vma);
 
