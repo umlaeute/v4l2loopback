@@ -1,13 +1,5 @@
 name: Code Linters
-on:
-  pull_request:
-    branches:
-      - develop
-      - main
-  push:
-    branches:
-      - develop
-      - main
+on: [push, pull_request]
 
 jobs:
   clang-format:
@@ -18,10 +10,8 @@ jobs:
           sudo apt-get update
           sudo apt-get -y install clang-format make
       - name: Checkout code
-	uses: actions/checkout@v2
-
-      - name: clang-format
-        shell: bash
+        uses: actions/checkout@v2
+      - name: Check Code Formatting
         run: |
           make clang-format
           git status --porcelain
