@@ -1300,6 +1300,7 @@ static int vidioc_s_output(struct file *file, void *fh, unsigned int i)
 static int vidioc_enum_input(struct file *file, void *fh,
 			     struct v4l2_input *inp)
 {
+	struct v4l2_loopback_device *dev;
 	__u32 index = inp->index;
 	MARK();
 
@@ -1322,6 +1323,12 @@ static int vidioc_enum_input(struct file *file, void *fh,
 	inp->capabilities |= V4L2_IN_CAP_STD;
 #endif
 #endif /* V4L2LOOPBACK_WITH_STD */
+
+	dev = v4l2loopback_getdevice(file);
+	if (!dev->ready_for_capture) {
+		inp->status |= V4L2_IN_ST_NO_SIGNAL;
+	}
+
 
 	return 0;
 }
