@@ -313,7 +313,7 @@ struct v4l2_loopback_device {
 	int used_buffers; /* number of the actually used buffers */
 	int max_openers; /* how many times can this device be opened */
 
-	int write_position; /* number of last written frame + 1 */
+	s64 write_position; /* number of last written frame + 1 */
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
 	int bufpos2index
 		[MAX_BUFFERS]; /* mapping of (read/write_position % used_buffers)
@@ -367,7 +367,7 @@ enum opener_type {
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
 	enum opener_type type;
-	int read_position; /* number of last processed frame + 1 or
+	s64 read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
 	struct v4l2_buffer *buffers;
@@ -1410,7 +1410,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 
 			/* after we update dev->used_buffers, buffers in outbufs_list will
 			 * correspond to dev->write_position + [0;b->count-1] range */
-			i = dev->write_position;
+			i = dev->write_position % b->count;
 			list_for_each_entry(pos, &dev->outbufs_list,
 					    list_head) {
 				dev->bufpos2index[i % b->count] =
@@ -1516,8 +1516,8 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dprintkrw("output QBUF pos: %d index: %d\n",
-			  dev->write_position, index);
+		dprintkrw("output QBUF pos: %lld index: %d\n",
+			  (long long)dev->write_position, index);
 		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
 			v4l2l_get_timestamp(&b->buffer);
 		else
@@ -1621,8 +1621,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		index = get_capture_buffer(file);
 		if (index < 0)
 			return index;
-		dprintkrw("capture DQBUF pos: %d index: %d\n",
-			  opener->read_position - 1, index);
+		dprintkrw("capture DQBUF pos: %lld index: %d\n",
+			  (long long)(opener->read_position - 1), index);
 		if (!(dev->buffers[index].buffer.flags &
 		      V4L2_BUF_FLAG_MAPPED)) {
 			dprintk("trying to return not mapped buf[%d]\n", index);
@@ -2314,7 +2314,7 @@ static void sustain_timer_clb(unsigned long nr)
 	spin_lock(&dev->lock);
 	if (dev->sustain_framerate) {
 		dev->reread_count++;
-		dprintkrw("reread: %d %d\n", dev->write_position,
+		dprintkrw("reread: %lld %d\n", (long long)dev->write_position,
 			  dev->reread_count);
 		if (dev->reread_count == 1)
 			mod_timer(&dev->sustain_timer,
