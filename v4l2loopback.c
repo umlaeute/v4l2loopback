@@ -107,7 +107,7 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
 }
 
-#if !defined(__poll_t)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
 typedef unsigned __poll_t;
 #endif
 
