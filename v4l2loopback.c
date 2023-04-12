@@ -1329,7 +1329,6 @@ static int vidioc_enum_input(struct file *file, void *fh,
 		inp->status |= V4L2_IN_ST_NO_SIGNAL;
 	}
 
-
 	return 0;
 }
 
