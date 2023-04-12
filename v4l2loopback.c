@@ -352,7 +352,7 @@ struct v4l2_loopback_device {
 	char card_label[32];
 
 	wait_queue_head_t read_event;
-	spinlock_t lock;
+	spinlock_t lock, list_lock;
 };
 
 /* types of opener shows what opener wants to do with loopback */
@@ -1632,11 +1632,11 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		*buf = dev->buffers[index].buffer;
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		spin_lock_bh(&dev->lock);
+		spin_lock_bh(&dev->list_lock);
 		b = list_entry(dev->outbufs_list.prev, struct v4l2l_buffer,
 			       list_head);
 		list_move_tail(&b->list_head, &dev->outbufs_list);
-		spin_unlock_bh(&dev->lock);
+		spin_unlock_bh(&dev->list_lock);
 		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
 		unset_flags(b);
 		*buf = b->buffer;
@@ -2476,6 +2476,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	MARK();
 	spin_lock_init(&dev->lock);
+	spin_lock_init(&dev->list_lock);
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	if (list_empty(&dev->outbufs_list)) {
 		int i;
