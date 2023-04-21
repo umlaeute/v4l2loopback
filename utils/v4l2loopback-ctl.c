@@ -309,11 +309,11 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 		"\n   <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:3840x2160@60/1')"
 		"\n");
 	if (detail>1) {
-		dprintf(2, "\unknown fourcc-codes"
+		dprintf(2, "\nknown fourcc-codes"
 			   "\n=================="
 			   "\nFOURCC\thex       \tdec         \tdescription"
 			   "\n------\t----------\t------------\t-----------"
-			   "\n");
+			   "");
 		char fourcc[5];
 		const size_t num_formats = sizeof(formats) / sizeof(*formats);
 		size_t i = 0;
