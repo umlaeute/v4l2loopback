@@ -352,7 +352,7 @@ http://github.com/umlaeute/v4l2loopback/.
 
 # LICENSE/COPYING
 
-- Copyright (c) 2010-2021 IOhannes m zmoelnig
+- Copyright (c) 2010-2023 IOhannes m zmoelnig
 - Copyright (c) 2016 Gavin Qiu
 - Copyright (c) 2016 George Chriss
 - Copyright (c) 2014-2015 Tasos Sahanidis

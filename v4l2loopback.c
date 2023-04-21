@@ -3,7 +3,7 @@
  * v4l2loopback.c  --  video4linux2 loopback driver
  *
  * Copyright (C) 2005-2009 Vasily Levin (vasaka@gmail.com)
- * Copyright (C) 2010-2019 IOhannes m zmoelnig (zmoelnig@iem.at)
+ * Copyright (C) 2010-2023 IOhannes m zmoelnig (zmoelnig@iem.at)
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  *
