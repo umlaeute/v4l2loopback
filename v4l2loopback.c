@@ -1483,11 +1483,14 @@ static void buffer_written(struct v4l2_loopback_device *dev,
 {
 	del_timer_sync(&dev->sustain_timer);
 	del_timer_sync(&dev->timeout_timer);
-	spin_lock_bh(&dev->lock);
 
+	spin_lock_bh(&dev->list_lock);
+	list_move_tail(&buf->list_head, &dev->outbufs_list);
+	spin_unlock_bh(&dev->list_lock);
+
+	spin_lock_bh(&dev->lock);
 	dev->bufpos2index[dev->write_position % dev->used_buffers] =
 		buf->buffer.index;
-	list_move_tail(&buf->list_head, &dev->outbufs_list);
 	++dev->write_position;
 	dev->reread_count = 0;
 
