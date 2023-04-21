@@ -695,7 +695,7 @@ done:
 static int get_fps(const char *devicename)
 {
 	t_caps caps;
-	struct v4l2_streamparm parm;
+	struct v4l2_streamparm param;
 	int fd = -1;
 	int num = -1, denom = -1;
 	int ret = 0;
@@ -711,19 +711,19 @@ static int get_fps(const char *devicename)
 	if (fd < 0)
 		goto done;
 
-	memset(&parm, 0, sizeof(parm));
-	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	if (ioctl(fd, VIDIOC_G_PARM, &parm) == 0) {
-		const struct v4l2_fract *tf = &parm.parm.output.timeperframe;
+	memset(&param, 0, sizeof(param));
+	param.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	if (ioctl(fd, VIDIOC_G_PARM, &param) == 0) {
+		const struct v4l2_fract *tf = &param.parm.output.timeperframe;
 		num = tf->numerator;
 		denom = tf->denominator;
 		goto done;
 	}
 
-	memset(&parm, 0, sizeof(parm));
-	parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	if (ioctl(fd, VIDIOC_G_PARM, &parm) == 0) {
-		const struct v4l2_fract *tf = &parm.parm.output.timeperframe;
+	memset(&param, 0, sizeof(param));
+	param.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if (ioctl(fd, VIDIOC_G_PARM, &param) == 0) {
+		const struct v4l2_fract *tf = &param.parm.output.timeperframe;
 		num = tf->numerator;
 		denom = tf->denominator;
 		goto done;
