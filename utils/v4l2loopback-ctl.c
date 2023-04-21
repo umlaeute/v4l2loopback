@@ -306,10 +306,10 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 		return;
 	dprintf(2,
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1 (<fourcc>:<width>x<height>@<fps>)"
+		"\n   <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:3840x2160@60/1')"
 		"\n");
 	if (detail>1) {
-		dprintf(2, "\nknown fourcc-codes"
+		dprintf(2, "\unknown fourcc-codes"
 			   "\n=================="
 			   "\nFOURCC\thex       \tdec         \tdescription"
 			   "\n------\t----------\t------------\t-----------"
