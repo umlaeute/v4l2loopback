@@ -100,7 +100,7 @@ static const char *snprintf_format(char *buf, size_t size,
 	switch (fmt->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		snprintf(buf, size, "%s:%dx%d:%s (%u/%u) field=%s",
+		snprintf(buf, size, "%s:%dx%d:%s bytes/line=%u sizeimage=%u field=%s",
 			 buftype2str(fmt->type), fmt->fmt.pix.width,
 			 fmt->fmt.pix.height,
 			 fourcc2str(fmt->fmt.pix.pixelformat, fourcc),
@@ -125,9 +125,9 @@ static const char *snprintf_format(char *buf, size_t size,
 static const char *snprintf_buffer(char *strbuf, size_t size,
 				   struct v4l2_buffer *buf)
 {
-	snprintf(strbuf, size, "@%p #%d:%s (bytes=%d) field=%s @%ld.%06ld",
+	snprintf(strbuf, size, "@%p #%d:%s length=%d used=%d field=%s @%ld.%06ld",
 		 buf,
-		 buf->index, buftype2str(buf->type), buf->bytesused,
+		 buf->index, buftype2str(buf->type), buf->length, buf->bytesused,
 		 field2str(buf->field), buf->timestamp.tv_sec,
 		 buf->timestamp.tv_usec);
 	return strbuf;

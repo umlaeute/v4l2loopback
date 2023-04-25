@@ -38,6 +38,7 @@ enum io_method {
 struct buffer {
 	void *start;
 	size_t length;
+	size_t bytesused;
 };
 
 static char *dev_name;
@@ -48,7 +49,7 @@ static unsigned int n_buffers;
 static int frame_count = 70;
 static unsigned int width = 640;
 static unsigned int height = 480;
-static unsigned int fourcc = V4L2_PIX_FMT_YUYV;
+static unsigned int pixelformat = V4L2_PIX_FMT_YUYV;
 static char strbuf[1024];
 
 static void errno_exit(const char *s)
@@ -93,7 +94,7 @@ static int write_frame(void)
 
 	switch (io) {
 	case IO_METHOD_WRITE:
-		process_image(buffers[0].start, buffers[0].length);
+		process_image(buffers[0].start, buffers[0].bytesused);
 		if (-1 == write(fd, buffers[0].start, buffers[0].length)) {
 			switch (errno) {
 			case EAGAIN:
@@ -108,7 +109,7 @@ static int write_frame(void)
 				errno_exit("write");
 			}
 		}
-		printf("WRITE\t%lu@%p\n", buffers[0].length, buffers[0].start);
+		printf("WRITE\t%lu/%lu@%p\n", buffers[0].bytesused, buffers[0].length, buffers[0].start);
 		break;
 
 	case IO_METHOD_MMAP:
@@ -164,7 +165,7 @@ static int write_frame(void)
 
 		for (i = 0; i < n_buffers; ++i)
 			if (buf.m.userptr == (unsigned long)buffers[i].start &&
-			    buf.length == buffers[i].length)
+			    buf.bytesused == buffers[i].bytesused)
 				break;
 
 		assert(i < n_buffers);
@@ -239,8 +240,10 @@ static void start_capturing(void)
 			buf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 			buf.memory = V4L2_MEMORY_MMAP;
 			buf.index = i;
+			buf.length = buffers[i].length;
+			buf.bytesused = buffers[i].bytesused;
 
-			printf("MMAP init qbuf %d/%d: %s\n", i, n_buffers,
+			printf("MMAP init qbuf %d/%d (length=%d): %s\n", i, n_buffers, buffers[i].length,
 			       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
 			if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 				errno_exit("VIDIOC_QBUF");
@@ -259,6 +262,7 @@ static void start_capturing(void)
 			buf.memory = V4L2_MEMORY_USERPTR;
 			buf.index = i;
 			buf.m.userptr = (unsigned long)buffers[i].start;
+			buf.bytesused = buffers[i].bytesused;
 			buf.length = buffers[i].length;
 
 			printf("USERPTR init qbuf %d/%d: %s\n", i, n_buffers,
@@ -307,6 +311,7 @@ static void init_write(unsigned int buffer_size)
 	}
 
 	buffers[0].length = buffer_size;
+	buffers[0].bytesused = buffer_size;
 	buffers[0].start = malloc(buffer_size);
 
 	if (!buffers[0].start) {
@@ -366,6 +371,7 @@ static void init_mmap(void)
 		       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
 
 		buffers[n_buffers].length = buf.length;
+		buffers[n_buffers].bytesused = buf.bytesused;
 		buffers[n_buffers].start =
 			mmap(NULL /* start anywhere */, buf.length,
 			     PROT_READ | PROT_WRITE /* required */,
@@ -409,6 +415,7 @@ static void init_userp(unsigned int buffer_size)
 	for (n_buffers = 0; n_buffers < 4; ++n_buffers) {
 		buffers[n_buffers].length = buffer_size;
 		buffers[n_buffers].start = malloc(buffer_size);
+		buffers[n_buffers].bytesused = buffer_size;
 
 		if (!buffers[n_buffers].start) {
 			fprintf(stderr, "Out of memory\n");
@@ -496,6 +503,25 @@ static void init_device(void)
 	printf("set format: %s\n",
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
 
+	switch (fmt.type) {
+	case  V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		fmt.fmt.pix.width = width;
+		fmt.fmt.pix.height = height;
+		fmt.fmt.pix.pixelformat = pixelformat;
+		strbuf[4] = 0; printf("pixelformat=%d (%s)\n", pixelformat, fourcc2str(pixelformat, strbuf));
+		break;
+	default:
+		printf("unable to set format for anything but output/single-plane\n");
+		break;
+	}
+	printf("finalizing format: %s\n",
+	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
+	if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
+		fprintf(stderr, "VIDIOC_S_FMT error %d, %s\n", errno, strerror(errno));
+	}
+	printf("final format: %s\n",
+	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
+
 	switch (io) {
 	case IO_METHOD_WRITE:
 		init_write(fmt.fmt.pix.sizeimage);
@@ -560,7 +586,7 @@ static void usage(FILE *fp, int argc, char **argv)
 		"-f | --format        Use format [%dx%d@%s]\n"
 		"",
 		argv[0], dev_name, frame_count, width, height,
-		fourcc2str(fourcc, fourccstr));
+		fourcc2str(pixelformat, fourccstr));
 }
 
 static const char short_options[] = "d:hmwuf:c:";
@@ -628,7 +654,7 @@ int main(int argc, char **argv)
 			if (n == 3) {
 				width = (w > 0) ? w : 0;
 				height = (h > 0) ? h : 0;
-				fourcc = str2fourcc(col);
+				pixelformat = str2fourcc(col);
 				col[4] = 0;
 			} else {
 				errno_exit(optarg);
