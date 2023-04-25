@@ -1521,12 +1521,25 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		dprintkrw("capture QBUF index: %d\n", index);
+		dprintkrw("qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
+		       , index
+		       , buf->index, buf
+		       , buf->type, buf->bytesused, buf->length
+		       , buf->flags, buf->field
+		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
+		       , buf->sequence
+			);
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dprintkrw("output QBUF pos: %lld index: %d\n",
-			  (long long)dev->write_position, index);
+		dprintkrw("qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
+		       , index
+		       , buf->index, buf
+		       , buf->type, buf->bytesused, buf->length
+		       , buf->flags, buf->field
+		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
+		       , buf->sequence
+			);
 		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY))
 		    && (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
 			v4l2l_get_timestamp(&b->buffer);
@@ -1642,17 +1655,35 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		}
 		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index].buffer;
+		dprintkrw("dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
+		       , index
+		       , buf->index, buf
+		       , buf->type, buf->bytesused, buf->length
+		       , buf->flags, buf->field
+		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
+		       , buf->sequence
+			);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		spin_lock_bh(&dev->list_lock);
+
 		b = list_entry(dev->outbufs_list.prev, struct v4l2l_buffer,
 			       list_head);
 		list_move_tail(&b->list_head, &dev->outbufs_list);
+
 		spin_unlock_bh(&dev->list_lock);
 		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
 		unset_flags(b);
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+		dprintkrw("dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
+		       , index
+		       , buf->index, buf
+		       , buf->type, buf->bytesused, buf->length
+		       , buf->flags, buf->field
+		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
+		       , buf->sequence
+			);
 		return 0;
 	default:
 		return -EINVAL;
@@ -2216,7 +2247,6 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 
 	buffer_size = dev->buffer_size;
 	bytesused = dev->pix_format.sizeimage;
-
 	for (i = 0; i < dev->buffers_number; ++i) {
 		struct v4l2_buffer *b = &dev->buffers[i].buffer;
 		b->index = i;
