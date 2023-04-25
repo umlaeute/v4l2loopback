@@ -92,6 +92,24 @@ static const char *buftype2str(unsigned int type)
 	return "unknown";
 }
 
+static const char *bufmemory2str(unsigned int mem)
+{
+	switch(mem) {
+	case V4L2_MEMORY_MMAP:
+		return "MMAP";
+	case V4L2_MEMORY_USERPTR:
+		return "USERPTR";
+	case V4L2_MEMORY_OVERLAY:
+		return "OVERLAY";
+	case V4L2_MEMORY_DMABUF:
+		return "DMABUF";
+	default:
+		break;
+	}
+	return "unknown";
+}
+
+
 static const char *snprintf_format(char *buf, size_t size,
 				   struct v4l2_format *fmt)
 {
@@ -125,10 +143,13 @@ static const char *snprintf_format(char *buf, size_t size,
 static const char *snprintf_buffer(char *strbuf, size_t size,
 				   struct v4l2_buffer *buf)
 {
-	snprintf(strbuf, size, "@%p #%d:%s length=%d used=%d field=%s @%ld.%06ld",
-		 buf,
-		 buf->index, buftype2str(buf->type), buf->length, buf->bytesused,
-		 field2str(buf->field), buf->timestamp.tv_sec,
-		 buf->timestamp.tv_usec);
+	snprintf(strbuf, size, "buffer#%d @ %p %s bytesused=%d, length=%d flags=0x%08X field=%s timestamp=%ld.%06ld memory=%s (offset=%d)"
+		 , buf->index, buf, buftype2str(buf->type)
+		 , buf->bytesused, buf->length
+		 , buf->flags
+		 , field2str(buf->field)
+		 , buf->timestamp.tv_sec, buf->timestamp.tv_usec
+		 , bufmemory2str(buf->memory), buf->m.offset
+		);
 	return strbuf;
 }

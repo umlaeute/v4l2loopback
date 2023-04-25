@@ -30,6 +30,11 @@
 
 #define CLEAR(x) memset(&(x), 0, sizeof(x))
 
+#define SET_QUEUED(buffer) ((buffer).flags |= V4L2_BUF_FLAG_QUEUED)
+
+#define IS_QUEUED(buffer) \
+    ((buffer).flags & (V4L2_BUF_FLAG_QUEUED | V4L2_BUF_FLAG_DONE))
+
 enum io_method {
 	IO_METHOD_WRITE,
 	IO_METHOD_MMAP,
@@ -146,12 +151,16 @@ static int write_frame(void)
 			buf.timestamp.tv_usec = 0;
 		}
 		printf("MMAP\t%s\n",
-		       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
+		       snprintf_buffer(strbuf, sizeof(strbuf), &buf));fflush(stdout);
 		assert(buf.index < n_buffers);
 		process_image(buffers[buf.index].start, buf.bytesused);
 
 		if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 			errno_exit("VIDIOC_QBUF");
+		if(!IS_QUEUED (buf)) {
+			printf("driver pretends buffer is not queued even if queue succeeded\n");
+			SET_QUEUED(buf);
+		}
 		break;
 
 	case IO_METHOD_USERPTR:
