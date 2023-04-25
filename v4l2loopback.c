@@ -1506,6 +1506,10 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return 0;
 	}
 
+	if (V4L2_TYPE_IS_OUTPUT(b->type) && (!dev->ready_for_output)) {
+		return -EBUSY;
+	}
+
 	init_buffers(dev);
 	switch (b->memory) {
 	case V4L2_MEMORY_MMAP:
