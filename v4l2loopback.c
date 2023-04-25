@@ -439,6 +439,155 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 	}
 }
 
+static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
+			     const u32 maxwidth, const u32 maxheight)
+{
+	u32 width = fmt->fmt.pix.width, height = fmt->fmt.pix.height;
+	u32 pixelformat = fmt->fmt.pix.pixelformat;
+	struct v4l2_format fmt0 = *fmt;
+	u32 bytesperline = 0, sizeimage = 0;
+	if (width < 1)
+		width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	if (width > maxwidth)
+		width = maxwidth;
+	if (height < 1)
+		height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	if (height > maxheight)
+		height = maxheight;
+
+	/* sets: width,height,pixelformat,bytesperline,sizeimage */
+	if (!(V4L2_TYPE_IS_MULTIPLANAR(fmt0.type))) {
+		fmt0.fmt.pix.bytesperline = 0;
+		fmt0.fmt.pix.sizeimage = 0;
+	}
+
+	if (0) {
+		;
+	} else if (!v4l2_fill_pixfmt(&fmt0.fmt.pix, pixelformat, width,
+				     height)) {
+		;
+	} else if (!v4l2_fill_pixfmt_mp(&fmt0.fmt.pix_mp, pixelformat, width,
+					height)) {
+		;
+	} else {
+		const struct v4l2l_format *format =
+			format_by_fourcc(pixelformat);
+		if (!format)
+			return -EINVAL;
+		pix_format_set_size(&fmt0.fmt.pix, format, width, height);
+		fmt0.fmt.pix.pixelformat = format->fourcc;
+	}
+
+	if (V4L2_TYPE_IS_MULTIPLANAR(fmt0.type)) {
+		*fmt = fmt0;
+
+		if ((fmt->fmt.pix_mp.colorspace == V4L2_COLORSPACE_DEFAULT) ||
+		    (fmt->fmt.pix_mp.colorspace > V4L2_COLORSPACE_DCI_P3))
+			fmt->fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
+		if (V4L2_FIELD_ANY == fmt->fmt.pix_mp.field)
+			fmt->fmt.pix_mp.field = V4L2_FIELD_NONE;
+		if (capture)
+			fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+		else
+			fmt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	} else {
+		bytesperline = fmt->fmt.pix.bytesperline;
+		sizeimage = fmt->fmt.pix.sizeimage;
+
+		*fmt = fmt0;
+
+		if (!fmt->fmt.pix.bytesperline)
+			fmt->fmt.pix.bytesperline = bytesperline;
+		if (!fmt->fmt.pix.sizeimage)
+			fmt->fmt.pix.sizeimage = sizeimage;
+
+		if ((fmt->fmt.pix.colorspace == V4L2_COLORSPACE_DEFAULT) ||
+		    (fmt->fmt.pix.colorspace > V4L2_COLORSPACE_DCI_P3))
+			fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
+		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
+			fmt->fmt.pix.field = V4L2_FIELD_NONE;
+		if (capture)
+			fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		else
+			fmt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	}
+
+	return 0;
+}
+
+static int pix_format_eq(const struct v4l2_pix_format *ref,
+			 const struct v4l2_pix_format *tgt, int strict)
+{
+	/* check if the two formats are equivalent.
+	 * ANY fields are handled gracefully
+	 */
+#define _pix_format_eq0(x)    \
+	if (ref->x != tgt->x) \
+	result = 0
+#define _pix_format_eq1(x, def)                              \
+	do {                                                 \
+		if ((def != tgt->x) && (ref->x != tgt->x)) { \
+			printk(KERN_INFO #x " failed");      \
+			result = 0;                          \
+		}                                            \
+	} while (0)
+	int result = 1;
+	_pix_format_eq0(width);
+	_pix_format_eq0(height);
+	_pix_format_eq0(pixelformat);
+	if (!strict)
+		return result;
+	_pix_format_eq1(field, V4L2_FIELD_ANY);
+	_pix_format_eq0(bytesperline);
+	_pix_format_eq0(sizeimage);
+	_pix_format_eq1(colorspace, V4L2_COLORSPACE_DEFAULT);
+	return result;
+}
+
+static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f);
+static int inner_try_setfmt(struct file *file, struct v4l2_format *fmt)
+{
+	int capture = V4L2_TYPE_IS_CAPTURE(fmt->type);
+	struct v4l2_loopback_device *dev;
+	int needschange = 0;
+	char buf[5];
+	buf[4] = 0;
+
+	dev = v4l2loopback_getdevice(file);
+
+	needschange = !(pix_format_eq(&dev->pix_format, &fmt->fmt.pix, 0));
+	if (dev->ready_for_capture > 0 || dev->active_readers > 0) {
+		/* the format is fixated if we
+		   - have readers (active_readers>0)
+		   - and/or have writers (ready_for_capture>0)
+		*/
+
+		fmt->fmt.pix = dev->pix_format;
+		if (needschange) {
+			if (dev->active_readers > 0 && capture) {
+				/* cannot call fmt_cap while there are readers */
+				return -EBUSY;
+			}
+			if (dev->ready_for_capture > 0 && !capture) {
+				/* cannot call fmt_out while there are writers */
+				return -EBUSY;
+			}
+		}
+	}
+	if (v4l2l_fill_format(fmt, capture, dev->max_width, dev->max_height) !=
+	    0) {
+		return -EINVAL;
+	}
+
+	if (1) {
+		char buf[5];
+		buf[4] = 0;
+		dprintk("capFOURCC=%s\n",
+			fourcc2str(dev->pix_format.pixelformat, buf));
+	}
+	return 0;
+}
+
 static int set_timeperframe(struct v4l2_loopback_device *dev,
 			    struct v4l2_fract *tpf)
 {
@@ -866,7 +1015,7 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv,
 }
 
 /* checks if it is OK to change to format fmt;
- * actual check is done by inner_try_fmt_cap
+ * actual check is done by inner_try_setfmt
  * just checking that pixelformat is OK and set other parameters, app should
  * obey this decision
  * called on VIDIOC_TRY_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
@@ -874,24 +1023,13 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv,
 static int vidioc_try_fmt_cap(struct file *file, void *priv,
 			      struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_device *dev;
-	char buf[5];
-
-	dev = v4l2loopback_getdevice(file);
-
-	if (0 == dev->ready_for_capture) {
-		dprintk("setting fmt_cap not possible yet\n");
-		return -EBUSY;
-	}
-
-	if (fmt->fmt.pix.pixelformat != dev->pix_format.pixelformat)
+	int ret = 0;
+	if (!V4L2_TYPE_IS_CAPTURE(fmt->type))
 		return -EINVAL;
-
-	fmt->fmt.pix = dev->pix_format;
-
-	buf[4] = 0;
-	dprintk("capFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf));
-	return 0;
+	ret = inner_try_setfmt(file, fmt);
+	if (-EBUSY == ret)
+		return 0;
+	return ret;
 }
 
 /* sets new output format, if possible
@@ -902,7 +1040,15 @@ static int vidioc_try_fmt_cap(struct file *file, void *priv,
 static int vidioc_s_fmt_cap(struct file *file, void *priv,
 			    struct v4l2_format *fmt)
 {
-	return vidioc_try_fmt_cap(file, priv, fmt);
+	int ret;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	if (!V4L2_TYPE_IS_CAPTURE(fmt->type))
+		return -EINVAL;
+	ret = inner_try_setfmt(file, fmt);
+	if (!ret) {
+		dev->pix_format = fmt->fmt.pix;
+	}
+	return ret;
 }
 
 /* ------------------ OUTPUT ----------------------- */
@@ -985,52 +1131,13 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
 static int vidioc_try_fmt_out(struct file *file, void *priv,
 			      struct v4l2_format *fmt)
 {
-	struct v4l2_loopback_device *dev;
-	MARK();
-
-	dev = v4l2loopback_getdevice(file);
-
-	/* TODO(vasaka) loopback does not care about formats writer want to set,
-	 * maybe it is a good idea to restrict format somehow */
-	if (dev->ready_for_capture) {
-		fmt->fmt.pix = dev->pix_format;
-	} else {
-		__u32 w = fmt->fmt.pix.width;
-		__u32 h = fmt->fmt.pix.height;
-		__u32 pixfmt = fmt->fmt.pix.pixelformat;
-		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
-
-		if (w > dev->max_width)
-			w = dev->max_width;
-		if (h > dev->max_height)
-			h = dev->max_height;
-
-		dprintk("trying image %dx%d\n", w, h);
-
-		if (w < 1)
-			w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
-
-		if (h < 1)
-			h = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
-
-		if (NULL == format)
-			format = &formats[0];
-
-		pix_format_set_size(&fmt->fmt.pix, format, w, h);
-
-		fmt->fmt.pix.pixelformat = format->fourcc;
-
-		if ((fmt->fmt.pix.colorspace == V4L2_COLORSPACE_DEFAULT) ||
-		    (fmt->fmt.pix.colorspace > V4L2_COLORSPACE_DCI_P3))
-			fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
-
-		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
-			fmt->fmt.pix.field = V4L2_FIELD_NONE;
-
-		/* FIXXME: try_fmt should never modify the device-state */
-		dev->pix_format = fmt->fmt.pix;
-	}
-	return 0;
+	int ret = 0;
+	if (!V4L2_TYPE_IS_OUTPUT(fmt->type))
+		return -EINVAL;
+	ret = inner_try_setfmt(file, fmt);
+	if (-EBUSY == ret)
+		return 0;
+	return ret;
 }
 
 /* sets new output format, if possible;
@@ -1042,26 +1149,28 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 			    struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
-	char buf[5];
 	int ret;
-	MARK();
-
-	dev = v4l2loopback_getdevice(file);
-	ret = vidioc_try_fmt_out(file, priv, fmt);
-
-	dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
-		dev->pix_format.sizeimage);
-
+	char buf[5];
 	buf[4] = 0;
-	dprintk("outFOURCC=%s\n", fourcc2str(dev->pix_format.pixelformat, buf));
+	if (!V4L2_TYPE_IS_OUTPUT(fmt->type))
+		return -EINVAL;
+	dev = v4l2loopback_getdevice(file);
 
-	if (ret < 0)
-		return ret;
+	ret = inner_try_setfmt(file, fmt);
+	if (!ret) {
+		dev->pix_format = fmt->fmt.pix;
+		dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
+			dev->pix_format.sizeimage);
+		dprintk("outFOURCC=%s\n",
+			fourcc2str(dev->pix_format.pixelformat, buf));
 
-	if (!dev->ready_for_capture) {
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-		fmt->fmt.pix.sizeimage = dev->buffer_size;
-		ret = allocate_buffers(dev);
+		if (!dev->ready_for_capture) {
+			dev->buffer_size =
+				PAGE_ALIGN(dev->pix_format.sizeimage);
+			// JMZ: TODO get rid of the next line
+			fmt->fmt.pix.sizeimage = dev->buffer_size;
+			ret = allocate_buffers(dev);
+		}
 	}
 	return ret;
 }
@@ -1521,27 +1630,23 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		dprintkrw("qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
-		       , index
-		       , buf->index, buf
-		       , buf->type, buf->bytesused, buf->length
-		       , buf->flags, buf->field
-		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
-		       , buf->sequence
-			);
+		dprintkrw(
+			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			index, buf->index, buf, buf->type, buf->bytesused,
+			buf->length, buf->flags, buf->field,
+			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->sequence);
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dprintkrw("qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
-		       , index
-		       , buf->index, buf
-		       , buf->type, buf->bytesused, buf->length
-		       , buf->flags, buf->field
-		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
-		       , buf->sequence
-			);
-		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY))
-		    && (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
+		dprintkrw(
+			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			index, buf->index, buf, buf->type, buf->bytesused,
+			buf->length, buf->flags, buf->field,
+			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->sequence);
+		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY)) &&
+		    (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
 			v4l2l_get_timestamp(&b->buffer);
 		else {
 			b->buffer.timestamp = buf->timestamp;
@@ -1655,14 +1760,12 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		}
 		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index].buffer;
-		dprintkrw("dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
-		       , index
-		       , buf->index, buf
-		       , buf->type, buf->bytesused, buf->length
-		       , buf->flags, buf->field
-		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
-		       , buf->sequence
-			);
+		dprintkrw(
+			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			index, buf->index, buf, buf->type, buf->bytesused,
+			buf->length, buf->flags, buf->field,
+			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->sequence);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		spin_lock_bh(&dev->list_lock);
@@ -1676,14 +1779,12 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		unset_flags(b);
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-		dprintkrw("dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n"
-		       , index
-		       , buf->index, buf
-		       , buf->type, buf->bytesused, buf->length
-		       , buf->flags, buf->field
-		       , buf->timestamp.tv_sec, buf->timestamp.tv_usec
-		       , buf->sequence
-			);
+		dprintkrw(
+			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			index, buf->index, buf, buf->type, buf->bytesused,
+			buf->length, buf->flags, buf->field,
+			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->sequence);
 		return 0;
 	default:
 		return -EINVAL;
