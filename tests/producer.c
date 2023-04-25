@@ -33,7 +33,7 @@
 #define SET_QUEUED(buffer) ((buffer).flags |= V4L2_BUF_FLAG_QUEUED)
 
 #define IS_QUEUED(buffer) \
-    ((buffer).flags & (V4L2_BUF_FLAG_QUEUED | V4L2_BUF_FLAG_DONE))
+	((buffer).flags & (V4L2_BUF_FLAG_QUEUED | V4L2_BUF_FLAG_DONE))
 
 enum io_method {
 	IO_METHOD_WRITE,
@@ -80,17 +80,16 @@ static int xioctl(int fh, unsigned long int request, void *arg)
 	return r;
 }
 
-
 static unsigned int random_nextseed = 148985372;
 static unsigned char randombyte(void)
 {
 	random_nextseed = (random_nextseed * 472940017) + 832416023;
-	return ((random_nextseed>>16) & 0xFF);
+	return ((random_nextseed >> 16) & 0xFF);
 }
 static void process_image(unsigned char *data, size_t length)
 {
 	size_t i;
-	for(i=0; i<length; i++) {
+	for (i = 0; i < length; i++) {
 		data[i] = randombyte();
 	}
 }
@@ -118,7 +117,8 @@ static int write_frame(void)
 				errno_exit("write");
 			}
 		}
-		printf("WRITE %p: %lu/%lu\n", buffers[0].start, buffers[0].bytesused, buffers[0].length);
+		printf("WRITE %p: %lu/%lu\n", buffers[0].start,
+		       buffers[0].bytesused, buffers[0].length);
 		break;
 
 	case IO_METHOD_MMAP:
@@ -151,13 +151,14 @@ static int write_frame(void)
 			buf.timestamp.tv_usec = 0;
 		}
 		printf("MMAP\t%s\n",
-		       snprintf_buffer(strbuf, sizeof(strbuf), &buf));fflush(stdout);
+		       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
+		fflush(stdout);
 		assert(buf.index < n_buffers);
 		process_image(buffers[buf.index].start, buf.bytesused);
 
 		if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 			errno_exit("VIDIOC_QBUF");
-		if(!IS_QUEUED (buf)) {
+		if (!IS_QUEUED(buf)) {
 			printf("driver pretends buffer is not queued even if queue succeeded\n");
 			SET_QUEUED(buf);
 		}
@@ -264,7 +265,8 @@ static void start_capturing(void)
 			buf.length = buffers[i].length;
 			buf.bytesused = buffers[i].bytesused;
 
-			printf("MMAP init qbuf %d/%d (length=%d): %s\n", i, n_buffers, buffers[i].length,
+			printf("MMAP init qbuf %d/%d (length=%d): %s\n", i,
+			       n_buffers, buffers[i].length,
 			       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
 			if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 				errno_exit("VIDIOC_QBUF");
@@ -400,7 +402,8 @@ static void init_mmap(void)
 
 		if (MAP_FAILED == buffers[n_buffers].start)
 			errno_exit("mmap");
-		printf("buffer#%d @%p of %d bytes\n", n_buffers, buffers[n_buffers].start, buffers[n_buffers].length);
+		printf("buffer#%d @%p of %d bytes\n", n_buffers,
+		       buffers[n_buffers].start, buffers[n_buffers].length);
 	}
 }
 
@@ -536,7 +539,7 @@ static void init_device(void)
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
 
 	switch (fmt.type) {
-	case  V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		fmt.fmt.pix.width = width;
 		fmt.fmt.pix.height = height;
 		fmt.fmt.pix.pixelformat = pixelformat;
@@ -548,7 +551,8 @@ static void init_device(void)
 	printf("finalizing format: %s\n",
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
 	if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
-		fprintf(stderr, "VIDIOC_S_FMT error %d, %s\n", errno, strerror(errno));
+		fprintf(stderr, "VIDIOC_S_FMT error %d, %s\n", errno,
+			strerror(errno));
 	}
 	printf("final format: %s\n",
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));

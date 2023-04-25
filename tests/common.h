@@ -94,7 +94,7 @@ static const char *buftype2str(unsigned int type)
 
 static const char *bufmemory2str(unsigned int mem)
 {
-	switch(mem) {
+	switch (mem) {
 	case V4L2_MEMORY_MMAP:
 		return "MMAP";
 	case V4L2_MEMORY_USERPTR:
@@ -109,7 +109,6 @@ static const char *bufmemory2str(unsigned int mem)
 	return "unknown";
 }
 
-
 static const char *snprintf_format(char *buf, size_t size,
 				   struct v4l2_format *fmt)
 {
@@ -118,7 +117,8 @@ static const char *snprintf_format(char *buf, size_t size,
 	switch (fmt->type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		snprintf(buf, size, "%s:%dx%d:%s bytes/line=%u sizeimage=%u field=%s",
+		snprintf(buf, size,
+			 "%s:%dx%d:%s bytes/line=%u sizeimage=%u field=%s",
 			 buftype2str(fmt->type), fmt->fmt.pix.width,
 			 fmt->fmt.pix.height,
 			 fourcc2str(fmt->fmt.pix.pixelformat, fourcc),
@@ -143,13 +143,12 @@ static const char *snprintf_format(char *buf, size_t size,
 static const char *snprintf_buffer(char *strbuf, size_t size,
 				   struct v4l2_buffer *buf)
 {
-	snprintf(strbuf, size, "buffer#%d @ %p %s bytesused=%d, length=%d flags=0x%08X field=%s timestamp=%ld.%06ld memory=%s (offset=%d)"
-		 , buf->index, buf, buftype2str(buf->type)
-		 , buf->bytesused, buf->length
-		 , buf->flags
-		 , field2str(buf->field)
-		 , buf->timestamp.tv_sec, buf->timestamp.tv_usec
-		 , bufmemory2str(buf->memory), buf->m.offset
-		);
+	snprintf(
+		strbuf, size,
+		"buffer#%d @ %p %s bytesused=%d, length=%d flags=0x%08X field=%s timestamp=%ld.%06ld memory=%s (offset=%d)",
+		buf->index, buf, buftype2str(buf->type), buf->bytesused,
+		buf->length, buf->flags, field2str(buf->field),
+		buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+		bufmemory2str(buf->memory), buf->m.offset);
 	return strbuf;
 }
