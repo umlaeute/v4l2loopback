@@ -474,7 +474,7 @@ static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
 
 	if (0) {
 		;
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
 	} else if (!v4l2_fill_pixfmt(&fmt0.fmt.pix, pixelformat, width,
 				     height)) {
 		;
