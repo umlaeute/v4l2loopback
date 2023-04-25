@@ -125,7 +125,8 @@ static const char *snprintf_format(char *buf, size_t size,
 static const char *snprintf_buffer(char *strbuf, size_t size,
 				   struct v4l2_buffer *buf)
 {
-	snprintf(strbuf, size, "#%d:%s (bytes=%d) field=%s @%ld.%06ld",
+	snprintf(strbuf, size, "@%p #%d:%s (bytes=%d) field=%s @%ld.%06ld",
+		 buf,
 		 buf->index, buftype2str(buf->type), buf->bytesused,
 		 field2str(buf->field), buf->timestamp.tv_sec,
 		 buf->timestamp.tv_usec);

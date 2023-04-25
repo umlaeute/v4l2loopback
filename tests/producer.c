@@ -49,6 +49,7 @@ static int frame_count = 70;
 static unsigned int width = 640;
 static unsigned int height = 480;
 static unsigned int fourcc = V4L2_PIX_FMT_YUYV;
+static char strbuf[1024];
 
 static void errno_exit(const char *s)
 {
@@ -87,7 +88,6 @@ static void process_image(unsigned char *data, size_t length)
 
 static int write_frame(void)
 {
-	char strbuf[1024];
 	struct v4l2_buffer buf;
 	unsigned int i;
 
@@ -240,6 +240,8 @@ static void start_capturing(void)
 			buf.memory = V4L2_MEMORY_MMAP;
 			buf.index = i;
 
+			printf("MMAP init qbuf %d/%d: %s\n", i, n_buffers,
+			       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
 			if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 				errno_exit("VIDIOC_QBUF");
 		}
@@ -259,6 +261,8 @@ static void start_capturing(void)
 			buf.m.userptr = (unsigned long)buffers[i].start;
 			buf.length = buffers[i].length;
 
+			printf("USERPTR init qbuf %d/%d: %s\n", i, n_buffers,
+			       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
 			if (-1 == xioctl(fd, VIDIOC_QBUF, &buf))
 				errno_exit("VIDIOC_QBUF");
 		}
@@ -313,7 +317,6 @@ static void init_write(unsigned int buffer_size)
 
 static void init_mmap(void)
 {
-	char strbuf[1024];
 	const int count = 4;
 	struct v4l2_requestbuffers req;
 
@@ -370,7 +373,7 @@ static void init_mmap(void)
 
 		if (MAP_FAILED == buffers[n_buffers].start)
 			errno_exit("mmap");
-		//printf("buffer @%p of %d bytes\n", buffers[n_buffers].start, buffers[n_buffers].length);
+		printf("buffer#%d @%p of %d bytes\n", n_buffers, buffers[n_buffers].start, buffers[n_buffers].length);
 	}
 }
 
@@ -416,7 +419,6 @@ static void init_userp(unsigned int buffer_size)
 
 static void init_device(void)
 {
-	char strbuf[1024];
 	struct v4l2_capability cap;
 	struct v4l2_cropcap cropcap;
 	struct v4l2_crop crop;
@@ -488,7 +490,7 @@ static void init_device(void)
 	printf("got format: %s\n",
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
 
-	/* try to se tthe current format (no-change should always succeed) */
+	/* try to se the current format (no-change should always succeed) */
 	if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0)
 		errno_exit("VIDIOC_S_FMT");
 	printf("set format: %s\n",
