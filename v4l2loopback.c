@@ -105,6 +105,7 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 
 	b->timestamp.tv_sec = ts.tv_sec;
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
+	b->flags |= V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 }
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
