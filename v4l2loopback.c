@@ -1527,10 +1527,13 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw("output QBUF pos: %lld index: %d\n",
 			  (long long)dev->write_position, index);
-		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
+		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY))
+		    && (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
 			v4l2l_get_timestamp(&b->buffer);
-		else
+		else {
 			b->buffer.timestamp = buf->timestamp;
+			b->buffer.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
+		}
 		b->buffer.bytesused = buf->bytesused;
 		set_done(b);
 		buffer_written(dev, b);
