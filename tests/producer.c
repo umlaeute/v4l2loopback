@@ -12,6 +12,7 @@
 #include <string.h>
 #include <assert.h>
 
+#include <time.h> /* clock_gettime() */
 #include <getopt.h> /* getopt_long() */
 
 #include <fcntl.h> /* low-level i/o */
@@ -50,6 +51,7 @@ static int frame_count = 70;
 static unsigned int width = 640;
 static unsigned int height = 480;
 static unsigned int pixelformat = V4L2_PIX_FMT_YUYV;
+static int set_timestamp = 0;
 static char strbuf[1024];
 
 static void errno_exit(const char *s)
@@ -73,20 +75,22 @@ static int xioctl(int fh, unsigned long int request, void *arg)
 	return r;
 }
 
+
+static unsigned int random_nextseed = 148985372;
 static unsigned char randombyte(void)
 {
-	static unsigned int random_nextseed = 1489853723;
-	random_nextseed = random_nextseed * 472940017 + 832416023;
-	return random_nextseed & 0xFF;
+	random_nextseed = (random_nextseed * 472940017) + 832416023;
+	return ((random_nextseed>>16) & 0xFF);
 }
 static void process_image(unsigned char *data, size_t length)
 {
-	printf("fill %d bytes at %p\n", length, data);
-	while (length--) {
-		*data++ = randombyte();
+	size_t i;
+	for(i=0; i<length; i++) {
+		data[i] = randombyte();
 	}
 }
 
+static int framenum = 0;
 static int write_frame(void)
 {
 	struct v4l2_buffer buf;
@@ -109,7 +113,7 @@ static int write_frame(void)
 				errno_exit("write");
 			}
 		}
-		printf("WRITE\t%lu/%lu@%p\n", buffers[0].bytesused, buffers[0].length, buffers[0].start);
+		printf("WRITE %p: %lu/%lu\n", buffers[0].start, buffers[0].bytesused, buffers[0].length);
 		break;
 
 	case IO_METHOD_MMAP:
@@ -132,7 +136,15 @@ static int write_frame(void)
 				errno_exit("VIDIOC_DQBUF");
 			}
 		}
-
+		if (set_timestamp) {
+			struct timespec curTime;
+			clock_gettime(CLOCK_MONOTONIC, &curTime);
+			buf.timestamp.tv_sec = curTime.tv_sec;
+			buf.timestamp.tv_usec = curTime.tv_nsec / 1000ULL;
+		} else {
+			buf.timestamp.tv_sec = 0;
+			buf.timestamp.tv_usec = 0;
+		}
 		printf("MMAP\t%s\n",
 		       snprintf_buffer(strbuf, sizeof(strbuf), &buf));
 		assert(buf.index < n_buffers);
@@ -584,12 +596,13 @@ static void usage(FILE *fp, int argc, char **argv)
 		"-u | --userp         Use application allocated buffers\n"
 		"-c | --count         Number of frames to grab [%i] (negative numbers: no limit)\n"
 		"-f | --format        Use format [%dx%d@%s]\n"
+		"-t | --timestamp     Set timestamp"
 		"",
 		argv[0], dev_name, frame_count, width, height,
 		fourcc2str(pixelformat, fourccstr));
 }
 
-static const char short_options[] = "d:hmwuf:c:";
+static const char short_options[] = "d:hmwuc:f:t";
 
 static const struct option long_options[] = {
 	{ "device", required_argument, NULL, 'd' },
@@ -599,6 +612,7 @@ static const struct option long_options[] = {
 	{ "userp", no_argument, NULL, 'u' },
 	{ "count", required_argument, NULL, 'c' },
 	{ "format", required_argument, NULL, 'f' },
+	{ "timestamp", no_argument, NULL, 't' },
 	{ 0, 0, 0, 0 }
 };
 
@@ -659,6 +673,9 @@ int main(int argc, char **argv)
 			} else {
 				errno_exit(optarg);
 			}
+			break;
+		case 't':
+			set_timestamp = 1;
 			break;
 		}
 
