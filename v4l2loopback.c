@@ -2539,7 +2539,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->pix_format.height = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
 	dev->pix_format.pixelformat = formats[0].fourcc;
 	dev->pix_format.colorspace =
-		V4L2_COLORSPACE_SRGB; /* do we need to set this ? */
+		V4L2_COLORSPACE_DEFAULT; /* do we need to set this ? */
 	dev->pix_format.field = V4L2_FIELD_NONE;
 
 	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
