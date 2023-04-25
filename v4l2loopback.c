@@ -392,6 +392,17 @@ struct v4l2l_format {
 
 #include "v4l2loopback_formats.h"
 
+#ifndef V4L2_TYPE_IS_CAPTURE
+#define V4L2_TYPE_IS_CAPTURE(type)             \
+	((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE                   \
+         || (type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
+#endif /* V4L2_TYPE_IS_CAPTURE */
+#ifndef V4L2_TYPE_IS_OUTPUT
+#define V4L2_TYPE_IS_OUTPUT(type)             \
+	((type) == V4L2_BUF_TYPE_VIDEO_OUTPUT                   \
+         || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
+#endif /* V4L2_TYPE_IS_OUTPUT */
+
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
 static char *fourcc2str(unsigned int fourcc, char buf[4])
@@ -463,12 +474,14 @@ static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
 
 	if (0) {
 		;
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 2, 0)
 	} else if (!v4l2_fill_pixfmt(&fmt0.fmt.pix, pixelformat, width,
 				     height)) {
 		;
 	} else if (!v4l2_fill_pixfmt_mp(&fmt0.fmt.pix_mp, pixelformat, width,
 					height)) {
 		;
+#endif
 	} else {
 		const struct v4l2l_format *format =
 			format_by_fourcc(pixelformat);
