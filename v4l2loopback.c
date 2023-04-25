@@ -393,14 +393,14 @@ struct v4l2l_format {
 #include "v4l2loopback_formats.h"
 
 #ifndef V4L2_TYPE_IS_CAPTURE
-#define V4L2_TYPE_IS_CAPTURE(type)             \
-	((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE                   \
-         || (type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE
+#define V4L2_TYPE_IS_CAPTURE(type)                \
+	((type) == V4L2_BUF_TYPE_VIDEO_CAPTURE || \
+	 (type) == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 #endif /* V4L2_TYPE_IS_CAPTURE */
 #ifndef V4L2_TYPE_IS_OUTPUT
-#define V4L2_TYPE_IS_OUTPUT(type)             \
-	((type) == V4L2_BUF_TYPE_VIDEO_OUTPUT                   \
-         || (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE
+#define V4L2_TYPE_IS_OUTPUT(type)                \
+	((type) == V4L2_BUF_TYPE_VIDEO_OUTPUT || \
+	 (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 #endif /* V4L2_TYPE_IS_OUTPUT */
 
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
