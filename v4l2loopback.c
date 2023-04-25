@@ -1631,19 +1631,19 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		dprintkrw(
-			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
 			buf->sequence);
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw(
-			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
 			buf->sequence);
 		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY)) &&
 		    (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
@@ -1761,10 +1761,10 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index].buffer;
 		dprintkrw(
-			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
 			buf->sequence);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
@@ -1780,10 +1780,10 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 		dprintkrw(
-			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06lld sequence=%d\n",
+			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, buf->timestamp.tv_usec,
+			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
 			buf->sequence);
 		return 0;
 	default:
