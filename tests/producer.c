@@ -506,10 +506,21 @@ static void init_device(void)
 	fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	if (-1 == xioctl(fd, VIDIOC_G_FMT, &fmt))
 		errno_exit("VIDIOC_G_FMT");
+	printf("get format: %s\n",
+	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
+
+	/* try to set the current format (no-change should always succeed) */
+	if (xioctl(fd, VIDIOC_TRY_FMT, &fmt) < 0)
+		errno_exit("VIDIOC_TRY_FMT");
+	printf("tried format: %s\n",
+	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
+	/* and get the format again */
+	if (-1 == xioctl(fd, VIDIOC_G_FMT, &fmt))
+		errno_exit("VIDIOC_G_FMT");
 	printf("got format: %s\n",
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
 
-	/* try to se the current format (no-change should always succeed) */
+	/* try to set the current format (no-change should always succeed) */
 	if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0)
 		errno_exit("VIDIOC_S_FMT");
 	printf("set format: %s\n",
@@ -520,7 +531,6 @@ static void init_device(void)
 		fmt.fmt.pix.width = width;
 		fmt.fmt.pix.height = height;
 		fmt.fmt.pix.pixelformat = pixelformat;
-		strbuf[4] = 0; printf("pixelformat=%d (%s)\n", pixelformat, fourcc2str(pixelformat, strbuf));
 		break;
 	default:
 		printf("unable to set format for anything but output/single-plane\n");
