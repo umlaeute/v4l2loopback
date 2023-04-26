@@ -1019,8 +1019,7 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv,
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
-
-	if (!dev->ready_for_capture)
+	if (!dev->ready_for_capture && !dev->ready_for_output)
 		return -EINVAL;
 
 	fmt->fmt.pix = dev->pix_format;
