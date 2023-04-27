@@ -257,8 +257,10 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 	dprintf(2,
 		"\n <flags>  \tany of the following flags may be present"
 		"\n\t -n <name>           : pretty name for the device"
-		"\n\t -w <max_width>      : maximum allowed frame width"
-		"\n\t -h <max_height>     : maximum allowed frame height"
+		"\n\t -w <min_width>      : minimum allowed frame width"
+		"\n\t -h <min_height>     : minimum allowed frame height"
+		"\n\t -W <max_width>      : maximum allowed frame width"
+		"\n\t -H <max_height>     : maximum allowed frame height"
 		"\n\t -x <exclusive_caps> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
 		"\n\t -b <buffers>        : buffers to queue"
 		"\n\t -o <max_openers>    : maximum allowed concurrent openers"
@@ -458,37 +460,43 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 	printf("\tcapture_device#  : %d"
 	       "\n\toutput_device#   : %d"
 	       "\n\tcard_label       : %s"
+	       "\n\tmin_width        : %d"
 	       "\n\tmax_width        : %d"
+	       "\n\tmin_height       : %d"
 	       "\n\tmax_height       : %d"
 	       "\n\tannounce_all_caps: %d"
 	       "\n\tmax_buffers      : %d"
 	       "\n\tmax_openers      : %d"
 	       "\n\tdebug            : %d"
 	       "\n",
-	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->max_width,
-	       cfg->max_height, cfg->announce_all_caps, cfg->max_buffers,
-	       cfg->max_openers, cfg->debug);
+	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->min_width,
+	       cfg->max_width, cfg->min_height, cfg->max_height,
+	       cfg->announce_all_caps, cfg->max_buffers, cfg->max_openers,
+	       cfg->debug);
 	MARK();
 }
 
 static struct v4l2_loopback_config *
-make_conf(struct v4l2_loopback_config *cfg, const char *label, int max_width,
-	  int max_height, int exclusive_caps, int buffers, int openers,
-	  int capture_device, int output_device)
+make_conf(struct v4l2_loopback_config *cfg, const char *label, int min_width,
+	  int max_width, int min_height, int max_height, int exclusive_caps,
+	  int buffers, int openers, int capture_device, int output_device)
 {
 	if (!cfg)
 		return 0;
-	if (!label && max_width <= 0 && max_height <= 0 && exclusive_caps < 0 &&
-	    buffers <= 0 && openers <= 0 && capture_device < 0 &&
-	    output_device < 0)
+	/* check if at least one of the args are non-default */
+	if (!label && min_width <= 0 && max_width <= 0 && min_height <= 0 &&
+	    max_height <= 0 && exclusive_caps < 0 && buffers <= 0 &&
+	    openers <= 0 && capture_device < 0 && output_device < 0)
 		return 0;
 	cfg->capture_nr = capture_device;
 	cfg->output_nr = output_device;
 	cfg->card_label[0] = 0;
 	if (label)
 		snprintf(cfg->card_label, 32, "%s", label);
-	cfg->max_height = max_height;
-	cfg->max_width = max_width;
+	cfg->min_width = (min_width < 0) ? 0 : min_width;
+	cfg->max_width = (max_width < 0) ? 0 : max_width;
+	cfg->min_height = (min_height < 0) ? 0 : min_height;
+	cfg->max_height = (max_height < 0) ? 0 : max_height;
 	cfg->announce_all_caps = (exclusive_caps < 0) ? -1 : !exclusive_caps;
 	cfg->max_buffers = buffers;
 	cfg->max_openers = openers;
@@ -996,7 +1004,9 @@ int main(int argc, char **argv)
 	t_command cmd;
 
 	char *label = 0;
+	int min_width = -1;
 	int max_width = -1;
+	int min_height = -1;
 	int max_height = -1;
 	int exclusive_caps = -1;
 	int buffers = -1;
@@ -1018,7 +1028,8 @@ int main(int argc, char **argv)
 		help(argv[0], 0);
 		break;
 	case ADD:
-		while ((c = getopt(argc - 1, argv + 1, "vn:w:h:x:b:o:")) != -1)
+		while ((c = getopt(argc - 1, argv + 1, "vn:w:W:h:H:x:b:o:")) !=
+		       -1)
 			switch (c) {
 			case 'v':
 				verbose++;
@@ -1027,9 +1038,15 @@ int main(int argc, char **argv)
 				label = optarg;
 				break;
 			case 'w':
-				max_width = my_atoi("max_width", optarg);
+				min_width = my_atoi("min_width", optarg);
 				break;
 			case 'h':
+				min_height = my_atoi("min_height", optarg);
+				break;
+			case 'W':
+				max_width = my_atoi("max_width", optarg);
+				break;
+			case 'H':
 				max_height = my_atoi("max_height", optarg);
 				break;
 			case 'x':
@@ -1047,6 +1064,18 @@ int main(int argc, char **argv)
 				return 1;
 			}
 		fd = open_controldevice();
+		if (min_width > max_width && max_width > 0) {
+			dprintf(2,
+				"min_width (%d) must not be greater than max_width (%d)\n",
+				min_width, max_width);
+			return 1;
+		}
+		if (min_height > max_height && max_height > 0) {
+			dprintf(2,
+				"min_height (%d) must not be greater than max_height (%d)\n",
+				min_height, max_height);
+			return 1;
+		}
 		do {
 			struct v4l2_loopback_config cfg;
 			int capture_nr = -1, output_nr = -1;
@@ -1064,7 +1093,8 @@ int main(int argc, char **argv)
 				usage_topic(argv[0], cmd, argc - 2, argv + 2);
 			}
 			ret = add_device(fd,
-					 make_conf(&cfg, label, max_width,
+					 make_conf(&cfg, label, min_width,
+						   max_width, min_height,
 						   max_height, exclusive_caps,
 						   buffers, openers, capture_nr,
 						   output_nr),
