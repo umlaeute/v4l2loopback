@@ -981,10 +981,10 @@ static int called_deprecated(const char *device, const char *argument,
 			     const char *argname, t_argcheck argcheck)
 {
 	/* check if <device> does not look like a device, but <argument> does
-   * if so, assume that the user swapped the two */
+	 * if so, assume that the user swapped the two */
 	/* if the <device> looks about right, optionally do some extra
-   * <argument>-check, to see if it can be used
-   */
+	 * <argument>-check, to see if it can be used
+	 */
 
 	int deviceswapped = 0;
 	int argswapped = 0;
