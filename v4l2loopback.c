@@ -2700,8 +2700,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	/* FIXME set buffers to 0 */
 
 	/* Set initial format */
-	dev->pix_format.width = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_WIDTH; */
-	dev->pix_format.height = 0; /* V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT; */
+	dev->pix_format.width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	dev->pix_format.height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 	dev->pix_format.pixelformat = formats[0].fourcc;
 	dev->pix_format.colorspace =
 		V4L2_COLORSPACE_DEFAULT; /* do we need to set this ? */
