@@ -617,9 +617,9 @@ static void usage(FILE *fp, int argc, char **argv)
 		"-m | --mmap          Use memory mapped buffers [default]\n"
 		"-w | --write         Use write() calls\n"
 		"-u | --userp         Use application allocated buffers\n"
-		"-c | --count         Number of frames to grab [%i] (negative numbers: no limit)\n"
+		"-c | --count         Number of frames to create [%i] (negative numbers: no limit)\n"
 		"-f | --format        Use format [%dx%d@%s]\n"
-		"-t | --timestamp     Set timestamp"
+		"-t | --timestamp     Set timestamp\n"
 		"",
 		argv[0], dev_name, frame_count, width, height,
 		fourcc2str(pixelformat, fourccstr));
