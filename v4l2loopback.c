@@ -2419,13 +2419,17 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 static int allocate_timeout_image(struct v4l2_loopback_device *dev)
 {
 	MARK();
-	if (dev->buffer_size <= 0)
+	if (dev->buffer_size <= 0) {
+		dev->timeout_image_io = 0;
 		return -EINVAL;
+	}
 
 	if (dev->timeout_image == NULL) {
 		dev->timeout_image = vzalloc(dev->buffer_size);
-		if (dev->timeout_image == NULL)
+		if (dev->timeout_image == NULL) {
+			dev->timeout_image_io = 0;
 			return -ENOMEM;
+		}
 	}
 	return 0;
 }
