@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <getopt.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -234,6 +235,7 @@ typedef enum {
 	SET_CAPS,
 	GET_CAPS,
 	SET_TIMEOUTIMAGE,
+	MOO,
 	_UNKNOWN
 } t_command;
 
@@ -256,15 +258,16 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 		return;
 	dprintf(2,
 		"\n <flags>  \tany of the following flags may be present"
-		"\n\t -n <name>           : pretty name for the device"
-		"\n\t -w <min_width>      : minimum allowed frame width"
-		"\n\t -h <min_height>     : minimum allowed frame height"
-		"\n\t -W <max_width>      : maximum allowed frame width"
-		"\n\t -H <max_height>     : maximum allowed frame height"
-		"\n\t -x <exclusive_caps> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
-		"\n\t -b <buffers>        : buffers to queue"
-		"\n\t -o <max_openers>    : maximum allowed concurrent openers"
-		"\n\t -v                  : verbose mode (print properties of device after successfully creating it)"
+		"\n\t -n/--name <name>        : pretty name for the device"
+		"\n\t --min-width <w>         : minimum allowed frame width"
+		"\n\t -w/--max-width <w>      : maximum allowed frame width"
+		"\n\t --min-height <w>        : minimum allowed frame height"
+		"\n\t -h/--max-height <h>     : maximum allowed frame height"
+		"\n\t -x/--exclusive-caps <x> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
+		"\n\t -b/--buffers <num>      : buffers to queue"
+		"\n\t -o/--max-openers <num>  : maximum allowed concurrent openers"
+		"\n\t -v/--verbose            : verbose mode (print properties of device after successfully creating it)"
+		"\n\t -?/--help               : print this help"
 		"\n"
 		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
@@ -359,7 +362,7 @@ static void help_settimeoutimage(const char *program, int detail, int argc,
 		return;
 	dprintf(2,
 		"\n  <flags>\tany of the following flags may be present"
-		"\n\t -t <timeout>           : timeout (in ms)"
+		"\n\t -t/--timeout <timeout> : timeout (in ms)"
 		"\n"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n  <image>\timage file");
@@ -400,8 +403,8 @@ static void help(const char *name, int status)
 	dprintf(2, "\n\n");
 	dprintf(2, "\n general commands"
 		   "\n ================"
-		   "\n\t-v : print version and exit"
-		   "\n\t-h : print this help and exit");
+		   "\n\t-v/--version : print version and exit"
+		   "\n\t-h/-?/--help : print this help and exit");
 	/* brief helps */
 	for (cmd = ADD; cmd < _UNKNOWN; cmd++)
 		get_help(cmd)("", 0, 0, 0);
@@ -605,7 +608,7 @@ static int open_sysfs_file(const char *devicename, const char *filename,
 	sysdev[sizeof(sysdev) - 1] = 0;
 	fd = open(sysdev, flags);
 	if (fd < 0) {
-		perror("unable to open /sys-device");
+		perror(sysdev);
 		return -1;
 	}
 	//dprintf(2, "%s\n", sysdev);
@@ -892,6 +895,10 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "show-preroll-frame=false",
 			 0,
 			 0 };
+#if 0
+	printf("set-timeout-image '%s' for '%s' with %dms timeout\n", imagefile,
+	       devicename, timeout);
+#endif
 	snprintf(imagearg, 4096, "uri=file://%s",
 		 realpath(imagefile, imagefile2));
 	snprintf(devicearg, 4096, "device=%s", devicename);
@@ -937,30 +944,34 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 
 static t_command get_command(const char *command)
 {
-	if (!strncmp(command, "-h", 2))
+	if (!strncmp(command, "-h", 3))
 		return HELP;
-	if (!strncmp(command, "-?", 2))
+	if (!strncmp(command, "-?", 3))
 		return HELP;
-	if (!strncmp(command, "-v", 2))
+	if (!strncmp(command, "--help", 7))
+		return HELP;
+	if (!strncmp(command, "-v", 3))
 		return VERSION;
-	if (!strncmp(command, "--version", 9))
+	if (!strncmp(command, "--version", 10))
 		return VERSION;
 	if (!strncmp(command, "add", 4))
 		return ADD;
-	if (!strncmp(command, "del", 3))
+	if (!strncmp(command, "del", 3)) /* also allow delete */
 		return DELETE;
-	if (!strncmp(command, "query", 5))
+	if (!strncmp(command, "query", 6))
 		return QUERY;
-	if (!strncmp(command, "set-fps", 7))
+	if (!strncmp(command, "set-fps", 8))
 		return SET_FPS;
-	if (!strncmp(command, "get-fps", 7))
+	if (!strncmp(command, "get-fps", 8))
 		return GET_FPS;
-	if (!strncmp(command, "set-caps", 8))
+	if (!strncmp(command, "set-caps", 9))
 		return SET_CAPS;
-	if (!strncmp(command, "get-caps", 8))
+	if (!strncmp(command, "get-caps", 9))
 		return GET_CAPS;
-	if (!strncmp(command, "set-timeout-image", 17))
+	if (!strncmp(command, "set-timeout-image", 18))
 		return SET_TIMEOUTIMAGE;
+	if (!strncmp(command, "moo", 10))
+		return MOO;
 	return _UNKNOWN;
 }
 
@@ -996,8 +1007,36 @@ static int called_deprecated(const char *device, const char *argument,
 	return 0;
 }
 
+static int do_defaultargs(const char *progname, t_command cmd, int argc,
+			  char **argv)
+{
+	static const char options_short[] = "?h";
+	static const struct option options_long[] = {
+		{ "help", no_argument, NULL, 'h' }, { 0, 0, 0, 0 }
+	};
+	for (;;) {
+		int c;
+		int idx;
+		c = getopt_long(argc - 1, argv + 1, options_short, options_long,
+				&idx);
+		if (-1 == c)
+			break;
+		switch (c) {
+		case 'h':
+			usage_topic(argv[0], cmd, argc - 1, argv + 1);
+			exit(0);
+		default:
+			usage_topic(argv[0], cmd, argc - 1, argv + 1);
+			exit(1);
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char **argv)
 {
+	const char *progname = argv[0];
+	const char *cmdname;
 	int i;
 	int fd = -1;
 	int verbose = 0;
@@ -1014,22 +1053,49 @@ int main(int argc, char **argv)
 
 	int ret = 0;
 
-	int c;
+	static const char add_options_short[] = "?vn:w:h:x:b:o:";
+	static const struct option add_options_long[] = {
+		{ "help", no_argument, NULL, '?' },
+		{ "verbose", no_argument, NULL, 'v' },
+		{ "name", required_argument, NULL, 'n' },
+		{ "min-width", required_argument, NULL, 'w' + 0xFFFF },
+		{ "max-width", required_argument, NULL, 'w' },
+		{ "min-height", required_argument, NULL, 'h' + 0xFFFF },
+		{ "max-height", required_argument, NULL, 'h' },
+		{ "exclusive-caps", required_argument, NULL, 'x' },
+		{ "buffers", required_argument, NULL, 'b' },
+		{ "max-openers", required_argument, NULL, 'o' },
+		{ 0, 0, 0, 0 }
+	};
+	static const char timeoutimg_options_short[] = "?ht:";
+	static const struct option timeoutimg_options_long[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "timeout", required_argument, NULL, 't' },
+		{ 0, 0, 0, 0 }
+	};
 
 	if (argc < 2)
-		usage(argv[0]);
+		usage(progname);
 	cmd = get_command(argv[1]);
-	switch (cmd) {
-	case _UNKNOWN:
+	if (_UNKNOWN == cmd) {
 		dprintf(2, "unknown command '%s'\n\n", argv[1]);
-		usage(argv[0]);
-		break;
+		usage(progname);
+		return 1;
+	}
+	argc--;
+	argv++;
+	switch (cmd) {
 	case HELP:
-		help(argv[0], 0);
+		help(progname, 0);
 		break;
 	case ADD:
-		while ((c = getopt(argc - 1, argv + 1, "vn:w:W:h:H:x:b:o:")) !=
-		       -1)
+		for (;;) {
+			int c;
+			int idx;
+			c = getopt_long(argc, argv, add_options_short,
+					add_options_long, &idx);
+			if (-1 == c)
+				break;
 			switch (c) {
 			case 'v':
 				verbose++;
@@ -1037,16 +1103,16 @@ int main(int argc, char **argv)
 			case 'n':
 				label = optarg;
 				break;
-			case 'w':
+			case 'w' + 0xFFFF:
 				min_width = my_atoi("min_width", optarg);
 				break;
-			case 'h':
+			case 'h' + 0xFFFF:
 				min_height = my_atoi("min_height", optarg);
 				break;
-			case 'W':
+			case 'w':
 				max_width = my_atoi("max_width", optarg);
 				break;
-			case 'H':
+			case 'h':
 				max_height = my_atoi("max_height", optarg);
 				break;
 			case 'x':
@@ -1060,9 +1126,12 @@ int main(int argc, char **argv)
 				openers = my_atoi("openers", optarg);
 				break;
 			default:
-				usage_topic(argv[0], cmd, argc - 2, argv + 2);
+				usage_topic(progname, cmd, argc - 1, argv + 1);
 				return 1;
 			}
+		}
+		argc -= optind;
+		argv += optind;
 		fd = open_controldevice();
 		if (min_width > max_width && max_width > 0) {
 			dprintf(2,
@@ -1079,18 +1148,22 @@ int main(int argc, char **argv)
 		do {
 			struct v4l2_loopback_config cfg;
 			int capture_nr = -1, output_nr = -1;
-			if ((optind + 1) == argc) {
+			switch (argc) {
+			case 0:
 				/* no device given: pick some */
-			} else if ((optind + 2) == argc) {
+				break;
+			case 1:
 				/* single device given: use it for both input and output */
-				capture_nr = output_nr =
-					parse_device(argv[optind + 1]);
-			} else if ((optind + 3) == argc) {
+				capture_nr = output_nr = parse_device(argv[0]);
+				break;
+			case 2:
 				/* two devices given: capture_device and output_device */
-				capture_nr = parse_device(argv[optind + 1]);
-				output_nr = parse_device(argv[optind + 2]);
-			} else {
-				usage_topic(argv[0], cmd, argc - 2, argv + 2);
+				capture_nr = parse_device(argv[0]);
+				output_nr = parse_device(argv[1]);
+				break;
+			default:
+				usage_topic(progname, cmd, argc, argv);
+				return 1;
 			}
 			ret = add_device(fd,
 					 make_conf(&cfg, label, min_width,
@@ -1102,79 +1175,106 @@ int main(int argc, char **argv)
 		} while (0);
 		break;
 	case DELETE:
-		if (argc == 2)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+
+		if (!argc)
+			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
-		for (i = 2; i < argc; i++) {
+		for (i = 0; i < argc; i++) {
 			ret += (delete_device(fd, argv[i]) != 0);
 		}
 		ret = (ret > 0);
 		break;
 	case QUERY:
-		if (argc == 2)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (!argc)
+			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
-		for (i = 2; i < argc; i++) {
+		for (i = 0; i < argc; i++) {
 			ret += query_device(fd, argv[i]);
 		}
 		ret = (ret > 0);
 		break;
 	case SET_FPS:
-		if (argc != 4)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 2)
+			usage_topic(progname, cmd, argc, argv);
+		if (called_deprecated(argv[0], argv[1], progname, "set-fps",
 				      "fps", is_fps)) {
-			ret = set_fps(argv[3], argv[2]);
+			ret = set_fps(argv[1], argv[0]);
 		} else
-			ret = set_fps(argv[2], argv[3]);
+			ret = set_fps(argv[0], argv[1]);
 		break;
 	case GET_FPS:
-		if (argc != 3)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		ret = get_fps(argv[2]);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 1)
+			usage_topic(progname, cmd, argc, argv);
+		ret = get_fps(argv[0]);
 		break;
 	case SET_CAPS:
-		if (argc != 4)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		if (called_deprecated(argv[2], argv[3], argv[0], "set-caps",
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 2)
+			usage_topic(progname, cmd, argc, argv);
+		if (called_deprecated(argv[0], argv[1], progname, "set-caps",
 				      "caps", 0)) {
-			ret = set_caps(argv[3], argv[2]);
+			ret = set_caps(argv[1], argv[0]);
 		} else {
-			ret = set_caps(argv[2], argv[3]);
+			ret = set_caps(argv[0], argv[1]);
 		}
 		break;
 	case GET_CAPS:
-		if (argc != 3)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		ret = get_caps(argv[2]);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 1)
+			usage_topic(progname, cmd, argc, argv);
+		ret = get_caps(argv[0]);
 		break;
 	case SET_TIMEOUTIMAGE:
-		if ((4 == argc) && (strncmp("-t", argv[2], 4)) &&
-		    (called_deprecated(argv[2], argv[3], argv[0],
+		if ((3 == argc) && (strncmp("-t", argv[1], 3)) &&
+		    (strncmp("--timeout", argv[1], 10)) &&
+		    (called_deprecated(argv[1], argv[2], progname,
 				       "set-timeout-image", "image", 0))) {
-			ret = set_timeoutimage(argv[3], argv[2], -1);
+			ret = set_timeoutimage(argv[2], argv[1], -1);
 		} else {
 			int timeout = -1;
-			while ((c = getopt(argc - 1, argv + 1, "t:")) != -1)
+			for (;;) {
+				int c, idx;
+				c = getopt_long(argc, argv,
+						timeoutimg_options_short,
+						timeoutimg_options_long, &idx);
+				if (-1 == c)
+					break;
 				switch (c) {
 				case 't':
 					timeout = my_atoi("timeout", optarg);
 					break;
 				default:
-					usage_topic(argv[0], cmd, argc - 2,
-						    argv + 2);
+					usage_topic(progname, cmd, argc, argv);
 				}
-			if (optind + 3 != argc)
-				usage_topic(argv[0], cmd, argc - 2, argv + 2);
-			ret = set_timeoutimage(argv[1 + optind],
-					       argv[2 + optind], timeout);
+			}
+			argc -= optind;
+			argv += optind;
+			if (argc != 2)
+				usage_topic(progname, cmd, argc, argv);
+			ret = set_timeoutimage(argv[0], argv[1], timeout);
 		}
 		break;
 	case VERSION:
 #ifdef SNAPSHOT_VERSION
-		printf("%s v%s\n", argv[0], SNAPSHOT_VERSION);
+		printf("%s v%s\n", progname, SNAPSHOT_VERSION);
 #else
-		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
+		printf("%s v%d.%d.%d\n", progname, V4L2LOOPBACK_VERSION_MAJOR,
 		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
 #endif
 		fd = open("/sys/module/v4l2loopback/version", O_RDONLY);
@@ -1189,7 +1289,7 @@ int main(int argc, char **argv)
 		}
 		break;
 	default:
-		dprintf(2, "not implemented '%s'\n", argv[1]);
+		dprintf(2, "not implemented: '%s'\n", argv[0]);
 		break;
 	}
 
