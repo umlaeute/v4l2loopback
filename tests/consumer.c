@@ -488,7 +488,7 @@ static void init_device(void)
 
 	/* try to se tthe current format (no-change should always succeed) */
 	if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
-		const char*s = "VIDIOC_S_FMT";
+		const char *s = "VIDIOC_S_FMT";
 		fprintf(stderr, "%s error %d, %s\n", s, errno, strerror(errno));
 		//errno_exit("VIDIOC_S_FMT");
 	}
