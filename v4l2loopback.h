@@ -42,11 +42,13 @@ struct v4l2_loopback_config {
 	char card_label[32];
 
 	/**
-         * maximum allowed frame size
+         * allowed frame size
          * if too low, default values are used
          */
-	int max_width;
-	int max_height;
+	unsigned int min_width;
+	unsigned int max_width;
+	unsigned int min_height;
+	unsigned int max_height;
 
 	/**
          * number of buffers to allocate for the queue

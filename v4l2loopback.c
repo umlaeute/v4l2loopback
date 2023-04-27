@@ -347,8 +347,8 @@ struct v4l2_loopback_device {
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
 
-	int max_width;
-	int max_height;
+	int min_width, max_width;
+	int min_height, max_height;
 
 	char card_label[32];
 
@@ -460,18 +460,23 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 }
 
 static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
-			     const u32 maxwidth, const u32 maxheight)
+			     const u32 minwidth, const u32 maxwidth,
+			     const u32 minheight, const u32 maxheight)
 {
 	u32 width = fmt->fmt.pix.width, height = fmt->fmt.pix.height;
 	u32 pixelformat = fmt->fmt.pix.pixelformat;
 	struct v4l2_format fmt0 = *fmt;
 	u32 bytesperline = 0, sizeimage = 0;
-	if (width < 1)
+	if (!width)
 		width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	if (!height)
+		height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	if (width < minwidth)
+		width = minwidth;
 	if (width > maxwidth)
 		width = maxwidth;
-	if (height < 1)
-		height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	if (height < minheight)
+		height = minheight;
 	if (height > maxheight)
 		height = maxheight;
 
@@ -591,8 +596,8 @@ static int inner_try_setfmt(struct file *file, struct v4l2_format *fmt)
 			}
 		}
 	}
-	if (v4l2l_fill_format(fmt, capture, dev->max_width, dev->max_height) !=
-	    0) {
+	if (v4l2l_fill_format(fmt, capture, dev->min_width, dev->max_width,
+			      dev->min_height, dev->max_height) != 0) {
 		return -EINVAL;
 	}
 
@@ -927,16 +932,24 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		if (NULL == format_by_fourcc(argp->pixel_format))
 			return -EINVAL;
 
-		argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
+		if (dev->min_width == dev->max_width &&
+		    dev->min_height == dev->max_height) {
+			argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 
-		argp->stepwise.min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
-		argp->stepwise.min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
+			argp->discrete.width = dev->min_width;
+			argp->discrete.height = dev->min_height;
+		} else {
+			argp->type = V4L2_FRMSIZE_TYPE_CONTINUOUS;
 
-		argp->stepwise.max_width = dev->max_width;
-		argp->stepwise.max_height = dev->max_height;
+			argp->stepwise.min_width = dev->min_width;
+			argp->stepwise.min_height = dev->min_height;
 
-		argp->stepwise.step_width = 1;
-		argp->stepwise.step_height = 1;
+			argp->stepwise.max_width = dev->max_width;
+			argp->stepwise.max_height = dev->max_height;
+
+			argp->stepwise.step_width = 1;
+			argp->stepwise.step_height = 1;
+		}
 	}
 	return 0;
 }
@@ -962,10 +975,10 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 		argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
 		argp->discrete = dev->capture_param.timeperframe;
 	} else {
-		if (argp->width < V4L2LOOPBACK_SIZE_MIN_WIDTH ||
-		    argp->width > max_width ||
-		    argp->height < V4L2LOOPBACK_SIZE_MIN_HEIGHT ||
-		    argp->height > max_height ||
+		if (argp->width < dev->min_width ||
+		    argp->width > dev->max_width ||
+		    argp->height < dev->min_height ||
+		    argp->height > dev->max_height ||
 		    NULL == format_by_fourcc(argp->pixel_format))
 			return -EINVAL;
 
@@ -2536,10 +2549,18 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	int err = -ENOMEM;
 
-	int _max_width = DEFAULT_FROM_CONF(
-		max_width, < V4L2LOOPBACK_SIZE_MIN_WIDTH, max_width);
-	int _max_height = DEFAULT_FROM_CONF(
-		max_height, < V4L2LOOPBACK_SIZE_MIN_HEIGHT, max_height);
+	u32 _width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	u32 _height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+
+	u32 _min_width = DEFAULT_FROM_CONF(min_width,
+					   < V4L2LOOPBACK_SIZE_MIN_WIDTH,
+					   V4L2LOOPBACK_SIZE_MIN_WIDTH);
+	u32 _min_height = DEFAULT_FROM_CONF(min_height,
+					    < V4L2LOOPBACK_SIZE_MIN_HEIGHT,
+					    V4L2LOOPBACK_SIZE_MIN_HEIGHT);
+	u32 _max_width = DEFAULT_FROM_CONF(max_width, < _min_width, max_width);
+	u32 _max_height =
+		DEFAULT_FROM_CONF(max_height, < _min_height, max_height);
 	bool _announce_all_caps = (conf && conf->announce_all_caps >= 0) ?
 					  (conf->announce_all_caps) :
 					  V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS;
@@ -2641,6 +2662,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	dev->sustain_framerate = 0;
 
 	dev->announce_all_caps = _announce_all_caps;
+	dev->min_width = _min_width;
+	dev->min_height = _min_height;
 	dev->max_width = _max_width;
 	dev->max_height = _max_height;
 	dev->max_openers = _max_openers;
@@ -2700,8 +2723,17 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	/* FIXME set buffers to 0 */
 
 	/* Set initial format */
-	dev->pix_format.width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
-	dev->pix_format.height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	if (_width < _min_width)
+		_width = _min_width;
+	if (_width > _max_width)
+		_width = _max_width;
+	if (_height < _min_height)
+		_height = _min_height;
+	if (_height > _max_height)
+		_height = _max_height;
+
+	dev->pix_format.width = _width;
+	dev->pix_format.height = _height;
 	dev->pix_format.pixelformat = formats[0].fourcc;
 	dev->pix_format.colorspace =
 		V4L2_COLORSPACE_DEFAULT; /* do we need to set this ? */
@@ -2836,6 +2868,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			 dev->card_label);
 		MARK();
 		conf.output_nr = conf.capture_nr = dev->vdev->num;
+		conf.min_width = dev->min_width;
+		conf.min_height = dev->min_height;
 		conf.max_width = dev->max_width;
 		conf.max_height = dev->max_height;
 		conf.announce_all_caps = dev->announce_all_caps;
@@ -2961,6 +2995,8 @@ static void free_devices(void)
 
 static int __init v4l2loopback_init_module(void)
 {
+	const u32 min_width = V4L2LOOPBACK_SIZE_MIN_WIDTH;
+	const u32 min_height = V4L2LOOPBACK_SIZE_MIN_HEIGHT;
 	int err;
 	int i;
 	MARK();
@@ -3002,23 +3038,24 @@ static int __init v4l2loopback_init_module(void)
 		max_openers = 2;
 	}
 
-	if (max_width < V4L2LOOPBACK_SIZE_MIN_WIDTH) {
+	if (max_width < min_width) {
 		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
 		printk(KERN_INFO "v4l2loopback: using max_width %d\n",
 		       max_width);
 	}
-	if (max_height < V4L2LOOPBACK_SIZE_MIN_HEIGHT) {
+	if (max_height < min_height) {
 		max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
 		printk(KERN_INFO "v4l2loopback: using max_height %d\n",
 		       max_height);
 	}
 
-	/* kfree on module release */
 	for (i = 0; i < devices; i++) {
 		struct v4l2_loopback_config cfg = {
 			// clang-format off
 			.output_nr		= video_nr[i],
 			.capture_nr		= video_nr[i],
+			.min_width		= min_width,
+			.min_height		= min_height,
 			.max_width		= max_width,
 			.max_height		= max_height,
 			.announce_all_caps	= (!exclusive_caps[i]),
