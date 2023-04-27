@@ -404,6 +404,14 @@ struct v4l2l_format {
 	 (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 #endif /* V4L2_TYPE_IS_OUTPUT */
 
+/* whether the format can be changed */
+/* the format is fixated if we
+   - have writers (ready_for_capture>0)
+   - and/or have readers (active_readers>0)
+*/
+#define V4L2LOOPBACK_IS_FIXED_FMT(device) \
+	(device->ready_for_capture > 0 || device->active_readers > 0)
+
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
 static char *fourcc2str(unsigned int fourcc, char buf[4])
@@ -570,12 +578,7 @@ static int inner_try_setfmt(struct file *file, struct v4l2_format *fmt)
 	dev = v4l2loopback_getdevice(file);
 
 	needschange = !(pix_format_eq(&dev->pix_format, &fmt->fmt.pix, 0));
-	if (dev->ready_for_capture > 0 || dev->active_readers > 0) {
-		/* the format is fixated if we
-		   - have readers (active_readers>0)
-		   - and/or have writers (ready_for_capture>0)
-		*/
-
+	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
 		fmt->fmt.pix = dev->pix_format;
 		if (needschange) {
 			if (dev->active_readers > 0 && capture) {
@@ -907,7 +910,7 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		return -EINVAL;
 
 	dev = v4l2loopback_getdevice(file);
-	if (dev->ready_for_capture) {
+	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
 		/* format has already been negotiated
 		 * cannot change during runtime
 		 */
@@ -950,7 +953,7 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 	if (argp->index)
 		return -EINVAL;
 
-	if (dev->ready_for_capture) {
+	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
 		if (argp->width != dev->pix_format.width ||
 		    argp->height != dev->pix_format.height ||
 		    argp->pixel_format != dev->pix_format.pixelformat)
@@ -993,7 +996,9 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 
 	if (f->index)
 		return -EINVAL;
-	if (dev->ready_for_capture) {
+
+	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
+		/* format has been fixed, so only one single format is supported */
 		const __u32 format = dev->pix_format.pixelformat;
 
 		snprintf(f->description, sizeof(f->description), "[%c%c%c%c]",
@@ -1078,10 +1083,10 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 
 	dev = v4l2loopback_getdevice(file);
 
-	if (dev->ready_for_capture) {
+	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
+		/* format has been fixed, so only one single format is supported */
 		const __u32 format = dev->pix_format.pixelformat;
 
-		/* format has been fixed by the writer, so only one single format is supported */
 		if (f->index)
 			return -EINVAL;
 
