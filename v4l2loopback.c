@@ -409,8 +409,9 @@ struct v4l2l_format {
    - have writers (ready_for_capture>0)
    - and/or have readers (active_readers>0)
 */
-#define V4L2LOOPBACK_IS_FIXED_FMT(device) \
-	(device->ready_for_capture > 0 || device->active_readers > 0)
+#define V4L2LOOPBACK_IS_FIXED_FMT(device)                               \
+	(device->ready_for_capture > 0 || device->active_readers > 0 || \
+	 device->keep_format)
 
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
