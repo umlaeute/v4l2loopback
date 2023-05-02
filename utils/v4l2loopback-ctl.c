@@ -363,6 +363,7 @@ static void help_settimeoutimage(const char *program, int detail, int argc,
 	dprintf(2,
 		"\n  <flags>\tany of the following flags may be present"
 		"\n\t -t/--timeout <timeout> : timeout (in ms)"
+		"\n\t -v/--verbose           : raise verbosity (print what is being done)"
 		"\n"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n  <image>\timage file");
@@ -874,7 +875,7 @@ static int get_caps(const char *devicename)
 	return 0;
 }
 static int set_timeoutimage(const char *devicename, const char *imagefile,
-			    int timeout)
+			    int timeout, int verbose)
 {
 	int fd = -1;
 	char imagearg[4096], imagefile2[4096], devicearg[4096];
@@ -897,10 +898,10 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "show-preroll-frame=false",
 			 0,
 			 0 };
-#if 0
-	printf("set-timeout-image '%s' for '%s' with %dms timeout\n", imagefile,
-	       devicename, timeout);
-#endif
+	if (verbose)
+		printf("set-timeout-image '%s' for '%s' with %dms timeout\n",
+		       imagefile, devicename, timeout);
+
 	snprintf(imagearg, 4096, "uri=file://%s",
 		 realpath(imagefile, imagefile2));
 	snprintf(devicearg, 4096, "device=%s", devicename);
@@ -910,17 +911,27 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 
 	fd = open_videodevice(devicename, O_RDWR);
 	if (fd >= 0) {
+		dprintf(2, "v4l2-ctl -d %s -c timeout_image_io=1\n",
+			devicename);
 		set_control_i(fd, "timeout_image_io", 1);
 		close(fd);
+	}
+
+	if (verbose > 1) {
+		char **ap = args;
+		while (*ap) {
+			dprintf(2, "%s", *ap);
+			if (*ap++)
+				dprintf(2, " ");
+			else
+				dprintf(2, "\n");
+		}
 	}
 
 	dprintf(2,
 		"v======================================================================v\n");
 	if (my_execv(args)) {
-		/*
-          dprintf(2, "ERROR: setting time-out image failed\n");
-          return 1;
-          */
+		dprintf(2, "ERROR: setting time-out image failed\n");
 	}
 	dprintf(2,
 		"^======================================================================^\n");
@@ -931,6 +942,8 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 		if (timeout < 0) {
 			timeout = get_control_i(fd, "timeout");
 		} else {
+			dprintf(2, "v4l2-ctl -d %s -c timeout=%d\n", devicename,
+				timeout);
 			timeout = set_control_i(fd, "timeout", timeout);
 		}
 		if (timeout <= 0) {
@@ -1069,10 +1082,11 @@ int main(int argc, char **argv)
 		{ "max-openers", required_argument, NULL, 'o' },
 		{ 0, 0, 0, 0 }
 	};
-	static const char timeoutimg_options_short[] = "?ht:";
+	static const char timeoutimg_options_short[] = "?ht:v";
 	static const struct option timeoutimg_options_long[] = {
 		{ "help", no_argument, NULL, 'h' },
 		{ "timeout", required_argument, NULL, 't' },
+		{ "verbose", no_argument, NULL, 'v' },
 		{ 0, 0, 0, 0 }
 	};
 
@@ -1247,7 +1261,7 @@ int main(int argc, char **argv)
 		    (strncmp("--timeout", argv[1], 10)) &&
 		    (called_deprecated(argv[1], argv[2], progname,
 				       "set-timeout-image", "image", 0))) {
-			ret = set_timeoutimage(argv[2], argv[1], -1);
+			ret = set_timeoutimage(argv[2], argv[1], -1, verbose);
 		} else {
 			int timeout = -1;
 			for (;;) {
@@ -1261,6 +1275,9 @@ int main(int argc, char **argv)
 				case 't':
 					timeout = my_atoi("timeout", optarg);
 					break;
+				case 'v':
+					verbose++;
+					break;
 				default:
 					usage_topic(progname, cmd, argc, argv);
 				}
@@ -1269,7 +1286,8 @@ int main(int argc, char **argv)
 			argv += optind;
 			if (argc != 2)
 				usage_topic(progname, cmd, argc, argv);
-			ret = set_timeoutimage(argv[0], argv[1], timeout);
+			ret = set_timeoutimage(argv[0], argv[1], timeout,
+					       verbose);
 		}
 		break;
 	case VERSION:
