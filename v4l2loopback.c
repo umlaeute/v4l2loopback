@@ -268,7 +268,7 @@ static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeoutimageio = {
 	.ops	= &v4l2loopback_ctrl_ops,
 	.id	= CID_TIMEOUT_IMAGE_IO,
 	.name	= "timeout_image_io",
-	.type	= V4L2_CTRL_TYPE_BOOLEAN,
+	.type	= V4L2_CTRL_TYPE_BUTTON,
 	.min	= 0,
 	.max	= 1,
 	.step	= 1,
@@ -1363,9 +1363,7 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 		allocate_timeout_image(dev);
 		break;
 	case CID_TIMEOUT_IMAGE_IO:
-		if (val < 0 || val > 1)
-			return -EINVAL;
-		dev->timeout_image_io = val;
+		dev->timeout_image_io = 1;
 		break;
 	default:
 		return -EINVAL;
@@ -1526,6 +1524,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 
 	dprintk("reqbufs: %d\t%d=%d\n", b->memory, b->count,
 		dev->buffers_number);
+
 	if (opener->timeout_image_io) {
 		dev->timeout_image_io = 0;
 		if (b->memory != V4L2_MEMORY_MMAP)
