@@ -730,6 +730,24 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 static DEVICE_ATTR(max_openers, S_IRUGO | S_IWUSR, attr_show_maxopeners,
 		   attr_store_maxopeners);
 
+static ssize_t attr_show_type(struct device *cd, struct device_attribute *attr,
+			      char *buf)
+{
+	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
+
+	if (!dev)
+		return -ENODEV;
+
+	if (dev->ready_for_capture)
+		return sprintf(buf, "capture\n");
+	if (dev->ready_for_output)
+		return sprintf(buf, "output\n");
+
+	return -EAGAIN;
+}
+
+static DEVICE_ATTR(type, S_IRUGO, attr_show_type, NULL);
+
 static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 {
 #define V4L2_SYSFS_DESTROY(x) device_remove_file(&vdev->dev, &dev_attr_##x)
@@ -738,6 +756,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 		V4L2_SYSFS_DESTROY(format);
 		V4L2_SYSFS_DESTROY(buffers);
 		V4L2_SYSFS_DESTROY(max_openers);
+		V4L2_SYSFS_DESTROY(type);
 		/* ... */
 	}
 }
@@ -756,6 +775,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 		V4L2_SYSFS_CREATE(format);
 		V4L2_SYSFS_CREATE(buffers);
 		V4L2_SYSFS_CREATE(max_openers);
+		V4L2_SYSFS_CREATE(type);
 		/* ... */
 	} while (0);
 
