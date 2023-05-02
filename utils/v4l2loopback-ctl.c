@@ -889,7 +889,9 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "imagefreeze",
 			 "!",
 			 "identity",
-			 "error-after=3",
+			 "eos-after=3",
+			 "!",
+			 "tee",
 			 "!",
 			 "v4l2sink",
 			 "show-preroll-frame=false",
@@ -904,7 +906,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 	snprintf(devicearg, 4096, "device=%s", devicename);
 	imagearg[4095] = devicearg[4095] = 0;
 	args[2] = imagearg;
-	args[15] = devicearg;
+	args[17] = devicearg;
 
 	fd = open_videodevice(devicename, O_RDWR);
 	if (fd >= 0) {
