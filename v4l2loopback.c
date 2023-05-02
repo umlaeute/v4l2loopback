@@ -636,7 +636,7 @@ static ssize_t attr_show_format(struct device *cd,
 	const struct v4l2_fract *tpf;
 	char buf4cc[5], buf_fps[32];
 
-	if (!dev || !dev->ready_for_capture)
+	if (!dev || !V4L2LOOPBACK_IS_FIXED_FMT(dev))
 		return 0;
 	tpf = &dev->capture_param.timeperframe;
 
