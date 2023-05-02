@@ -2161,7 +2161,6 @@ static int v4l2_loopback_open(struct file *file)
 		}
 	}
 
-
 	v4l2_fh_init(&opener->fh, video_devdata(file));
 	file->private_data = &opener->fh;
 
