@@ -1864,6 +1864,8 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		if (!dev->ready_for_capture)
 			return -EIO;
+                if (dev->active_readers > 0)
+                        return -EBUSY;
 		opener->type = READER;
 		dev->active_readers++;
 		client_usage_queue_event(dev->vdev);
