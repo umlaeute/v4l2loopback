@@ -1527,9 +1527,10 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	dprintk("reqbufs: %d\t%d=%d\n", b->memory, b->count,
 		dev->buffers_number);
 	if (opener->timeout_image_io) {
+		dev->timeout_image_io = 0;
 		if (b->memory != V4L2_MEMORY_MMAP)
 			return -EINVAL;
-		b->count = 1;
+		b->count = 2;
 		return 0;
 	}
 
@@ -2161,7 +2162,6 @@ static int v4l2_loopback_open(struct file *file)
 		}
 	}
 
-	dev->timeout_image_io = 0;
 
 	v4l2_fh_init(&opener->fh, video_devdata(file));
 	file->private_data = &opener->fh;
