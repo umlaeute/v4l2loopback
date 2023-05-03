@@ -513,7 +513,7 @@ static int parse_device(const char *devicename_)
 	return -1;
 }
 
-static void print_conf(struct v4l2_loopback_config *cfg)
+static void print_conf(struct v4l2_loopback_config *cfg, int escape_level)
 {
 	MARK();
 	if (!cfg) {
@@ -523,8 +523,10 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 	MARK();
 	printf("\tcapture_device#  : %d"
 	       "\n\toutput_device#   : %d"
-	       "\n\tcard_label       : %s"
-	       "\n\tmin_width        : %d"
+	       "\n\tcard_label       : ",
+	       cfg->capture_nr, cfg->output_nr);
+	printf_raw(cfg->card_label, escape_level);
+	printf("\n\tmin_width        : %d"
 	       "\n\tmax_width        : %d"
 	       "\n\tmin_height       : %d"
 	       "\n\tmax_height       : %d"
@@ -533,8 +535,7 @@ static void print_conf(struct v4l2_loopback_config *cfg)
 	       "\n\tmax_openers      : %d"
 	       "\n\tdebug            : %d"
 	       "\n",
-	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->min_width,
-	       cfg->max_width, cfg->min_height, cfg->max_height,
+	       cfg->min_width, cfg->max_width, cfg->min_height, cfg->max_height,
 	       cfg->announce_all_caps, cfg->max_buffers, cfg->max_openers,
 	       cfg->debug);
 	MARK();
@@ -590,7 +591,7 @@ static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		if (!ret)
 			perror("failed querying newly added device");
 		MARK();
-		print_conf(&config);
+		print_conf(&config, 0);
 		MARK();
 	}
 	return (!ret);
@@ -609,7 +610,7 @@ static int delete_device(int fd, const char *devicename)
 	return 0;
 }
 
-static int query_device(int fd, const char *devicename)
+static int query_device(int fd, const char *devicename, int escape)
 {
 	int err;
 	struct v4l2_loopback_config config;
@@ -626,7 +627,7 @@ static int query_device(int fd, const char *devicename)
 		perror("query failed");
 	else {
 		printf("%s\n", devicename);
-		print_conf(&config);
+		print_conf(&config, escape);
 		return 0;
 	}
 	return err;
@@ -1390,7 +1391,7 @@ int main(int argc, char **argv)
 			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
 		for (i = 0; i < argc; i++) {
-			ret += query_device(fd, argv[i]);
+			ret += query_device(fd, argv[i], escape_strings);
 		}
 		ret = (ret > 0);
 		break;
