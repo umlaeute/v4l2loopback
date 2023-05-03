@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <getopt.h>
+#include <glob.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -229,6 +230,7 @@ typedef enum {
 	HELP,
 	ADD,
 	DELETE,
+	LIST,
 	QUERY,
 	SET_FPS,
 	GET_FPS,
@@ -247,6 +249,17 @@ static int help_shortcmdline(int detail, const char *program,
 	dprintf(2, "\t");
 	dprintf(2, "%s %s", program, argstring);
 	return !detail;
+}
+static void help_list(const char *program, int detail, int argc, char **argv)
+{
+	if (detail)
+		dprintf(2, "\n listing devices ('list')"
+			   "\n ========================");
+	if (help_shortcmdline(detail, program, "list"))
+		return;
+	dprintf(2,
+		"\n         \tlist all available loopback-devices (both OUTPUT and CAPTURE devices)"
+		"");
 }
 static void help_add(const char *program, int detail, int argc, char **argv)
 {
@@ -381,6 +394,8 @@ static t_help get_help(t_command cmd)
 		return help_add;
 	case DELETE:
 		return help_delete;
+	case LIST:
+		return help_list;
 	case QUERY:
 		return help_query;
 	case SET_FPS:
@@ -570,6 +585,83 @@ static int query_device(int fd, const char *devicename)
 		return 0;
 	}
 	return err;
+}
+static int list_devices(int fd)
+{
+	struct devnode_ {
+		int output, capture;
+		char name[32];
+	} *devices = 0;
+	size_t numdevices = 0, i;
+	glob_t globbuf = { 0 };
+	glob("/sys/devices/virtual/video4linux/video*", GLOB_ONLYDIR, 0,
+	     &globbuf);
+	if (globbuf.gl_pathc) {
+		devices = malloc(globbuf.gl_pathc * sizeof(*devices));
+	}
+	for (i = 0; i < globbuf.gl_pathc; i++) {
+		size_t j;
+		struct v4l2_loopback_config config = { 0 };
+		int dev = -1;
+		char *endptr;
+		struct stat sb;
+		const char *path = globbuf.gl_pathv[i];
+		if (lstat(path, &sb)) {
+			//perror("stat");
+			continue;
+		}
+		if (!S_ISDIR(sb.st_mode)) {
+			//dprintf(2, "not a directory\n");
+			continue;
+		}
+		dev = strtol(path + 38, &endptr, 10);
+		if (*endptr) {
+			//dprintf(2, "unable to parse device-name\n");
+			continue;
+		}
+		/* check if this is a loopback device */
+		config.output_nr = dev;
+		config.capture_nr = -1;
+		if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
+			memset(&config, 0, sizeof(config));
+			config.output_nr = -1;
+			config.capture_nr = dev;
+			if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
+				//dprintf(2, "not a loopback device\n");
+				continue;
+			}
+		}
+		/* check if we already have this device */
+		for (j = 0; j < numdevices; j++) {
+			if ((devices[j].output == config.output_nr) &&
+			    (devices[j].capture == config.capture_nr)) {
+				//dprintf(2, "duplicate device\n");
+				config.output_nr = config.capture_nr = -1;
+				break;
+			}
+		}
+		if ((config.output_nr < 0) || (config.capture_nr < 0))
+			continue;
+
+		devices[numdevices].output = config.output_nr;
+		devices[numdevices].capture = config.capture_nr;
+		snprintf(devices[numdevices].name,
+			 sizeof(devices[numdevices].name), "%s",
+			 config.card_label);
+		numdevices++;
+	}
+	if (numdevices) {
+		dprintf(2, "OUTPUT       \tCAPTURE      \tNAME\n");
+	} else {
+		dprintf(2, "no loopback devices found\n");
+	}
+	for (i = 0; i < numdevices; i++) {
+		printf("/dev/video%-3d\t/dev/video%-3d\t%s\n",
+		       devices[i].output, devices[i].capture, devices[i].name);
+	}
+	globfree(&globbuf);
+	free(devices);
+	return 0;
 }
 static int open_videodevice(const char *devicename, int mode)
 {
@@ -969,6 +1061,8 @@ static t_command get_command(const char *command)
 		return VERSION;
 	if (!strncmp(command, "--version", 10))
 		return VERSION;
+	if (!strncmp(command, "list", 5))
+		return LIST;
 	if (!strncmp(command, "add", 4))
 		return ADD;
 	if (!strncmp(command, "del", 3)) /* also allow delete */
@@ -1103,6 +1197,18 @@ int main(int argc, char **argv)
 	switch (cmd) {
 	case HELP:
 		help(progname, 0);
+		break;
+	case LIST:
+		if (1 != argc) {
+			dprintf(2, "'list' does not take any arguments\n",
+				argc);
+			return 1;
+		}
+		fd = open_controldevice();
+		if (fd >= 0)
+			list_devices(fd);
+		else
+			return 1;
 		break;
 	case ADD:
 		for (;;) {
