@@ -346,9 +346,13 @@ static void help_query(const char *program, int detail, int argc, char **argv)
 	if (detail)
 		dprintf(2, "\n querying devices ('query')"
 			   "\n ==========================");
-	if (help_shortcmdline(detail, program, "query <device>"))
+	if (help_shortcmdline(detail, program, "query {<flags>} <device>"))
 		return;
 	dprintf(2,
+		"\n   <flags>\tany of the following flags may be present"
+		"\n\t -e/--escape             : escape control-characters in the device-name"
+		"\n\t -h/--help               : print this help and exit"
+		"\n"
 		"\n  <device>\tcan be given one more more times (to query multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
@@ -1384,9 +1388,25 @@ int main(int argc, char **argv)
 		ret = (ret > 0);
 		break;
 	case QUERY:
-		optind = do_defaultargs(progname, cmd, argc, argv);
+		for (;;) {
+			int c;
+			int idx;
+			c = getopt_long(argc, argv, list_options_short,
+					list_options_long, &idx);
+			if (-1 == c)
+				break;
+			switch (c) {
+			case 'e':
+				escape_strings++;
+				break;
+			default:
+				usage_topic(progname, cmd, argc - 1, argv + 1);
+				return 1;
+			}
+		}
 		argc -= optind;
 		argv += optind;
+
 		if (!argc)
 			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
