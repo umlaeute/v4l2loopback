@@ -314,7 +314,7 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 			      "add {<flags>} [<device> [<outputdevice>]]"))
 		return;
 	dprintf(2,
-		"\n <flags>  \tany of the following flags may be present"
+		"\n   <flags>\tany of the following flags may be present"
 		"\n\t -n/--name <name>        : pretty name for the device"
 		"\n\t --min-width <w>         : minimum allowed frame width"
 		"\n\t -w/--max-width <w>      : maximum allowed frame width"
@@ -326,9 +326,9 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 		"\n\t -v/--verbose            : verbose mode (print properties of device after successfully creating it)"
 		"\n\t -?/--help               : print this help and exit"
 		"\n"
-		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same).");
+		"\n  <device>\tif given, create a specific device (otherwise just create a free one)."
+		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n  <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same).");
 }
 static void help_delete(const char *program, int detail, int argc, char **argv)
 {
@@ -338,8 +338,8 @@ static void help_delete(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "delete <device>"))
 		return;
 	dprintf(2,
-		"\n <device>\tcan be given one more more times (to delete multiple devices at once)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
+		"\n  <device>\tcan be given one more more times (to delete multiple devices at once)."
+		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
 static void help_query(const char *program, int detail, int argc, char **argv)
 {
@@ -349,7 +349,7 @@ static void help_query(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "query <device>"))
 		return;
 	dprintf(2,
-		"\n <device>\tcan be given one more more times (to query multiple devices at once)."
+		"\n  <device>\tcan be given one more more times (to query multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
 static void help_setfps(const char *program, int detail, int argc, char **argv)
@@ -360,8 +360,8 @@ static void help_setfps(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "set-fps <device> <fps>"))
 		return;
 	dprintf(2,
-		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
+		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n     <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
 }
 static void help_getfps(const char *program, int detail, int argc, char **argv)
 {
@@ -379,8 +379,8 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "set-caps <device> <caps>"))
 		return;
 	dprintf(2,
-		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
+		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n    <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
 		"\n");
 	if (detail > 1) {
 		dprintf(2, "\nknown fourcc-codes"
@@ -418,13 +418,13 @@ static void help_settimeoutimage(const char *program, int detail, int argc,
 			      "set-timeout-image {<flags>} <device> <image>"))
 		return;
 	dprintf(2,
-		"\n  <flags>\tany of the following flags may be present"
+		"\n   <flags>\tany of the following flags may be present"
 		"\n\t -t/--timeout <timeout>  : timeout (in ms)"
 		"\n\t -v/--verbose            : raise verbosity (print what is being done)"
 		"\n\t -h/--help               : print this help and exit"
 		"\n"
-		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n  <image>\timage file");
+		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n   <image>\timage file");
 }
 static void help_none(const char *program, int detail, int argc, char **argv)
 {
