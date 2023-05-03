@@ -2877,14 +2877,14 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
                  * make sure that both refer to the same device (or bail out)
                  */
 		if ((device_nr != conf.capture_nr) && (conf.capture_nr >= 0) &&
-		    (ret != v4l2loopback_lookup(conf.capture_nr, 0)))
+		    ((ret = v4l2loopback_lookup(conf.capture_nr, 0)) < 0))
 			break;
 		MARK();
 		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
 		if ((device_nr != conf.output_nr) && (conf.output_nr >= 0) &&
-		    (ret != v4l2loopback_lookup(conf.output_nr, 0)))
+		    ((ret = v4l2loopback_lookup(conf.output_nr, 0)) < 0))
 			break;
 		MARK();
 
