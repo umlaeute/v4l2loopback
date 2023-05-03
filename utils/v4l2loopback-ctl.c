@@ -13,6 +13,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <ctype.h>
 #include <getopt.h>
 #include <glob.h>
 #include <fcntl.h>
@@ -258,7 +259,9 @@ static void help_list(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "list"))
 		return;
 	dprintf(2,
-		"\n         \tlist all available loopback-devices (both OUTPUT and CAPTURE devices)"
+		"\n         \tlist all available loopback-devices"
+		"\n\t -e/--escape             : escape control-characters in the device-name"
+		"\n\t -h/--help               : print this help and exit"
 		"");
 }
 static void help_add(const char *program, int detail, int argc, char **argv)
@@ -280,7 +283,7 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 		"\n\t -b/--buffers <num>      : buffers to queue"
 		"\n\t -o/--max-openers <num>  : maximum allowed concurrent openers"
 		"\n\t -v/--verbose            : verbose mode (print properties of device after successfully creating it)"
-		"\n\t -?/--help               : print this help"
+		"\n\t -?/--help               : print this help and exit"
 		"\n"
 		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
@@ -336,7 +339,7 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 		return;
 	dprintf(2,
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:3840x2160@60/1')"
+		"\n   <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
 		"\n");
 	if (detail > 1) {
 		dprintf(2, "\nknown fourcc-codes"
@@ -375,8 +378,9 @@ static void help_settimeoutimage(const char *program, int detail, int argc,
 		return;
 	dprintf(2,
 		"\n  <flags>\tany of the following flags may be present"
-		"\n\t -t/--timeout <timeout> : timeout (in ms)"
-		"\n\t -v/--verbose           : raise verbosity (print what is being done)"
+		"\n\t -t/--timeout <timeout>  : timeout (in ms)"
+		"\n\t -v/--verbose            : raise verbosity (print what is being done)"
+		"\n\t -h/--help               : print this help and exit"
 		"\n"
 		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n  <image>\timage file");
@@ -586,7 +590,7 @@ static int query_device(int fd, const char *devicename)
 	}
 	return err;
 }
-static int list_devices(int fd)
+static int list_devices(int fd, int escape)
 {
 	struct devnode_ {
 		int output, capture;
@@ -656,8 +660,47 @@ static int list_devices(int fd)
 		dprintf(2, "no loopback devices found\n");
 	}
 	for (i = 0; i < numdevices; i++) {
-		printf("/dev/video%-3d\t/dev/video%-3d\t%s\n",
-		       devices[i].output, devices[i].capture, devices[i].name);
+		const char *str = devices[i].name;
+		const char *backslash = (escape > 1) ? "\\\\" : "\\";
+		printf("/dev/video%-3d\t/dev/video%-3d\t", devices[i].output,
+		       devices[i].capture);
+		if (escape) {
+			while (*str) {
+				char c = *str++;
+				switch (c) {
+				case '\"':
+					printf("%s\"", backslash);
+					break;
+				case '\'':
+					printf("%s\'", backslash);
+					break;
+				case '\\':
+					printf("%s\\", backslash);
+					break;
+				case '\a':
+					printf("%sa", backslash);
+					break;
+				case '\b':
+					printf("%sb", backslash);
+					break;
+				case '\n':
+					printf("%sn", backslash);
+					break;
+				case '\t':
+					printf("%st", backslash);
+					break;
+					// and so on
+				default:
+					if (iscntrl(c))
+						printf("%s%03o", backslash, c);
+					else
+						printf("%c", c);
+				}
+			}
+		} else {
+			printf("%s", str);
+		}
+		printf("\n");
 	}
 	globfree(&globbuf);
 	free(devices);
@@ -1159,6 +1202,7 @@ int main(int argc, char **argv)
 	int exclusive_caps = -1;
 	int buffers = -1;
 	int openers = -1;
+	int escape_strings = 0;
 
 	int ret = 0;
 
@@ -1174,6 +1218,12 @@ int main(int argc, char **argv)
 		{ "exclusive-caps", required_argument, NULL, 'x' },
 		{ "buffers", required_argument, NULL, 'b' },
 		{ "max-openers", required_argument, NULL, 'o' },
+		{ 0, 0, 0, 0 }
+	};
+	static const char list_options_short[] = "?he";
+	static const struct option list_options_long[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "escape", no_argument, NULL, 'e' },
 		{ 0, 0, 0, 0 }
 	};
 	static const char timeoutimg_options_short[] = "?ht:v";
@@ -1199,14 +1249,32 @@ int main(int argc, char **argv)
 		help(progname, 0);
 		break;
 	case LIST:
-		if (1 != argc) {
-			dprintf(2, "'list' does not take any arguments\n",
-				argc);
+		for (;;) {
+			int c;
+			int idx;
+			c = getopt_long(argc, argv, list_options_short,
+					list_options_long, &idx);
+			if (-1 == c)
+				break;
+			switch (c) {
+			case 'e':
+				escape_strings++;
+				break;
+			default:
+				usage_topic(progname, cmd, argc - 1, argv + 1);
+				return 1;
+			}
+		}
+		argc -= optind;
+		argv += optind;
+
+		if (argc) {
+			dprintf(2, "'list' does not take any arguments\n");
 			return 1;
 		}
 		fd = open_controldevice();
 		if (fd >= 0)
-			list_devices(fd);
+			list_devices(fd, escape_strings);
 		else
 			return 1;
 		break;
