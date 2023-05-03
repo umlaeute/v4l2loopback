@@ -152,6 +152,47 @@ static int my_atoi(const char *name, const char *s)
 	}
 	return n;
 }
+
+static void printf_raw(const char *str, int escape_level)
+{
+	const char *backslash = (escape_level > 1) ? "\\\\" : "\\";
+	if (escape_level > 0)
+		while (*str) {
+			char c = *str++;
+			switch (c) {
+			case '\"':
+				printf("%s\"", backslash);
+				break;
+			case '\'':
+				printf("%s\'", backslash);
+				break;
+			case '\\':
+				printf("%s\\", backslash);
+				break;
+			case '\a':
+				printf("%sa", backslash);
+				break;
+			case '\b':
+				printf("%sb", backslash);
+				break;
+			case '\n':
+				printf("%sn", backslash);
+				break;
+			case '\t':
+				printf("%st", backslash);
+				break;
+				// and so on
+			default:
+				if (iscntrl(c))
+					printf("%s%03o", backslash, c);
+				else
+					printf("%c", c);
+			}
+		}
+	else
+		printf("%s", str);
+}
+
 static char *fourcc2str(unsigned int fourcc, char buf[4])
 {
 	buf[0] = (fourcc >> 0) & 0xFF;
@@ -661,45 +702,9 @@ static int list_devices(int fd, int escape)
 	}
 	for (i = 0; i < numdevices; i++) {
 		const char *str = devices[i].name;
-		const char *backslash = (escape > 1) ? "\\\\" : "\\";
 		printf("/dev/video%-3d\t/dev/video%-3d\t", devices[i].output,
 		       devices[i].capture);
-		if (escape) {
-			while (*str) {
-				char c = *str++;
-				switch (c) {
-				case '\"':
-					printf("%s\"", backslash);
-					break;
-				case '\'':
-					printf("%s\'", backslash);
-					break;
-				case '\\':
-					printf("%s\\", backslash);
-					break;
-				case '\a':
-					printf("%sa", backslash);
-					break;
-				case '\b':
-					printf("%sb", backslash);
-					break;
-				case '\n':
-					printf("%sn", backslash);
-					break;
-				case '\t':
-					printf("%st", backslash);
-					break;
-					// and so on
-				default:
-					if (iscntrl(c))
-						printf("%s%03o", backslash, c);
-					else
-						printf("%c", c);
-				}
-			}
-		} else {
-			printf("%s", str);
-		}
+		printf_raw(str, escape);
 		printf("\n");
 	}
 	globfree(&globbuf);
