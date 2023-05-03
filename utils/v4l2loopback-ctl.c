@@ -289,7 +289,7 @@ static int help_shortcmdline(int detail, const char *program,
 	dprintf(2, "\n");
 	//if(detail)dprintf(2, "  -->");
 	dprintf(2, "\t");
-	dprintf(2, "%s %s", program, argstring);
+	dprintf(2, "%s %s\n", program, argstring);
 	return !detail;
 }
 static void help_list(const char *program, int detail, int argc, char **argv)
@@ -297,12 +297,14 @@ static void help_list(const char *program, int detail, int argc, char **argv)
 	if (detail)
 		dprintf(2, "\n listing devices ('list')"
 			   "\n ========================");
-	if (help_shortcmdline(detail, program, "list"))
+	if (help_shortcmdline(detail, program, "list {<flags>}"))
 		return;
 	dprintf(2,
-		"\n         \tlist all available loopback-devices"
-		"\n\t -e/--escape             : escape control-characters in the device-name"
+		"\n   <flags>\tany of the following flags may be present"
+		"\n\t -e/--escape             : escape control-characters in (device) names"
 		"\n\t -h/--help               : print this help and exit"
+		"\n"
+		"\n         \tlist all available loopback-devices"
 		"");
 }
 static void help_add(const char *program, int detail, int argc, char **argv)
@@ -350,7 +352,7 @@ static void help_query(const char *program, int detail, int argc, char **argv)
 		return;
 	dprintf(2,
 		"\n   <flags>\tany of the following flags may be present"
-		"\n\t -e/--escape             : escape control-characters in the device-name"
+		"\n\t -e/--escape             : escape control-characters in (device) names"
 		"\n\t -h/--help               : print this help and exit"
 		"\n"
 		"\n  <device>\tcan be given one more more times (to query multiple devices at once)."
