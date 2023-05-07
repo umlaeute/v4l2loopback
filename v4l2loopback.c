@@ -1696,7 +1696,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		dprintkrw(
-			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
+			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%ld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
 			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
@@ -1705,7 +1705,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw(
-			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
+			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%ld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
 			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
@@ -1826,7 +1826,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index].buffer;
 		dprintkrw(
-			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
+			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%ld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
 			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
@@ -1845,7 +1845,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 		dprintkrw(
-			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
+			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%ld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
 			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
