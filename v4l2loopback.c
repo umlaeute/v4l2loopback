@@ -297,6 +297,7 @@ struct v4l2_loopback_device {
 	struct video_device *vdev;
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
+	bool pix_format_has_valid_sizeimage;
 	struct v4l2_captureparm capture_param;
 	unsigned long frame_jiffies;
 
@@ -541,6 +542,20 @@ static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
 	}
 
 	return 0;
+}
+
+/* Checks if v4l2l_fill_format() has set a valid, fixed sizeimage val. */
+static bool v4l2l_pix_format_has_valid_sizeimage(struct v4l2_format *fmt)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
+	const struct v4l2_format_info *info;
+
+	info = v4l2_format_info(fmt->fmt.pix.pixelformat);
+	if (info && info->mem_planes == 1)
+		return true;
+#endif
+
+	return false;
 }
 
 static int pix_format_eq(const struct v4l2_pix_format *ref,
@@ -1220,6 +1235,8 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 	ret = inner_try_setfmt(file, fmt);
 	if (!ret) {
 		dev->pix_format = fmt->fmt.pix;
+		dev->pix_format_has_valid_sizeimage =
+			v4l2l_pix_format_has_valid_sizeimage(fmt);
 		dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
 			dev->pix_format.sizeimage);
 		dprintk("outFOURCC=%s\n",
@@ -1717,7 +1734,18 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			b->buffer.timestamp = buf->timestamp;
 			b->buffer.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
 		}
-		b->buffer.bytesused = buf->bytesused;
+		if (dev->pix_format_has_valid_sizeimage) {
+			if (buf->bytesused >= dev->pix_format.sizeimage) {
+				b->buffer.bytesused = dev->pix_format.sizeimage;
+			} else {
+				dev_warn_ratelimited(&dev->vdev->dev, "warning queued output buffer bytesused too small %d < %d\n",
+						     buf->bytesused, dev->pix_format.sizeimage);
+				b->buffer.bytesused = buf->bytesused;
+			}
+		} else {
+			b->buffer.bytesused = buf->bytesused;
+		}
+
 		set_done(b);
 		buffer_written(dev, b);
 
