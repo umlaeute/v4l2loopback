@@ -1738,8 +1738,15 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			if (buf->bytesused >= dev->pix_format.sizeimage) {
 				b->buffer.bytesused = dev->pix_format.sizeimage;
 			} else {
-				dev_warn_ratelimited(&dev->vdev->dev, "warning queued output buffer bytesused too small %d < %d\n",
-						     buf->bytesused, dev->pix_format.sizeimage);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+				dev_warn_ratelimited(
+					&dev->vdev->dev,
+#else
+				dprintkrw(
+#endif
+					"warning queued output buffer bytesused too small %d < %d\n",
+					buf->bytesused,
+					dev->pix_format.sizeimage);
 				b->buffer.bytesused = buf->bytesused;
 			}
 		} else {
