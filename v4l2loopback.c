@@ -746,7 +746,7 @@ static DEVICE_ATTR(max_openers, S_IRUGO | S_IWUSR, attr_show_maxopeners,
 		   attr_store_maxopeners);
 
 static ssize_t attr_show_state(struct device *cd, struct device_attribute *attr,
-			      char *buf)
+			       char *buf)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
 
@@ -2632,21 +2632,22 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	_announce_all_caps = (!!_announce_all_caps);
 
 	if (conf) {
-		if (conf->capture_nr >= 0 &&
-		    conf->output_nr == conf->capture_nr) {
-			nr = conf->capture_nr;
-		} else if (conf->capture_nr < 0 && conf->output_nr < 0) {
+		const int output_nr = conf->output_nr;
+		const int capture_nr = conf->capture_nr;
+		if (capture_nr >= 0 && output_nr == capture_nr) {
+			nr = output_nr;
+		} else if (capture_nr < 0 && output_nr < 0) {
 			nr = -1;
-		} else if (conf->capture_nr < 0) {
-			nr = conf->output_nr;
-		} else if (conf->output_nr < 0) {
-			nr = conf->capture_nr;
+		} else if (capture_nr < 0) {
+			nr = output_nr;
+		} else if (output_nr < 0) {
+			nr = capture_nr;
 		} else {
 			printk(KERN_ERR
 			       "split OUTPUT and CAPTURE devices not yet supported.");
 			printk(KERN_INFO
 			       "both devices must have the same number (%d != %d).",
-			       conf->output_nr, conf->capture_nr);
+			       output_nr, capture_nr);
 			return -EINVAL;
 		}
 	}
@@ -2855,7 +2856,7 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_config conf;
 	struct v4l2_loopback_config *confptr = &conf;
-	int device_nr;
+	int device_nr, capture_nr, output_nr;
 	int ret;
 
 	ret = mutex_lock_killable(&v4l2loopback_ctl_mutex);
@@ -2901,8 +2902,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		if ((ret = copy_from_user(&conf, (void *)parm, sizeof(conf))) <
 		    0)
 			break;
-		device_nr = (conf.output_nr < 0) ? conf.capture_nr :
-						   conf.output_nr;
+		capture_nr = output_nr = conf.output_nr;
+		capture_nr = conf.capture_nr;
+		device_nr = (output_nr < 0) ? capture_nr : output_nr;
 		MARK();
 		/* get the device from either capture_nr or output_nr (whatever is valid) */
 		if ((ret = v4l2loopback_lookup(device_nr, &dev)) < 0)
@@ -2911,15 +2913,15 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		/* if we got the device from output_nr and there is a valid capture_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
-		if ((device_nr != conf.capture_nr) && (conf.capture_nr >= 0) &&
-		    ((ret = v4l2loopback_lookup(conf.capture_nr, 0)) < 0))
+		if ((device_nr != capture_nr) && (capture_nr >= 0) &&
+		    ((ret = v4l2loopback_lookup(capture_nr, 0)) < 0))
 			break;
 		MARK();
 		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
                  * make sure that both refer to the same device (or bail out)
                  */
-		if ((device_nr != conf.output_nr) && (conf.output_nr >= 0) &&
-		    ((ret = v4l2loopback_lookup(conf.output_nr, 0)) < 0))
+		if ((device_nr != output_nr) && (output_nr >= 0) &&
+		    ((ret = v4l2loopback_lookup(output_nr, 0)) < 0))
 			break;
 		MARK();
 
@@ -2927,7 +2929,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		snprintf(conf.card_label, sizeof(conf.card_label), "%s",
 			 dev->card_label);
 		MARK();
-		conf.output_nr = conf.capture_nr = dev->vdev->num;
+		conf.output_nr = dev->vdev->num;
+		conf.capture_nr = dev->vdev->num;
 		conf.min_width = dev->min_width;
 		conf.min_height = dev->min_height;
 		conf.max_width = dev->max_width;

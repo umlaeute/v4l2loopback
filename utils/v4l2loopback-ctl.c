@@ -521,16 +521,19 @@ static int parse_device(const char *devicename_)
 
 static void print_conf(struct v4l2_loopback_config *cfg, int escape_level)
 {
+	int output_nr, capture_nr;
 	MARK();
 	if (!cfg) {
 		printf("configuration: %p\n", cfg);
 		return;
 	}
+	output_nr = capture_nr = cfg->output_nr;
+	capture_nr = cfg->capture_nr;
 	MARK();
 	printf("\tcapture_device#  : %d"
 	       "\n\toutput_device#   : %d"
 	       "\n\tcard_label       : ",
-	       cfg->capture_nr, cfg->output_nr);
+	       capture_nr, output_nr);
 	printf_raw(cfg->card_label, escape_level);
 	printf("\n\tmin_width        : %d"
 	       "\n\tmax_width        : %d"
@@ -592,7 +595,8 @@ static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		MARK();
 		struct v4l2_loopback_config config;
 		memset(&config, 0, sizeof(config));
-		config.output_nr = config.capture_nr = ret;
+		config.output_nr = ret;
+		config.capture_nr = ret;
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 		if (!ret)
 			perror("failed querying newly added device");
@@ -627,7 +631,8 @@ static int query_device(int fd, const char *devicename, int escape)
 	}
 
 	memset(&config, 0, sizeof(config));
-	config.output_nr = config.capture_nr = dev;
+	config.output_nr = dev;
+	config.capture_nr = dev;
 	err = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 	if (err)
 		perror("query failed");
@@ -646,6 +651,7 @@ static int list_devices(int fd, int escape)
 	} *devices = 0;
 	size_t numdevices = 0, i;
 	glob_t globbuf = { 0 };
+	int output_nr, capture_nr;
 	glob("/sys/devices/virtual/video4linux/video*", GLOB_ONLYDIR, 0,
 	     &globbuf);
 	if (globbuf.gl_pathc) {
@@ -683,20 +689,22 @@ static int list_devices(int fd, int escape)
 				continue;
 			}
 		}
+		capture_nr = config.capture_nr;
+		output_nr = config.output_nr;
 		/* check if we already have this device */
 		for (j = 0; j < numdevices; j++) {
-			if ((devices[j].output == config.output_nr) &&
-			    (devices[j].capture == config.capture_nr)) {
+			if ((devices[j].output == output_nr) &&
+			    (devices[j].capture == capture_nr)) {
 				//dprintf(2, "duplicate device\n");
-				config.output_nr = config.capture_nr = -1;
+				output_nr = capture_nr = -1;
 				break;
 			}
 		}
-		if ((config.output_nr < 0) || (config.capture_nr < 0))
+		if ((output_nr < 0) || (capture_nr < 0))
 			continue;
 
-		devices[numdevices].output = config.output_nr;
-		devices[numdevices].capture = config.capture_nr;
+		devices[numdevices].output = output_nr;
+		devices[numdevices].capture = capture_nr;
 		snprintf(devices[numdevices].name,
 			 sizeof(devices[numdevices].name), "%s",
 			 config.card_label);
