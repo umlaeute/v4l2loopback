@@ -13,6 +13,7 @@ PWD		:= $(shell pwd)
 
 PREFIX ?= /usr/local
 BINDIR  = $(PREFIX)/bin
+INCLUDEDIR = $(PREFIX)/include
 MANDIR  = $(PREFIX)/share/man
 MAN1DIR = $(MANDIR)/man1
 INSTALL = install
@@ -37,7 +38,7 @@ MODULE_OPTIONS = devices=2
 
 
 .PHONY: all install clean distclean
-.PHONY: install-all install-utils install-man
+.PHONY: install-all install-extra install-utils install-man install-headers
 .PHONY: modprobe v4l2loopback
 
 # we don't control the .ko file dependencies, as it is done by kernel
@@ -51,13 +52,14 @@ v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) KCPPFLAGS="$(KCPPFLAGS)" modules
 
-install-all: install install-utils install-man
+install-all: install install-extra
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
 	@echo ""
 	@echo "SUCCESS (if you got 'SSL errors' above, you can safely ignore them)"
 	@echo ""
 
+install-extra: install-utils install-man install-headers
 install-utils: utils/v4l2loopback-ctl
 	$(INSTALL_DIR) "$(DESTDIR)$(BINDIR)"
 	$(INSTALL_PROGRAM) $< "$(DESTDIR)$(BINDIR)"
@@ -65,6 +67,10 @@ install-utils: utils/v4l2loopback-ctl
 install-man: man/v4l2loopback-ctl.1
 	$(INSTALL_DIR) "$(DESTDIR)$(MAN1DIR)"
 	$(INSTALL_DATA) $< "$(DESTDIR)$(MAN1DIR)"
+
+install-headers: v4l2loopback.h
+	$(INSTALL_DIR) "$(DESTDIR)$(INCLUDEDIR)/linux"
+	$(INSTALL_DATA) $< "$(DESTDIR)$(INCLUDEDIR)/linux"
 
 clean:
 	rm -f *~
@@ -87,7 +93,7 @@ man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 		$^ > $@
 
 utils: utils/v4l2loopback-ctl
-utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
+utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c v4l2loopback.h
 	$(MAKE) -C utils V4L2LOOPBACK_SNAPSHOT_VERSION=$(V4L2LOOPBACK_SNAPSHOT_VERSION)
 
 .clang-format:

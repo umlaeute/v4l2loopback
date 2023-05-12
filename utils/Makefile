@@ -22,3 +22,6 @@ clean:
 install:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(INSTALL_PROGRAM) $(programs) $(DESTDIR)$(bindir)
+
+v4l2loopback-ctl.o: v4l2loopback-ctl.c ../v4l2loopback.h
+v4l2loopback-ctl: v4l2loopback-ctl.o
