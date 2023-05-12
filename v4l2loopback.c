@@ -1716,8 +1716,8 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
-			buf->sequence);
+			(long long)buf->timestamp.tv_sec,
+			(long int)buf->timestamp.tv_usec, buf->sequence);
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
@@ -1725,8 +1725,8 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
-			buf->sequence);
+			(long long)buf->timestamp.tv_sec,
+			(long int)buf->timestamp.tv_usec, buf->sequence);
 		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY)) &&
 		    (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
 			v4l2l_get_timestamp(&b->buffer);
@@ -1864,8 +1864,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
-			buf->sequence);
+			(long long)buf->timestamp.tv_sec,
+			(long int)buf->timestamp.tv_usec, buf->sequence);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		spin_lock_bh(&dev->list_lock);
@@ -1883,8 +1883,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
 			index, buf->index, buf, buf->type, buf->bytesused,
 			buf->length, buf->flags, buf->field,
-			buf->timestamp.tv_sec, (long int)buf->timestamp.tv_usec,
-			buf->sequence);
+			(long long)buf->timestamp.tv_sec,
+			(long int)buf->timestamp.tv_usec, buf->sequence);
 		return 0;
 	default:
 		return -EINVAL;
