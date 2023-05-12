@@ -312,8 +312,9 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 	if (detail)
 		dprintf(2, "\n adding devices ('add')"
 			   "\n ======================");
-	if (help_shortcmdline(detail, program,
-			      "add {<flags>} [<device> [<outputdevice>]]"))
+	if (help_shortcmdline(
+		    detail, program,
+		    "add {<flags>} [<outputdevice> [<capturedevice>]]"))
 		return;
 	dprintf(2,
 		"\n   <flags>\tany of the following flags may be present"
@@ -328,9 +329,9 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 		"\n\t -v/--verbose            : verbose mode (print properties of device after successfully creating it)"
 		"\n\t -?/--help               : print this help and exit"
 		"\n"
-		"\n  <device>\tif given, create a specific device (otherwise just create a free one)."
+		"\n  <outputdevice>\tif given, create a specific device (otherwise just create a free one)."
 		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n  <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same).");
+		"\n  <capturedevice>\tif given, use separate output & capture devices (otherwise they are the same).");
 }
 static void help_delete(const char *program, int detail, int argc, char **argv)
 {
@@ -1362,14 +1363,14 @@ int main(int argc, char **argv)
 			case 0:
 				/* no device given: pick some */
 				break;
+			case 2:
+				/* two devices given: capture_device and output_device */
+				output_nr = parse_device(argv[0]);
+				capture_nr = parse_device(argv[1]);
+				break;
 			case 1:
 				/* single device given: use it for both input and output */
 				capture_nr = output_nr = parse_device(argv[0]);
-				break;
-			case 2:
-				/* two devices given: capture_device and output_device */
-				capture_nr = parse_device(argv[0]);
-				output_nr = parse_device(argv[1]);
 				break;
 			default:
 				usage_topic(progname, cmd, argc, argv);
