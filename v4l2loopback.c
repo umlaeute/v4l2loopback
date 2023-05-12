@@ -2633,7 +2633,11 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	if (conf) {
 		const int output_nr = conf->output_nr;
+#ifdef SPLIT_DEVICES
 		const int capture_nr = conf->capture_nr;
+#else
+		const int capture_nr = output_nr;
+#endif
 		if (capture_nr >= 0 && output_nr == capture_nr) {
 			nr = output_nr;
 		} else if (capture_nr < 0 && output_nr < 0) {
@@ -2903,7 +2907,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		    0)
 			break;
 		capture_nr = output_nr = conf.output_nr;
+#ifdef SPLIT_DEVICES
 		capture_nr = conf.capture_nr;
+#endif
 		device_nr = (output_nr < 0) ? capture_nr : output_nr;
 		MARK();
 		/* get the device from either capture_nr or output_nr (whatever is valid) */
@@ -2930,7 +2936,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			 dev->card_label);
 		MARK();
 		conf.output_nr = dev->vdev->num;
+#ifdef SPLIT_DEVICES
 		conf.capture_nr = dev->vdev->num;
+#endif
 		conf.min_width = dev->min_width;
 		conf.min_height = dev->min_height;
 		conf.max_width = dev->max_width;
@@ -3116,7 +3124,9 @@ static int __init v4l2loopback_init_module(void)
 		struct v4l2_loopback_config cfg = {
 			// clang-format off
 			.output_nr		= video_nr[i],
+#ifdef SPLIT_DEVICES
 			.capture_nr		= video_nr[i],
+#endif
 			.min_width		= min_width,
 			.min_height		= min_height,
 			.max_width		= max_width,

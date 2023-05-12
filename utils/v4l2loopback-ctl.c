@@ -529,7 +529,9 @@ static void print_conf(struct v4l2_loopback_config *cfg, int escape_level)
 		return;
 	}
 	output_nr = capture_nr = cfg->output_nr;
+#ifdef SPLIT_DEVICES
 	capture_nr = cfg->capture_nr;
+#endif
 	MARK();
 	printf("\tcapture_device#  : %d"
 	       "\n\toutput_device#   : %d"
@@ -563,7 +565,9 @@ make_conf(struct v4l2_loopback_config *cfg, const char *label, int min_width,
 	    max_height <= 0 && exclusive_caps < 0 && buffers <= 0 &&
 	    openers <= 0 && capture_device < 0 && output_device < 0)
 		return 0;
+#ifdef SPLIT_DEVICES
 	cfg->capture_nr = capture_device;
+#endif
 	cfg->output_nr = output_device;
 	cfg->card_label[0] = 0;
 	if (label)
@@ -597,7 +601,9 @@ static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		struct v4l2_loopback_config config;
 		memset(&config, 0, sizeof(config));
 		config.output_nr = ret;
+#ifdef SPLIT_DEVICES
 		config.capture_nr = ret;
+#endif
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 		if (!ret)
 			perror("failed querying newly added device");
@@ -633,7 +639,9 @@ static int query_device(int fd, const char *devicename, int escape)
 
 	memset(&config, 0, sizeof(config));
 	config.output_nr = dev;
+#ifdef SPLIT_DEVICES
 	config.capture_nr = dev;
+#endif
 	err = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 	if (err)
 		perror("query failed");
@@ -680,6 +688,7 @@ static int list_devices(int fd, int escape)
 		}
 		/* check if this is a loopback device */
 		config.output_nr = dev;
+#ifdef SPLIT_DEVICES
 		config.capture_nr = -1;
 		if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
 			memset(&config, 0, sizeof(config));
@@ -691,6 +700,13 @@ static int list_devices(int fd, int escape)
 			}
 		}
 		capture_nr = config.capture_nr;
+#else
+		if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
+			//dprintf(2, "not a loopback device\n");
+			continue;
+		}
+		capture_nr = config.output_nr;
+#endif
 		output_nr = config.output_nr;
 		/* check if we already have this device */
 		for (j = 0; j < numdevices; j++) {
@@ -1367,6 +1383,12 @@ int main(int argc, char **argv)
 				/* two devices given: capture_device and output_device */
 				output_nr = parse_device(argv[0]);
 				capture_nr = parse_device(argv[1]);
+#ifndef SPLIT_DEVICES
+				if (capture_nr != output_nr)
+					dprintf(2,
+						"split output/capture devices currently not supported...ignoring capture device\n");
+				capture_nr = output_nr;
+#endif
 				break;
 			case 1:
 				/* single device given: use it for both input and output */

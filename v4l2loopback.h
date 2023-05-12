@@ -33,7 +33,7 @@ struct v4l2_loopback_config {
          *
          */
 	int output_nr;
-	int capture_nr;
+	int unused; /*capture_nr;*/
 
 	/**
          * a nice name for your device
