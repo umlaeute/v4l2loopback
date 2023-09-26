@@ -2389,11 +2389,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 		if (dev->buffer_size * dev->buffers_number == dev->imagesize)
 			return 0;
 
-		/* if there is only one writer, no problem should occur */
-		if (dev->open_count.counter == 1)
-			free_buffers(dev);
-		else
-			return -EINVAL;
+		free_buffers(dev);
 	}
 
 	dev->imagesize = (unsigned long)dev->buffer_size *
