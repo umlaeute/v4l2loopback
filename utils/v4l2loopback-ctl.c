@@ -30,8 +30,9 @@
 #include "v4l2loopback.h"
 
 #ifndef GLOB_ONLYDIR
-/* not required by POSIX */
-#define GLOB_ONLYDIR 0 /* Fix for musl libc and other libcs missing GLOB_ONLYDIR at glob.h */
+/* Fix for musl libc and other libcs missing GLOB_ONLYDIR at glob.h */
+/* (GLOB_ONLYDIR is not required by POSIX) */
+#define GLOB_ONLYDIR 0
 #endif
 
 #define CONTROLDEVICE "/dev/v4l2loopback"
