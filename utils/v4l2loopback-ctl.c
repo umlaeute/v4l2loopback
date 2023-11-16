@@ -30,6 +30,7 @@
 #include "v4l2loopback.h"
 
 #ifndef GLOB_ONLYDIR
+/* not required by POSIX */
 #define GLOB_ONLYDIR 0 /* Fix for musl libc and other libcs missing GLOB_ONLYDIR at glob.h */
 #endif
 
