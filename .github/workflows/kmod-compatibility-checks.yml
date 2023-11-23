@@ -73,8 +73,12 @@ jobs:
                 echo "#### Skipped known failure ${kver}";
                 ;;
               *)
-                echo "#### Skipped unexpected failure ${kver}";
-                failed="${failed} ${kver}";
+                if grep -qE "^(CONFIG_VIDEO_DEV|CONFIG_VIDEO_V4L2)=" "${kver}/.config"; then
+                  echo "#### Unexpected failure ${kver}";
+                  failed="${failed} ${kver}";
+                else
+                  echo "#### Skipped failure ${kver} (no v4l2 support)";
+                fi;
                 ;;
               esac;
             fi;
