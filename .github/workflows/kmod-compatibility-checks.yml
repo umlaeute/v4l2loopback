@@ -50,10 +50,10 @@ jobs:
           apt-get update --quiet;
           apt-get install --yes --no-install-recommends kmod
           for kver in $(apt-cache search 'linux-headers-.*-generic' | cut -d- -f3 | sort -u -V); do
-            apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | tail -n 1 | awk '{print $1}';
+            apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | awk '{print $1}';
           done | xargs apt-get install --yes --no-install-recommends || true
           for kver in $(apt-cache search "linux-headers-.*-${arch}" | cut -d- -f3 | sort -u -V); do
-            apt-cache search 'linux-headers-'"${kver}"'-.*-'"${arch}" | sort -V | tail -n 1 | awk '{print $1}';
+            apt-cache search 'linux-headers-'"${kver}"'-.*-'"${arch}" | sort -V  | awk '{print $1}';
           done | xargs apt-get install --yes --no-install-recommends || true
 
           failed=""
