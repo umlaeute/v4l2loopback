@@ -58,6 +58,7 @@ jobs:
 
           failed=""
           succeeded=""
+          skipped=""
           for kver in /lib/modules/*/build; do
             test -d $kver || continue
             kver=${kver%/build}
@@ -71,6 +72,7 @@ jobs:
               case " ${JOB_KNOWN_FAILURES} " in
               *" ${kver%.*} "*)
                 echo "#### Skipped known failure ${kver}";
+                skipped="${skipped} ${kver}";
                 ;;
               *)
                 if grep -qE "^(CONFIG_VIDEO_DEV|CONFIG_VIDEO_V4L2)=" "${kver}/.config"; then
@@ -78,6 +80,7 @@ jobs:
                   failed="${failed} ${kver}";
                 else
                   echo "#### Skipped failure ${kver} (no v4l2 support)";
+                  skipped="${skipped} ${kver}";
                 fi;
                 ;;
               esac;
@@ -87,5 +90,8 @@ jobs:
           if [ "x${failed}" != "x" ]; then
             echo "#### Failed kernels: ${failed}";
             exit 1
+          fi
+          if [ "x${skipped}" != "x" ]; then
+            echo "#### Skipped kernels: ${skipped}";
           fi
           echo "#### Successful builds for kernels: ${succeeded}";
