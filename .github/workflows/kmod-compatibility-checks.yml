@@ -48,6 +48,7 @@ jobs:
         run: |
           apt-get update --quiet;
           apt-get install --yes --no-install-recommends kmod
+          apt-get install --yes --no-install-recommends dkms || true
           apt-cache search "linux-headers-[0-9.]*-[0-9]*-" | cut -d " " -f1 \
                 | sed -e 's|linux-headers-\([0-9.]*\)-[0-9]*-\(.*\)|\0 \1 \2|' | sort -t- -k3,4 -V -r | sort  -u -k2,3 -V | cut -d " " -f1 \
                 | xargs apt-get install --yes --no-install-recommends
