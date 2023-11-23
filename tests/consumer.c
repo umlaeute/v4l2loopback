@@ -486,7 +486,7 @@ static void init_device(void)
 	printf("got format: %s\n",
 	       snprintf_format(strbuf, sizeof(strbuf), &fmt));
 
-	/* try to se tthe current format (no-change should always succeed) */
+	/* try to set the current format (no-change should always succeed) */
 	if (xioctl(fd, VIDIOC_S_FMT, &fmt) < 0) {
 		const char *s = "VIDIOC_S_FMT";
 		fprintf(stderr, "%s error %d, %s\n", s, errno, strerror(errno));

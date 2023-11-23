@@ -21,7 +21,7 @@ jobs:
         # the following does:
         # - fetch all available tags for the "buildpack-deps" Docker image
         # - fetch all available Ubuntu and Debian releases (that are still hosted on the distros' archive servers)
-        # - get the intersection of the tags and the releaess
+        # - get the intersection of the tags and the releases
         # - drop some releases (e.g. 'oldstable')
         # - format as a JSON array
         run: |
