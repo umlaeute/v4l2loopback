@@ -59,9 +59,9 @@ jobs:
           failed=""
           succeeded=""
           skipped=""
-          for kver in /lib/modules/*/build; do
-            test -d $kver || continue
-            kver=${kver%/build}
+          for kbuild in /lib/modules/*/build; do
+            test -d $kbuild || continue
+            kver=${kbuild%/build}
             kver=${kver##*/}
             echo "=== Testing ${kver} ===";
             ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
@@ -75,12 +75,12 @@ jobs:
                 skipped="${skipped} ${kver}";
                 ;;
               *)
-                if grep -qE "^(CONFIG_VIDEO_DEV|CONFIG_VIDEO_V4L2)=" "${kver}/.config"; then
-                  echo "#### Unexpected failure ${kver}";
-                  failed="${failed} ${kver}";
-                else
+                if test -e "${kbuild}/.config" && ! grep -qE "^(CONFIG_VIDEO_DEV|CONFIG_VIDEO_V4L2)=" "${kbuild}/.config"; then
                   echo "#### Skipped failure ${kver} (no v4l2 support)";
                   skipped="${skipped} ${kver}";
+                else
+                  echo "#### Unexpected failure ${kver}";
+                  failed="${failed} ${kver}";
                 fi;
                 ;;
               esac;
