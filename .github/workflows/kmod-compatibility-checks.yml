@@ -46,16 +46,11 @@ jobs:
       - name: Compile against all available kernel header versions
         shell: bash
         run: |
-          arch=$(dpkg --print-architecture)
           apt-get update --quiet;
           apt-get install --yes --no-install-recommends kmod
-          for kver in $(apt-cache search 'linux-headers-.*-generic' | cut -d- -f3 | sort -u -V); do
-            apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | awk '{print $1}';
-          done | xargs apt-get install --yes --no-install-recommends || true
-          for kver in $(apt-cache search "linux-headers-.*-${arch}" | cut -d- -f3 | sort -u -V); do
-            apt-cache search 'linux-headers-'"${kver}"'-.*-'"${arch}" | sort -V  | awk '{print $1}';
-          done | xargs apt-get install --yes --no-install-recommends || true
-
+          apt-cache search "linux-headers-[0-9.]*-[0-9]*-" | cut -d " " -f1 \
+                | sed -e 's|linux-headers-\([0-9.]*\)-[0-9]*-\(.*\)|\0 \1 \2|' | sort -t- -k3,4 -V -r | sort  -u -k2,3 -V | cut -d " " -f1 \
+                | xargs apt-get install --yes --no-install-recommends
           failed=""
           succeeded=""
           skipped=""
