@@ -41,7 +41,7 @@ jobs:
     env:
       JOB_KNOWN_FAILURES: "3.13 3.16 3.19 4.2"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       - name: Compile against all available kernel header versions
         shell: bash
