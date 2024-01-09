@@ -82,7 +82,7 @@ distclean: clean
 	rm -f man/v4l2loopback-ctl.1
 
 modprobe: v4l2loopback.ko
-	chmod a+r v4l2loopback.ko
+	-sudo chmod a+r v4l2loopback.ko
 	sudo modprobe videodev
 	-sudo rmmod v4l2loopback
 	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
