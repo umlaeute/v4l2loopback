@@ -103,4 +103,38 @@ utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c v4l2loopback.h
 clang-format: .clang-format
 	clang-format -i *.c *.h utils/*.c
 
+.PHONY: sign
+# try to read the default certificate/key from the dkms config
+dkms_framework=/etc/dkms/framework.conf
+-include $(dkms_framework)
+KBUILD_SIGN_KEY=$(mok_signing_key)
+KBUILD_SIGN_CERT=$(mok_certificate)
+
+ifeq ($(KBUILD_SIGN_PIN),)
+define usage_kbuildsignpin
+$(info )
+$(info ++++++ If your certificate requires a password, pass it via the KBUILD_SIGN_PIN env-var!)
+$(info ++++++ E.g. using 'export KBUILD_SIGN_PIN; read -s -p "Passphrase for signing key $(KBUILD_SIGN_KEY): " KBUILD_SIGN_PIN; sudo --preserve-env=KBUILD_SIGN_PIN make sign')
+$(info )
+endef
+endif
+
+define usage_kbuildsign
+sign: v4l2loopback.ko
+	$(info )
+	$(info ++++++ To sign the $< module, you must set KBUILD_SIGN_KEY/KBUILD_SIGN_CERT to point to the signing key/certificate!)
+	$(info ++++++ For your convenience, we try to read these variables as 'mok_signing_key' resp. 'mok_certificate' from $(dkms_framework))
+	$(call usage_kbuildsignpin)
+endef
+
+ifeq ($(wildcard $(KBUILD_SIGN_KEY)),)
+$(call usage_kbuildsign)
+else ifeq ($(wildcard $(KBUILD_SIGN_CERT)),)
+$(call usage_kbuildsign)
+else
+sign: v4l2loopback.ko
+	$(call usage_kbuildsignpin)
+	"$(KERNEL_DIR)"/scripts/sign-file sha256 $(KBUILD_SIGN_KEY) $(KBUILD_SIGN_CERT) $<
+endif
+
 endif # !kbuild
