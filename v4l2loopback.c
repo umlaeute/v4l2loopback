@@ -37,6 +37,10 @@
 #error This module is not supported on kernels before 4.0.0.
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0)
+#define HAVE_STRSCPY
+#endif
+
 #if defined(timer_setup) && defined(from_timer)
 #define HAVE_TIMER_SETUP
 #endif
@@ -901,7 +905,11 @@ static int vidioc_querycap(struct file *file, void *priv,
 			->device_nr;
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
+#ifdef HAVE_STRSCPY
+	strscpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
+#else
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
+#endif
 	snprintf(cap->card, sizeof(cap->card), "%s", dev->card_label);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
 		 "platform:v4l2loopback-%03d", device_nr);
@@ -1423,7 +1431,11 @@ static int vidioc_enum_output(struct file *file, void *fh,
 	memset(outp, 0, sizeof(*outp));
 
 	outp->index = index;
+#ifdef HAVE_STRSCPY
+	strscpy(outp->name, "loopback in", sizeof(outp->name));
+#else
 	strlcpy(outp->name, "loopback in", sizeof(outp->name));
+#endif
 	outp->type = V4L2_OUTPUT_TYPE_ANALOG;
 	outp->audioset = 0;
 	outp->modulator = 0;
@@ -1483,7 +1495,11 @@ static int vidioc_enum_input(struct file *file, void *fh,
 	memset(inp, 0, sizeof(*inp));
 
 	inp->index = index;
+#ifdef HAVE_STRSCPY
+	strscpy(inp->name, "loopback", sizeof(inp->name));
+#else
 	strlcpy(inp->name, "loopback", sizeof(inp->name));
+#endif
 	inp->type = V4L2_INPUT_TYPE_CAMERA;
 	inp->audioset = 0;
 	inp->tuner = 0;
