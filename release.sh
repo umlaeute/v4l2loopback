@@ -13,7 +13,7 @@
 CHANGELOG=ChangeLog
 AUTHORS=AUTHORS
 NEWS=NEWS
-: ${mainbranch:=main}
+: "${mainbranch:=main}"
 
 error() {
   echo "$@" 1>&2
@@ -43,7 +43,7 @@ if [ "$(getgitbranch)" != "${mainbranch}" ]; then
  fatal "current branch '$(getgitbranch)' is not '${mainbranch}'"
 fi
 
-if [ "x$2" = "x" ]; then
+if [ -z "$2" ]; then
 ## guess current version
  NEWVERSION=$1
  OLDVERSION=$(getoldversion)
@@ -52,28 +52,28 @@ else
  NEWVERSION=$2
 fi
 
-if [ "x${NEWVERSION}" = "x" ]; then
-  NEWVERSION=$(getmoduleversion)
+if [ -z "${NEWVERSION}" ]; then
+  NEWVERSION="$(getmoduleversion)"
 fi
 
-if git tag -l v${OLDVERSION} | grep . >/dev/null
+if git tag -l "v${OLDVERSION}" | grep . >/dev/null
 then
  :
 else
  fatal "it seems like there is no tag 'v${OLDVERSION}'"
 fi
 
-if [ "x${OLDVERSION}" = "x" ]; then
+if [ -z "${OLDVERSION}" ]; then
  usage
 fi
 
 echo "updating from ${OLDVERSION}"
 
-if [ "x${NEWVERSION}" = "x" ]; then
+if [ -z "${NEWVERSION}" ]; then
  usage
 fi
 
-if dpkg --compare-versions ${OLDVERSION} ge ${NEWVERSION}
+if dpkg --compare-versions "${OLDVERSION}" ge "${NEWVERSION}"
 then
  fatal "version mismatch: ${NEWVERSION} is not newer than ${OLDVERSION}"
 fi
@@ -86,11 +86,14 @@ cp "${CHANGELOG}" debian/changelog
 gbp dch -R --since "v${OLDVERSION}" -N "${NEWVERSION}" --debian-branch="${mainbranch}" && cat debian/changelog > "${CHANGELOG}" && OK=true
 rm -rf debian
 
-if [ "x${OK}" = "xtrue" ]; then
+if [ "${OK}" = "true" ]; then
   sed -e "s|^PACKAGE_VERSION=\".*\"$|PACKAGE_VERSION=\"${NEWVERSION}\"|" -i dkms.conf
 fi
 
-if [ "x${OK}" = "xtrue" ]; then
+
+
+
+if [ "${OK}" = "true" ]; then
  echo "all went well"
  echo ""
  echo "- please check your ${CHANGELOG}"
