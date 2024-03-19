@@ -35,6 +35,12 @@ getmoduleversion() {
         -e 's|^[^0-9]*||' -e 's|[^0-9]*$||' \
         -e 's|[^0-9][^0-9]*|.|g'
 }
+getmoduleversion_() {
+  grep "^[[:space:]]*#[[:space:]]*define[[:space:]]*V4L2LOOPBACK_VERSION_$1[[:space:]]" v4l2loopback.h | awk '{print $NF}'
+}
+getmoduleversion() {
+  echo "$(getmoduleversion_ MAJOR).$(getmoduleversion_ MINOR).$(getmoduleversion_ BUGFIX)"
+}
 getgitbranch() {
   git rev-parse --abbrev-ref HEAD
 }
@@ -42,6 +48,8 @@ getgitbranch() {
 if [ "$(getgitbranch)" != "${mainbranch}" ]; then
  fatal "current branch '$(getgitbranch)' is not '${mainbranch}'"
 fi
+
+moduleversion=$(getmoduleversion)
 
 if [ -z "$2" ]; then
 ## guess current version
@@ -53,7 +61,7 @@ else
 fi
 
 if [ -z "${NEWVERSION}" ]; then
-  NEWVERSION="$(getmoduleversion)"
+  NEWVERSION="${moduleversion}"
 fi
 
 if git tag -l "v${OLDVERSION}" | grep . >/dev/null
