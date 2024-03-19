@@ -64,6 +64,9 @@ if [ -z "${NEWVERSION}" ]; then
   NEWVERSION="${moduleversion}"
 fi
 
+echo "module version: ${moduleversion}"
+
+echo "updating from: ${OLDVERSION}"
 if git tag -l "v${OLDVERSION}" | grep . >/dev/null
 then
  :
@@ -75,18 +78,17 @@ if [ -z "${OLDVERSION}" ]; then
  usage
 fi
 
-echo "updating from ${OLDVERSION}"
 
 if [ -z "${NEWVERSION}" ]; then
  usage
 fi
 
+echo "updating to: ${NEWVERSION}"
 if dpkg --compare-versions "${OLDVERSION}" ge "${NEWVERSION}"
 then
  fatal "version mismatch: ${NEWVERSION} is not newer than ${OLDVERSION}"
 fi
 
-echo "updating to ${NEWVERSION}"
 
 if [ "${NEWVERSION}" != "${moduleversion}" ]; then
   echo "${NEWVERSION}" | sed -e 's|\.| |g' | while read major minor bugfix; do
