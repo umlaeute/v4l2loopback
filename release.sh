@@ -29,7 +29,7 @@ usage() {
 getoldversion() {
   dpkg-parsechangelog --count 1 -l${CHANGELOG} | grep -E "^Version:" | head -1 | cut -f2 -d' '
 }
-getmoduleversion() {
+getmoduleversion0() {
   grep "^#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION" v4l2loopback.c \
   | sed -e 's|^#define V4L2LOOPBACK_VERSION_CODE KERNEL_VERSION||' \
         -e 's|^[^0-9]*||' -e 's|[^0-9]*$||' \
@@ -91,7 +91,7 @@ fi
 
 
 if [ "${NEWVERSION}" != "${moduleversion}" ]; then
-  echo "${NEWVERSION}" | sed -e 's|\.| |g' | while read major minor bugfix; do
+  echo "${NEWVERSION}" | sed -e 's|\.| |g' | while read -r major minor bugfix; do
     major=$((major+0))
     minor=$((minor+0))
     bugfix=$((bugfix+0))
