@@ -88,6 +88,18 @@ fi
 
 echo "updating to ${NEWVERSION}"
 
+if [ "${NEWVERSION}" != "${moduleversion}" ]; then
+  echo "${NEWVERSION}" | sed -e 's|\.| |g' | while read major minor bugfix; do
+    major=$((major+0))
+    minor=$((minor+0))
+    bugfix=$((bugfix+0))
+    sed -e "s|^\([[:space:]]*#[[:space:]]*define[[:space:]]*V4L2LOOPBACK_VERSION_MAJOR[[:space:]]\).*|\1${major}|"   -i v4l2loopback.h
+    sed -e "s|^\([[:space:]]*#[[:space:]]*define[[:space:]]*V4L2LOOPBACK_VERSION_MINOR[[:space:]]\).*|\1${minor}|"   -i v4l2loopback.h
+    sed -e "s|^\([[:space:]]*#[[:space:]]*define[[:space:]]*V4L2LOOPBACK_VERSION_BUGFIX[[:space:]]\).*|\1${bugfix}|" -i v4l2loopback.h
+    break
+  done
+fi
+
 OK=false
 mkdir debian
 cp "${CHANGELOG}" debian/changelog
