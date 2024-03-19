@@ -1,3 +1,15 @@
+v4l2loopback (0.13.1) unstable; urgency=medium
+
+  [ Max Harmathy ]
+  * Avoid building utils with dkms
+
+  [ IOhannes m zmölnig ]
+  * 'release.sh' script
+    + shellchecked
+    + write back new version to v4l2loopback.h (if necessary)
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Tue, 19 Mar 2024 22:15:34 +0100
+
 v4l2loopback (0.13.0) unstable; urgency=medium
 
   [ IOhannes m zmölnig ]

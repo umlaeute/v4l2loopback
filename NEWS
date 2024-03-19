@@ -1,3 +1,10 @@
+v4l2loopback-0.13.1
+
+  * Avoid building utils with dkms
+  * Fix version number in module
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Tue, 19 Mar 2024 22:15:34 +0100
+
 v4l2loopback-0.13.0
 
   * Dynamic device management
