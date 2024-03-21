@@ -1067,7 +1067,7 @@ static int get_caps(const char *devicename)
 static int set_timeoutimage(const char *devicename, const char *imagefile,
 			    int timeout, int verbose)
 {
-	int err=0;
+	int err = 0;
 	int fd = -1;
 	char imagearg[4096], imagefile2[4096], devicearg[4096];
 	char *args[] = { "gst-launch-1.0",
@@ -1441,7 +1441,7 @@ int main(int argc, char **argv)
 		fd = open_controldevice();
 		for (i = 0; i < argc; i++) {
 			int err = delete_device(fd, argv[i]);
-			if(err)
+			if (err)
 				ret = err;
 		}
 		break;
