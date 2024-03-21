@@ -110,12 +110,12 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 #include <asm/div64.h> /* do_div() for 64bit division */
 static inline int v4l2l_mod64(const s64 A, const u32 B)
 {
-	s64 a = A;
+	u64 a = (u64)A;
 	u32 b = B;
 
-	if (a > 0)
+	if (A > 0)
 		return do_div(a, b);
-	a = -a;
+	a = -A;
 	return -do_div(a, b);
 }
 #else
