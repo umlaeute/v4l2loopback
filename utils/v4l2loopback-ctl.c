@@ -592,12 +592,14 @@ make_conf(struct v4l2_loopback_config *cfg, const char *label, int min_width,
 
 static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 {
+	int err = 0;
 	MARK();
 	int ret = ioctl(fd, V4L2LOOPBACK_CTL_ADD, cfg);
 	MARK();
 	if (ret < 0) {
+		err = errno;
 		perror("failed to create device");
-		return 1;
+		return err;
 	}
 	MARK();
 
@@ -612,26 +614,31 @@ static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		config.capture_nr = ret;
 #endif
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
-		if (!ret)
+		if (ret < 0) {
+			err = errno;
 			perror("failed querying newly added device");
+		}
 		MARK();
 		print_conf(&config, 0);
 		MARK();
 	}
-	return (!ret);
+	return err;
 }
 
 static int delete_device(int fd, const char *devicename)
 {
+	int err = 0;
 	int dev = parse_device(devicename);
 	if (dev < 0) {
 		dprintf(2, "ignoring illegal devicename '%s'\n", devicename);
 		return 1;
 	}
-	if (ioctl(fd, V4L2LOOPBACK_CTL_REMOVE, dev) < 0)
+	if (ioctl(fd, V4L2LOOPBACK_CTL_REMOVE, dev) < 0) {
+		err = errno;
 		perror(devicename);
+	}
 
-	return 0;
+	return err;
 }
 
 static int query_device(int fd, const char *devicename, int escape)
@@ -912,8 +919,10 @@ static int get_fps(const char *devicename)
 
 	/* get the framerate via ctls */
 	fd = open_videodevice(devicename, O_RDWR);
-	if (fd < 0)
+	if (fd < 0) {
+		ret = 1;
 		goto done;
+	}
 
 	memset(&param, 0, sizeof(param));
 	param.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -1430,9 +1439,10 @@ int main(int argc, char **argv)
 			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
 		for (i = 0; i < argc; i++) {
-			ret += (delete_device(fd, argv[i]) != 0);
+			int err = delete_device(fd, argv[i]);
+			if(err)
+				ret = err;
 		}
-		ret = (ret > 0);
 		break;
 	case QUERY:
 		for (;;) {
