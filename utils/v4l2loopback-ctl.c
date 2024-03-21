@@ -1056,6 +1056,7 @@ static int get_caps(const char *devicename)
 static int set_timeoutimage(const char *devicename, const char *imagefile,
 			    int timeout, int verbose)
 {
+	int err=0;
 	int fd = -1;
 	char imagearg[4096], imagefile2[4096], devicearg[4096];
 	char *args[] = { "gst-launch-1.0",
@@ -1094,6 +1095,8 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			devicename);
 		set_control_i(fd, "timeout_image_io", 1);
 		close(fd);
+	} else {
+		err = errno;
 	}
 
 	if (verbose > 1) {
@@ -1111,6 +1114,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 		"v======================================================================v\n");
 	if (my_execv(args)) {
 		dprintf(2, "ERROR: setting time-out image failed\n");
+		err = 1;
 	}
 	dprintf(2,
 		"^======================================================================^\n");
@@ -1133,7 +1137,10 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 		}
 
 		close(fd);
+	} else {
+		err = errno;
 	}
+	return err;
 }
 
 static t_command get_command(const char *command)
