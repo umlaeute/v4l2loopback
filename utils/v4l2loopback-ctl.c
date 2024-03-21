@@ -395,6 +395,7 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 	dprintf(2,
 		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n    <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
+		"\n          \tunset the current caps with the special value 'any'"
 		"\n");
 	if (detail > 1) {
 		dprintf(2, "\nknown fourcc-codes"
