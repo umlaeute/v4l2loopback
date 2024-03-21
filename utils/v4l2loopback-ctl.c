@@ -770,6 +770,7 @@ static int open_controldevice()
 		perror("unable to open control device '" CONTROLDEVICE "'");
 		exit(1);
 	}
+	return fd;
 }
 
 static int open_sysfs_file(const char *devicename, const char *filename,
