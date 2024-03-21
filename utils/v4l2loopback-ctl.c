@@ -102,19 +102,20 @@ void exec_cleanup(int signal)
 static int my_execv(char *const *cmdline)
 {
 	char exe[1024];
-	//pid_t pid;
 	int res = 0;
-	char *const *argp = cmdline;
 	if (!which(exe, 1024, cmdline[0])) {
 		dprintf(2, "cannot find %s - is it installed???\n", cmdline[0]);
 		return 1;
 	}
 #if 0
-	dprintf(2, "%s:", exe);
-	while (*argp) {
-		dprintf(2, " %s", *argp++);
-	};
-	dprintf(2, "\n");
+	do {
+		char *const *argp = cmdline;
+		dprintf(2, "%s:", exe);
+		while (*argp) {
+			dprintf(2, " %s", *argp++);
+		};
+		dprintf(2, "\n");
+	} while(0);
 #endif
 
 	pid = fork();
@@ -1239,7 +1240,6 @@ static int do_defaultargs(const char *progname, t_command cmd, int argc,
 int main(int argc, char **argv)
 {
 	const char *progname = argv[0];
-	const char *cmdname;
 	int i;
 	int fd = -1;
 	int verbose = 0;
