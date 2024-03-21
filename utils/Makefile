@@ -18,6 +18,7 @@ default: $(programs)
 
 clean:
 	-rm $(programs)
+	-rm $(programs:%=%.o)
 
 install:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
