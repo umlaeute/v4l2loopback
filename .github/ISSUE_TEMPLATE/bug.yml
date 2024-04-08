@@ -1,0 +1,91 @@
+---
+name: Report a bug
+about: Create a report to help us improve (but make sure to read all the documentation first)
+title: ''
+labels: 'needs triage'
+assignees: 'umlaeute'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your feedback. It is invaluable for making `v4l2loopback` a better software.
+
+        To help us making the most of your feedback (so we can e.g. fix bugs more quickly), please make sure to provide the information requested in this template.
+        Also make sure to remove any non-relevant parts (so we can focus on the essential problem).
+
+        Please keep in mind that the development of `v4l2loopback` is done by volunteers.
+        They are spending their spare time to give you a hopefully nice product and to help you if you have troubles - for free.
+
+  - type: checkboxes
+    attributes:
+      label: Is there an existing issue for this?
+      description: Please search to see if an (open or closed) issue already exists for the bug you encountered.
+      options:
+        - label: I have searched the existing issues
+          required: true
+
+  - id: details
+    type: textarea
+    attributes:
+      label: Detail
+      description: What went wrong?
+      placeholder: |
+        What did you do (step by step)? what did you expect? what happened?
+      render: markdown
+    validations:
+      required: true
+
+  - id: version
+    type: input
+    attributes:
+      label: v4l2loopback version
+      description: |
+        What is the exact version of v4l2loopback you are using? (e.g. as reported by `sudo dmesg  | grep -i "v4l2loopback driver version"` or `git describe`)
+      placeholder: |
+        e.g. v0.13.1-10-g2014627
+    validations:
+      required: true
+
+  - id: kernelversion
+    type: input
+    attributes:
+      label: kernel version
+      description: |
+        What is the exact version of the linux kernel you are using? (reported via `uname -a`)
+      placeholder: |
+        e.g. Linux umlautT 6.7.9-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.7.9-2 (2024-03-13) x86_64 GNU/Linux
+    validations:
+      required: true
+
+
+  #  - type: dropdown
+  #    id: OS
+  #    attributes:
+  #      label: Operating System
+  #      description: Which OS are you using?
+  #      multiple: true
+  #      options:
+  #        - Linux
+  #        - macOS
+  #        - Windows
+  #        - other
+  - id: osversion
+    type: input
+    attributes:
+      label: OS Version
+      description: |
+        Which version of the Operating System are you using?
+      placeholder: |
+        e.g. Ubuntu/4.10 "Warty"
+
+  - id: arch
+    type: dropdown
+    attributes:
+      label: Which CPU are you using?
+      multiple: true
+      options:
+        - amd64/x86_64 ("64bit Intel")
+        - i386 ("32bit Intel")
+        - arm64 ("64bit ARM"; e.g. Apple Silicon,...)
+        - arm ("32bit ARM"; e.g. Raspberry Pi,...)
+        - other
