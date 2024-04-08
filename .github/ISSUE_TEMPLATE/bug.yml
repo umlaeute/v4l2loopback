@@ -1,6 +1,6 @@
 ---
 name: Report a bug
-description: Create a report to help us improve (but make sure to read all the documentation first)
+description: Create a report to help us improve (but make sure to read all the documentation first).
 title: "[Bug]: <title>"
 labels: ['needs triage','kind:bug']
 assignees: 'umlaeute'
