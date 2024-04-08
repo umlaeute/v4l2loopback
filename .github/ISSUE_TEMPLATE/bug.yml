@@ -8,29 +8,21 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for your feedback. It is invaluable for making `v4l2loopback` a
-        better software.
+        Thanks for your feedback. It is invaluable for making `v4l2loopback` a better software.
 
-        To help us making the most of your feedback (so we can e.g. fix bugs
-        more quickly), please make sure to provide the information requested
-        in this template.
+        To help us making the most of your feedback (so we can e.g. fix bugs more quickly), please make sure to provide the information requested in this template.
 
-        Please keep in mind that the development of `v4l2loopback` is done by
-        volunteers.
-        They are spending their spare time to give you a hopefully nice product
-        and to help you if you have troubles - for free.
+        Please keep in mind that the development of `v4l2loopback` is done by volunteers.
+        They are spending their spare time to give you a hopefully nice product and to help you if you have troubles - for free.
 
-        If you are experiencing interoperability problems with a commercial
-        product, contact *their* support first.
+        If you are experiencing interoperability problems with a commercial product, contact *their* support first.
 
   - type: checkboxes
     attributes:
       label: Is there an existing issue for this?
       description: |
-        Please search to see if an (open or closed) issue already exists for
-        the bug you encountered.
-        If so, consider adding more information to the existing issue, rather
-        than creating a new one.
+        Please search to see if an (open or closed) issue already exists for the bug you encountered.
+        If so, consider adding more information to the existing issue, rather than creating a new one.
       options:
         - label: I have searched the existing issues
           required: true
@@ -41,9 +33,7 @@ body:
       label: Detail
       description: |
         What went wrong?
-        If you are using additional software (e.g. `obs-studio`, `ffmpeg`, ...)
-        please make sure to include full version information (and - if it is
-        not a very common product - a link to their webpage).
+        If you are using additional software (e.g. `obs-studio`, `ffmpeg`, ...) please make sure to include full version information (and - if it is not a very common product - a link to their webpage).
       placeholder: |
         What did you do (step by step)? What did you expect? What happened?
       render: markdown
@@ -55,9 +45,7 @@ body:
     attributes:
       label: v4l2loopback version
       description: |
-        What is the exact version of v4l2loopback you are using? (e.g. as
-        reported by `sudo dmesg  | grep -i "v4l2loopback driver version"`
-        or `git describe`)
+        What is the exact version of v4l2loopback you are using? (e.g. as reported by `sudo dmesg  | grep -i "v4l2loopback driver version"` or `git describe`)
       placeholder: |
         e.g. v0.13.1-10-g2014627
     validations:
@@ -68,8 +56,7 @@ body:
     attributes:
       label: kernel version
       description: |
-        What is the exact version of the linux kernel you are using? (reported
-        via `uname -a`)
+        What is the exact version of the linux kernel you are using? (reported via `uname -a`)
       placeholder: |
         e.g. Linux umlautT 6.7.9-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.7.9-2 (2024-03-13) x86_64 GNU/Linux
     validations:
@@ -92,8 +79,7 @@ body:
     attributes:
       label: OS Version
       description: |
-        Which distribution/version are you using?
-        (numeric versions are much preferred over codenames)
+        Which distribution/version are you using?  (numeric versions are much preferred over codenames)
       placeholder: |
         e.g. Ubuntu/4.10 "Warty"
 
