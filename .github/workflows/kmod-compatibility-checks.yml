@@ -21,11 +21,11 @@ jobs:
         # the following does:
         # - fetch all available tags for the "buildpack-deps" Docker image
         # - fetch all available Ubuntu and Debian releases (that are still hosted on the distros' archive servers)
-        # - get the intersection of the tags and the releaess
+        # - get the intersection of the tags and the releases
         # - drop some releases (e.g. 'oldstable')
         # - format as a JSON array
         run: |
-          echo ::set-output name=matrix::$(true; (curl -s "https://hub.docker.com/v2/repositories/library/buildpack-deps/tags?page_size=1000" | jq -r '.results[] | .name' | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u; for url in http://archive.ubuntu.com/ubuntu http://deb.debian.org/debian; do curl -s "${url}/dists/" | grep "href=" | sed -e 's|.*a href="||' -e 's|".*||' -e 's|/$||'; done | sed -e '/[^a-z]/d' -e '/stable$/d' -e '/^\(testing\|experimental\)$/d' | sort -u) | sort | uniq -d | while read x; do echo -n '"'${x}'" '; done | sed -e 's|^ *|[|' -e 's| *$|]|' -e 's|  *|,|g')
+          echo matrix=$(true; (curl -s "https://hub.docker.com/v2/repositories/library/buildpack-deps/tags?page_size=1000" | jq -r '.results[] | .name' | sort -u; for url in http://archive.ubuntu.com/ubuntu; do curl -s "${url}/dists/" | grep "href=" | sed -e 's|.*a href="||' -e 's|".*||' -e 's|/$||'; done | sort -u; for d in unstable testing stable oldstable; do echo $d; done) | sort | uniq -d | while read x; do echo -n '"'${x}'" '; done | sed -e 's|^ *|[|' -e 's| *$|]|' -e 's|  *|,|g') | tee -a $GITHUB_OUTPUT
         id: set-matrix
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -41,26 +41,23 @@ jobs:
     env:
       JOB_KNOWN_FAILURES: "3.13 3.16 3.19 4.2"
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
 
       - name: Compile against all available kernel header versions
         shell: bash
         run: |
-          arch=$(dpkg --print-architecture)
           apt-get update --quiet;
           apt-get install --yes --no-install-recommends kmod
-          for kver in $(apt-cache search 'linux-headers-.*-generic' | cut -d- -f3 | sort -u -V); do
-            apt-cache search 'linux-headers-'"${kver}"'-.*-generic' | sort -V | tail -n 1 | awk '{print $1}';
-          done | xargs apt-get install --yes --no-install-recommends || true
-          for kver in $(apt-cache search "linux-headers-.*-${arch}" | cut -d- -f3 | sort -u -V); do
-            apt-cache search 'linux-headers-'"${kver}"'-.*-'"${arch}" | sort -V | tail -n 1 | awk '{print $1}';
-          done | xargs apt-get install --yes --no-install-recommends || true
-
+          apt-get install --yes --no-install-recommends dkms || true
+          apt-cache search "linux-headers-[0-9.]*-[0-9]*-" | cut -d " " -f1 \
+                | sed -e 's|linux-headers-\([0-9.]*\)-[0-9]*-\(.*\)|\0 \1 \2|' | sort -t- -k3,4 -V -r | sort  -u -k2,3 -V | cut -d " " -f1 \
+                | xargs apt-get install --yes --no-install-recommends
           failed=""
           succeeded=""
-          for kver in /lib/modules/*/build; do
-            test -d $kver || continue
-            kver=${kver%/build}
+          skipped=""
+          for kbuild in /lib/modules/*/build; do
+            test -d $kbuild || continue
+            kver=${kbuild%/build}
             kver=${kver##*/}
             echo "=== Testing ${kver} ===";
             ret=$(make KERNELRELEASE="${kver}" >&2; echo $?);
@@ -71,10 +68,16 @@ jobs:
               case " ${JOB_KNOWN_FAILURES} " in
               *" ${kver%.*} "*)
                 echo "#### Skipped known failure ${kver}";
+                skipped="${skipped} ${kver}";
                 ;;
               *)
-                echo "#### Skipped unexpected failure ${kver}";
-                failed="${failed} ${kver}";
+                if test -e "${kbuild}/.config" && ! grep -qE "^(CONFIG_VIDEO_DEV|CONFIG_VIDEO_V4L2)=" "${kbuild}/.config"; then
+                  echo "#### Skipped failure ${kver} (no v4l2 support)";
+                  skipped="${skipped} ${kver}";
+                else
+                  echo "#### Unexpected failure ${kver}";
+                  failed="${failed} ${kver}";
+                fi;
                 ;;
               esac;
             fi;
@@ -83,5 +86,8 @@ jobs:
           if [ "x${failed}" != "x" ]; then
             echo "#### Failed kernels: ${failed}";
             exit 1
+          fi
+          if [ "x${skipped}" != "x" ]; then
+            echo "#### Skipped kernels: ${skipped}";
           fi
           echo "#### Successful builds for kernels: ${succeeded}";

@@ -1,6 +1,7 @@
 ifneq ($(wildcard .gitversion),)
 # building a snapshot version
-override KCPPFLAGS += -DSNAPSHOT_VERSION='"$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot)"'
+V4L2LOOPBACK_SNAPSHOT_VERSION=$(patsubst v%,%,$(shell git describe --always --dirty 2>/dev/null || shell git describe --always 2>/dev/null || echo snapshot))
+override KCPPFLAGS += -DSNAPSHOT_VERSION='"$(V4L2LOOPBACK_SNAPSHOT_VERSION)"'
 endif
 
 include Kbuild
@@ -12,6 +13,7 @@ PWD		:= $(shell pwd)
 
 PREFIX ?= /usr/local
 BINDIR  = $(PREFIX)/bin
+INCLUDEDIR = $(PREFIX)/include
 MANDIR  = $(PREFIX)/share/man
 MAN1DIR = $(MANDIR)/man1
 INSTALL = install
@@ -36,7 +38,7 @@ MODULE_OPTIONS = devices=2
 
 
 .PHONY: all install clean distclean
-.PHONY: install-all install-utils install-man
+.PHONY: install-all install-extra install-utils install-man install-headers
 .PHONY: modprobe v4l2loopback
 
 # we don't control the .ko file dependencies, as it is done by kernel
@@ -50,13 +52,14 @@ v4l2loopback.ko:
 	@echo "Building v4l2-loopback driver..."
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) KCPPFLAGS="$(KCPPFLAGS)" modules
 
-install-all: install install-utils install-man
+install-all: install install-extra
 install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
 	@echo ""
 	@echo "SUCCESS (if you got 'SSL errors' above, you can safely ignore them)"
 	@echo ""
 
+install-extra: install-utils install-man install-headers
 install-utils: utils/v4l2loopback-ctl
 	$(INSTALL_DIR) "$(DESTDIR)$(BINDIR)"
 	$(INSTALL_PROGRAM) $< "$(DESTDIR)$(BINDIR)"
@@ -64,6 +67,10 @@ install-utils: utils/v4l2loopback-ctl
 install-man: man/v4l2loopback-ctl.1
 	$(INSTALL_DIR) "$(DESTDIR)$(MAN1DIR)"
 	$(INSTALL_DATA) $< "$(DESTDIR)$(MAN1DIR)"
+
+install-headers: v4l2loopback.h
+	$(INSTALL_DIR) "$(DESTDIR)$(INCLUDEDIR)/linux"
+	$(INSTALL_DATA) $< "$(DESTDIR)$(INCLUDEDIR)/linux"
 
 clean:
 	rm -f *~
@@ -75,10 +82,10 @@ distclean: clean
 	rm -f man/v4l2loopback-ctl.1
 
 modprobe: v4l2loopback.ko
-	chmod a+r v4l2loopback.ko
-	sudo modprobe videodev
-	-sudo rmmod v4l2loopback
-	sudo insmod ./v4l2loopback.ko $(MODULE_OPTIONS)
+	-sudo chmod a+r $<
+	-sudo modprobe videodev
+	-sudo rmmod $<
+	sudo insmod ./$< $(MODULE_OPTIONS)
 
 man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 	help2man -N --name "control v4l2 loopback devices" \
@@ -86,8 +93,8 @@ man/v4l2loopback-ctl.1: utils/v4l2loopback-ctl
 		$^ > $@
 
 utils: utils/v4l2loopback-ctl
-utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
-	$(MAKE) -C utils
+utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c v4l2loopback.h
+	$(MAKE) -C utils V4L2LOOPBACK_SNAPSHOT_VERSION=$(V4L2LOOPBACK_SNAPSHOT_VERSION)
 
 .clang-format:
 	curl "https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/plain/.clang-format" > $@
@@ -95,5 +102,39 @@ utils/v4l2loopback-ctl: utils/v4l2loopback-ctl.c
 .PHONY: clang-format
 clang-format: .clang-format
 	clang-format -i *.c *.h utils/*.c
+
+.PHONY: sign
+# try to read the default certificate/key from the dkms config
+dkms_framework=/etc/dkms/framework.conf
+-include $(dkms_framework)
+KBUILD_SIGN_KEY=$(mok_signing_key)
+KBUILD_SIGN_CERT=$(mok_certificate)
+
+ifeq ($(KBUILD_SIGN_PIN),)
+define usage_kbuildsignpin
+$(info )
+$(info ++++++ If your certificate requires a password, pass it via the KBUILD_SIGN_PIN env-var!)
+$(info ++++++ E.g. using 'export KBUILD_SIGN_PIN; read -s -p "Passphrase for signing key $(KBUILD_SIGN_KEY): " KBUILD_SIGN_PIN; sudo --preserve-env=KBUILD_SIGN_PIN make sign')
+$(info )
+endef
+endif
+
+define usage_kbuildsign
+sign: v4l2loopback.ko
+	$(info )
+	$(info ++++++ To sign the $< module, you must set KBUILD_SIGN_KEY/KBUILD_SIGN_CERT to point to the signing key/certificate!)
+	$(info ++++++ For your convenience, we try to read these variables as 'mok_signing_key' resp. 'mok_certificate' from $(dkms_framework))
+	$(call usage_kbuildsignpin)
+endef
+
+ifeq ($(wildcard $(KBUILD_SIGN_KEY)),)
+$(call usage_kbuildsign)
+else ifeq ($(wildcard $(KBUILD_SIGN_CERT)),)
+$(call usage_kbuildsign)
+else
+sign: v4l2loopback.ko
+	$(call usage_kbuildsignpin)
+	"$(KERNEL_DIR)"/scripts/sign-file sha256 $(KBUILD_SIGN_KEY) $(KBUILD_SIGN_CERT) $<
+endif
 
 endif # !kbuild

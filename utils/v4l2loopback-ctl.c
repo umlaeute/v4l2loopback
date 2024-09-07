@@ -1,6 +1,21 @@
+/* -*- c-file-style: "linux" -*- */
+/*
+ * v4l2loopback-ctl  --  An application to control v4l2loopback devices driver
+ *
+ * Copyright (C) 2020-2023 IOhannes m zmoelnig (zmoelnig@iem.at)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ */
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+#include <ctype.h>
+#include <getopt.h>
+#include <glob.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -13,6 +28,12 @@
 #include <errno.h>
 
 #include "v4l2loopback.h"
+
+#ifndef GLOB_ONLYDIR
+/* Fix for musl libc and other libcs missing GLOB_ONLYDIR at glob.h */
+/* (GLOB_ONLYDIR is not required by POSIX) */
+#define GLOB_ONLYDIR 0
+#endif
 
 #define CONTROLDEVICE "/dev/v4l2loopback"
 
@@ -137,6 +158,47 @@ static int my_atoi(const char *name, const char *s)
 	}
 	return n;
 }
+
+static void printf_raw(const char *str, int escape_level)
+{
+	const char *backslash = (escape_level > 1) ? "\\\\" : "\\";
+	if (escape_level > 0)
+		while (*str) {
+			char c = *str++;
+			switch (c) {
+			case '\"':
+				printf("%s\"", backslash);
+				break;
+			case '\'':
+				printf("%s\'", backslash);
+				break;
+			case '\\':
+				printf("%s\\", backslash);
+				break;
+			case '\a':
+				printf("%sa", backslash);
+				break;
+			case '\b':
+				printf("%sb", backslash);
+				break;
+			case '\n':
+				printf("%sn", backslash);
+				break;
+			case '\t':
+				printf("%st", backslash);
+				break;
+				// and so on
+			default:
+				if (iscntrl(c))
+					printf("%s%03o", backslash, c);
+				else
+					printf("%c", c);
+			}
+		}
+	else
+		printf("%s", str);
+}
+
 static char *fourcc2str(unsigned int fourcc, char buf[4])
 {
 	buf[0] = (fourcc >> 0) & 0xFF;
@@ -216,138 +278,167 @@ typedef enum {
 	HELP,
 	ADD,
 	DELETE,
+	LIST,
 	QUERY,
 	SET_FPS,
 	GET_FPS,
 	SET_CAPS,
 	GET_CAPS,
 	SET_TIMEOUTIMAGE,
+	MOO,
 	_UNKNOWN
 } t_command;
 
-static int help_shortcmdline(int brief, const char *program,
+static int help_shortcmdline(int detail, const char *program,
 			     const char *argstring)
 {
 	dprintf(2, "\n");
-	//if(!brief)dprintf(2, "  -->");
+	//if(detail)dprintf(2, "  -->");
 	dprintf(2, "\t");
-	dprintf(2, "%s %s", program, argstring);
-	return brief;
+	dprintf(2, "%s %s\n", program, argstring);
+	return !detail;
 }
-static void help_add(const char *program, int brief, int argc, char **argv)
+static void help_list(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
+		dprintf(2, "\n listing devices ('list')"
+			   "\n ========================");
+	if (help_shortcmdline(detail, program, "list {<flags>}"))
+		return;
+	dprintf(2,
+		"\n   <flags>\tany of the following flags may be present"
+		"\n\t -e/--escape             : escape control-characters in (device) names"
+		"\n\t -h/--help               : print this help and exit"
+		"\n"
+		"\n         \tlist all available loopback-devices"
+		"");
+}
+static void help_add(const char *program, int detail, int argc, char **argv)
+{
+	if (detail)
 		dprintf(2, "\n adding devices ('add')"
 			   "\n ======================");
-	if (help_shortcmdline(brief, program,
-			      "add {<flags>} [<device> [<outputdevice>]]"))
+	if (help_shortcmdline(
+		    detail, program,
+		    "add {<flags>} [<outputdevice> [<capturedevice>]]"))
 		return;
 	dprintf(2,
-		"\n <flags>  \tany of the following flags may be present"
-		"\n\t -n <name>           : pretty name for the device"
-		"\n\t -w <max_width>      : maximum allowed frame width"
-		"\n\t -h <max_height>     : maximum allowed frame height"
-		"\n\t -x <exclusive_caps> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
-		"\n\t -b <buffers>        : buffers to queue"
-		"\n\t -v                  : verbose mode (print properties of device after successfully creating it)"
+		"\n   <flags>\tany of the following flags may be present"
+		"\n\t -n/--name <name>        : pretty name for the device"
+		"\n\t --min-width <w>         : minimum allowed frame width"
+		"\n\t -w/--max-width <w>      : maximum allowed frame width"
+		"\n\t --min-height <w>        : minimum allowed frame height"
+		"\n\t -h/--max-height <h>     : maximum allowed frame height"
+		"\n\t -x/--exclusive-caps <x> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
+		"\n\t -b/--buffers <num>      : buffers to queue"
+		"\n\t -v/--verbose            : verbose mode (print properties of device after successfully creating it)"
+		"\n\t -?/--help               : print this help and exit"
 		"\n"
-		"\n <device>\tif given, create a specific device (otherwise just create a free one)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n <outputdevice>\tif given, use separate output & capture devices (otherwise they are the same).");
+		"\n  <outputdevice>\tif given, create a specific device (otherwise just create a free one)."
+		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n  <capturedevice>\tif given, use separate output & capture devices (otherwise they are the same).");
 }
-static void help_delete(const char *program, int brief, int argc, char **argv)
+static void help_delete(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n deleting devices ('delete')"
 			   "\n ===========================");
-	if (help_shortcmdline(brief, program, "delete <device>"))
+	if (help_shortcmdline(detail, program, "delete <device>"))
 		return;
 	dprintf(2,
-		"\n <device>\tcan be given one more more times (to delete multiple devices at once)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
+		"\n  <device>\tcan be given one more more times (to delete multiple devices at once)."
+		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
-static void help_query(const char *program, int brief, int argc, char **argv)
+static void help_query(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n querying devices ('query')"
 			   "\n ==========================");
-	if (help_shortcmdline(brief, program, "query <device>"))
+	if (help_shortcmdline(detail, program, "query {<flags>} <device>"))
 		return;
 	dprintf(2,
-		"\n <device>\tcan be given one more more times (to query multiple devices at once)."
+		"\n   <flags>\tany of the following flags may be present"
+		"\n\t -e/--escape             : escape control-characters in (device) names"
+		"\n\t -h/--help               : print this help and exit"
+		"\n"
+		"\n  <device>\tcan be given one more more times (to query multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
-static void help_setfps(const char *program, int brief, int argc, char **argv)
+static void help_setfps(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n setting framerate ('set-fps')"
 			   "\n =============================");
-	if (help_shortcmdline(brief, program, "set-fps <device> <fps>"))
+	if (help_shortcmdline(detail, program, "set-fps <device> <fps>"))
 		return;
 	dprintf(2,
-		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n    <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
+		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n     <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
 }
-static void help_getfps(const char *program, int brief, int argc, char **argv)
+static void help_getfps(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n getting framerate ('get-fps')"
 			   "\n =============================");
-	if (help_shortcmdline(brief, program, "get-fps <device>"))
+	if (help_shortcmdline(detail, program, "get-fps <device>"))
 		return;
 }
-static void help_setcaps(const char *program, int brief, int argc, char **argv)
+static void help_setcaps(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n setting capabilities ('set-caps')"
 			   "\n =================================");
-	if (help_shortcmdline(brief, program, "set-caps <device> <caps>"))
+	if (help_shortcmdline(detail, program, "set-caps <device> <caps>"))
 		return;
 	dprintf(2,
-		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <caps>\tformat specification, e.g. 'UYVY:3840x2160@60/1 (<fourcc>:<width>x<height>@<fps>)"
+		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n    <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
 		"\n");
-	if (!argc) {
+	if (detail > 1) {
 		dprintf(2, "\nknown fourcc-codes"
-			   "\n------------------"
-			   "\n");
+			   "\n=================="
+			   "\nFOURCC\thex       \tdec         \tdescription"
+			   "\n------\t----------\t------------\t-----------"
+			   "");
 		char fourcc[5];
 		const size_t num_formats = sizeof(formats) / sizeof(*formats);
 		size_t i = 0;
 		for (i = 0; i < num_formats; i++) {
 			const struct v4l2l_format *fmt = formats + i;
 			memset(fourcc, 0, 5);
-			dprintf(2, "%4s\t%d\t%s\n",
+			dprintf(2, "'%4s'\t0x%08X\t%12d\t%s\n",
 				fourcc2str(fmt->fourcc, fourcc), fmt->fourcc,
-				fmt->name);
+				fmt->fourcc, fmt->name);
 		}
 	}
 }
-static void help_getcaps(const char *program, int brief, int argc, char **argv)
+static void help_getcaps(const char *program, int detail, int argc, char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n getting capabilities ('get-caps')"
 			   "\n =================================");
-	if (help_shortcmdline(brief, program, "get-caps <device>"))
+	if (help_shortcmdline(detail, program, "get-caps <device>"))
 		return;
 }
-static void help_settimeoutimage(const char *program, int brief, int argc,
+static void help_settimeoutimage(const char *program, int detail, int argc,
 				 char **argv)
 {
-	if (!brief)
+	if (detail)
 		dprintf(2, "\n setting timeout image ('set-timeout-image')"
 			   "\n ===========================================");
-	if (help_shortcmdline(brief, program,
+	if (help_shortcmdline(detail, program,
 			      "set-timeout-image {<flags>} <device> <image>"))
 		return;
 	dprintf(2,
-		"\n  <flags>\tany of the following flags may be present"
-		"\n\t -t <timeout>           : timeout (in ms)"
+		"\n   <flags>\tany of the following flags may be present"
+		"\n\t -t/--timeout <timeout>  : timeout (in ms)"
+		"\n\t -v/--verbose            : raise verbosity (print what is being done)"
+		"\n\t -h/--help               : print this help and exit"
 		"\n"
-		"\n <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n  <image>\timage file");
+		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+		"\n   <image>\timage file");
 }
-static void help_none(const char *program, int brief, int argc, char **argv)
+static void help_none(const char *program, int detail, int argc, char **argv)
 {
 }
 typedef void (*t_help)(const char *, int, int, char **);
@@ -360,6 +451,8 @@ static t_help get_help(t_command cmd)
 		return help_add;
 	case DELETE:
 		return help_delete;
+	case LIST:
+		return help_list;
 	case QUERY:
 		return help_query;
 	case SET_FPS:
@@ -383,16 +476,16 @@ static void help(const char *name, int status)
 	dprintf(2, "\n\n");
 	dprintf(2, "\n general commands"
 		   "\n ================"
-		   "\n\t-v : print version and exit"
-		   "\n\t-h : print this help and exit");
+		   "\n\t-v/--version : print version and exit"
+		   "\n\t-h/-?/--help : print this help and exit");
 	/* brief helps */
 	for (cmd = ADD; cmd < _UNKNOWN; cmd++)
-		get_help(cmd)("", 1, 0, 0);
+		get_help(cmd)("", 0, 0, 0);
 	dprintf(2, "\n\n");
 
 	/* long helps */
 	for (cmd = ADD; cmd < _UNKNOWN; cmd++) {
-		get_help(cmd)(name, 0, 0, 0);
+		get_help(cmd)(name, 1, 0, 0);
 		dprintf(2, "\n\n");
 	}
 
@@ -408,7 +501,7 @@ static void usage_topic(const char *name, t_command cmd, int argc, char **argv)
 	if (help_none == hlp)
 		usage(name);
 	else
-		hlp(name, 0, argc, argv);
+		hlp(name, 2, argc, argv);
 	dprintf(2, "\n");
 	exit(1);
 }
@@ -432,47 +525,60 @@ static int parse_device(const char *devicename_)
 	return -1;
 }
 
-static void print_conf(struct v4l2_loopback_config *cfg)
+static void print_conf(struct v4l2_loopback_config *cfg, int escape_level)
 {
+	int output_nr, capture_nr;
 	MARK();
 	if (!cfg) {
 		printf("configuration: %p\n", cfg);
 		return;
 	}
+	output_nr = capture_nr = cfg->output_nr;
+#ifdef SPLIT_DEVICES
+	capture_nr = cfg->capture_nr;
+#endif
 	MARK();
 	printf("\tcapture_device#  : %d"
 	       "\n\toutput_device#   : %d"
-	       "\n\tcard_label       : %s"
+	       "\n\tcard_label       : ",
+	       capture_nr, output_nr);
+	printf_raw(cfg->card_label, escape_level);
+	printf("\n\tmin_width        : %d"
 	       "\n\tmax_width        : %d"
+	       "\n\tmin_height       : %d"
 	       "\n\tmax_height       : %d"
 	       "\n\tannounce_all_caps: %d"
 	       "\n\tmax_buffers      : %d"
 	       "\n\tdebug            : 0x%x"
 	       "\n",
-	       cfg->capture_nr, cfg->output_nr, cfg->card_label, cfg->max_width,
-	       cfg->max_height, cfg->announce_all_caps, cfg->max_buffers,
-	       cfg->debug);
+	       cfg->min_width, cfg->max_width, cfg->min_height, cfg->max_height,
+	       cfg->announce_all_caps, cfg->max_buffers, cfg->debug);
 	MARK();
 }
 
 static struct v4l2_loopback_config *
-make_conf(struct v4l2_loopback_config *cfg, const char *label, int max_width,
-	  int max_height, int exclusive_caps, int buffers, int openers,
-	  int capture_device, int output_device)
+make_conf(struct v4l2_loopback_config *cfg, const char *label, int min_width,
+	  int max_width, int min_height, int max_height, int exclusive_caps,
+	  int buffers, int openers, int capture_device, int output_device)
 {
 	if (!cfg)
 		return 0;
-	if (!label && max_width <= 0 && max_height <= 0 && exclusive_caps < 0 &&
-	    buffers <= 0 && openers <= 0 && capture_device < 0 &&
-	    output_device < 0)
+	/* check if at least one of the args are non-default */
+	if (!label && min_width <= 0 && max_width <= 0 && min_height <= 0 &&
+	    max_height <= 0 && exclusive_caps < 0 && buffers <= 0 &&
+	    openers <= 0 && capture_device < 0 && output_device < 0)
 		return 0;
+#ifdef SPLIT_DEVICES
 	cfg->capture_nr = capture_device;
+#endif
 	cfg->output_nr = output_device;
 	cfg->card_label[0] = 0;
 	if (label)
 		snprintf(cfg->card_label, 32, "%s", label);
-	cfg->max_height = max_height;
-	cfg->max_width = max_width;
+	cfg->min_width = (min_width < 0) ? 0 : min_width;
+	cfg->max_width = (max_width < 0) ? 0 : max_width;
+	cfg->min_height = (min_height < 0) ? 0 : min_height;
+	cfg->max_height = (max_height < 0) ? 0 : max_height;
 	cfg->announce_all_caps = (exclusive_caps < 0) ? -1 : !exclusive_caps;
 	cfg->max_buffers = buffers;
 	cfg->debug = 0;
@@ -496,12 +602,15 @@ static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		MARK();
 		struct v4l2_loopback_config config;
 		memset(&config, 0, sizeof(config));
-		config.output_nr = config.capture_nr = ret;
+		config.output_nr = ret;
+#ifdef SPLIT_DEVICES
+		config.capture_nr = ret;
+#endif
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 		if (!ret)
 			perror("failed querying newly added device");
 		MARK();
-		print_conf(&config);
+		print_conf(&config, 0);
 		MARK();
 	}
 	return (!ret);
@@ -520,7 +629,7 @@ static int delete_device(int fd, const char *devicename)
 	return 0;
 }
 
-static int query_device(int fd, const char *devicename)
+static int query_device(int fd, const char *devicename, int escape)
 {
 	int err;
 	struct v4l2_loopback_config config;
@@ -531,16 +640,110 @@ static int query_device(int fd, const char *devicename)
 	}
 
 	memset(&config, 0, sizeof(config));
-	config.output_nr = config.capture_nr = dev;
+	config.output_nr = dev;
+#ifdef SPLIT_DEVICES
+	config.capture_nr = dev;
+#endif
 	err = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
 	if (err)
 		perror("query failed");
 	else {
 		printf("%s\n", devicename);
-		print_conf(&config);
+		print_conf(&config, escape);
 		return 0;
 	}
 	return err;
+}
+static int list_devices(int fd, int escape)
+{
+	struct devnode_ {
+		int output, capture;
+		char name[32];
+	} *devices = 0;
+	size_t numdevices = 0, i;
+	glob_t globbuf = { 0 };
+	int output_nr, capture_nr;
+	glob("/sys/devices/virtual/video4linux/video*", GLOB_ONLYDIR, 0,
+	     &globbuf);
+	if (globbuf.gl_pathc) {
+		devices = malloc(globbuf.gl_pathc * sizeof(*devices));
+	}
+	for (i = 0; i < globbuf.gl_pathc; i++) {
+		size_t j;
+		struct v4l2_loopback_config config = { 0 };
+		int dev = -1;
+		char *endptr;
+		struct stat sb;
+		const char *path = globbuf.gl_pathv[i];
+		if (lstat(path, &sb)) {
+			//perror("stat");
+			continue;
+		}
+		if (!S_ISDIR(sb.st_mode)) {
+			//dprintf(2, "not a directory\n");
+			continue;
+		}
+		dev = strtol(path + 38, &endptr, 10);
+		if (*endptr) {
+			//dprintf(2, "unable to parse device-name\n");
+			continue;
+		}
+		/* check if this is a loopback device */
+		config.output_nr = dev;
+#ifdef SPLIT_DEVICES
+		config.capture_nr = -1;
+		if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
+			memset(&config, 0, sizeof(config));
+			config.output_nr = -1;
+			config.capture_nr = dev;
+			if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
+				//dprintf(2, "not a loopback device\n");
+				continue;
+			}
+		}
+		capture_nr = config.capture_nr;
+#else
+		if (ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config)) {
+			//dprintf(2, "not a loopback device\n");
+			continue;
+		}
+		capture_nr = config.output_nr;
+#endif
+		output_nr = config.output_nr;
+		/* check if we already have this device */
+		for (j = 0; j < numdevices; j++) {
+			if ((devices[j].output == output_nr) &&
+			    (devices[j].capture == capture_nr)) {
+				//dprintf(2, "duplicate device\n");
+				output_nr = capture_nr = -1;
+				break;
+			}
+		}
+		if ((output_nr < 0) || (capture_nr < 0))
+			continue;
+
+		devices[numdevices].output = output_nr;
+		devices[numdevices].capture = capture_nr;
+		snprintf(devices[numdevices].name,
+			 sizeof(devices[numdevices].name), "%s",
+			 config.card_label);
+		numdevices++;
+	}
+	if (numdevices) {
+		dprintf(2, "OUTPUT       \tCAPTURE      \tNAME\n");
+	} else {
+		dprintf(2, "no loopback devices found\n");
+	}
+	for (i = 0; i < numdevices; i++) {
+		const char *str = devices[i].name;
+		printf("/dev/video%-3d\t/dev/video%-3d\t", devices[i].output,
+		       devices[i].capture);
+		printf_raw(str, escape);
+		printf("\n");
+	}
+	globfree(&globbuf);
+	free(devices);
+	return 0;
 }
 static int open_videodevice(const char *devicename, int mode)
 {
@@ -580,7 +783,7 @@ static int open_sysfs_file(const char *devicename, const char *filename,
 	sysdev[sizeof(sysdev) - 1] = 0;
 	fd = open(sysdev, flags);
 	if (fd < 0) {
-		perror("unable to open /sys-device");
+		perror(sysdev);
 		return -1;
 	}
 	//dprintf(2, "%s\n", sysdev);
@@ -690,7 +893,7 @@ done:
 static int get_fps(const char *devicename)
 {
 	t_caps caps;
-	struct v4l2_streamparm parm;
+	struct v4l2_streamparm param;
 	int fd = -1;
 	int num = -1, denom = -1;
 	int ret = 0;
@@ -706,19 +909,19 @@ static int get_fps(const char *devicename)
 	if (fd < 0)
 		goto done;
 
-	memset(&parm, 0, sizeof(parm));
-	parm.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-	if (ioctl(fd, VIDIOC_G_PARM, &parm) == 0) {
-		const struct v4l2_fract *tf = &parm.parm.output.timeperframe;
+	memset(&param, 0, sizeof(param));
+	param.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+	if (ioctl(fd, VIDIOC_G_PARM, &param) == 0) {
+		const struct v4l2_fract *tf = &param.parm.output.timeperframe;
 		num = tf->numerator;
 		denom = tf->denominator;
 		goto done;
 	}
 
-	memset(&parm, 0, sizeof(parm));
-	parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	if (ioctl(fd, VIDIOC_G_PARM, &parm) == 0) {
-		const struct v4l2_fract *tf = &parm.parm.output.timeperframe;
+	memset(&param, 0, sizeof(param));
+	param.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	if (ioctl(fd, VIDIOC_G_PARM, &param) == 0) {
+		const struct v4l2_fract *tf = &param.parm.output.timeperframe;
 		num = tf->numerator;
 		denom = tf->denominator;
 		goto done;
@@ -846,7 +1049,7 @@ static int get_caps(const char *devicename)
 	return 0;
 }
 static int set_timeoutimage(const char *devicename, const char *imagefile,
-			    int timeout)
+			    int timeout, int verbose)
 {
 	int fd = -1;
 	char imagearg[4096], imagefile2[4096], devicearg[4096];
@@ -861,32 +1064,48 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			 "imagefreeze",
 			 "!",
 			 "identity",
-			 "error-after=3",
+			 "eos-after=3",
+			 "!",
+			 "tee",
 			 "!",
 			 "v4l2sink",
 			 "show-preroll-frame=false",
 			 0,
 			 0 };
+	if (verbose)
+		printf("set-timeout-image '%s' for '%s' with %dms timeout\n",
+		       imagefile, devicename, timeout);
+
 	snprintf(imagearg, 4096, "uri=file://%s",
 		 realpath(imagefile, imagefile2));
 	snprintf(devicearg, 4096, "device=%s", devicename);
 	imagearg[4095] = devicearg[4095] = 0;
 	args[2] = imagearg;
-	args[15] = devicearg;
+	args[17] = devicearg;
 
 	fd = open_videodevice(devicename, O_RDWR);
 	if (fd >= 0) {
+		dprintf(2, "v4l2-ctl -d %s -c timeout_image_io=1\n",
+			devicename);
 		set_control_i(fd, "timeout_image_io", 1);
 		close(fd);
+	}
+
+	if (verbose > 1) {
+		char **ap = args;
+		while (*ap) {
+			dprintf(2, "%s", *ap);
+			if (*ap++)
+				dprintf(2, " ");
+			else
+				dprintf(2, "\n");
+		}
 	}
 
 	dprintf(2,
 		"v======================================================================v\n");
 	if (my_execv(args)) {
-		/*
-          dprintf(2, "ERROR: setting time-out image failed\n");
-          return 1;
-          */
+		dprintf(2, "ERROR: setting time-out image failed\n");
 	}
 	dprintf(2,
 		"^======================================================================^\n");
@@ -897,6 +1116,8 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 		if (timeout < 0) {
 			timeout = get_control_i(fd, "timeout");
 		} else {
+			dprintf(2, "v4l2-ctl -d %s -c timeout=%d\n", devicename,
+				timeout);
 			timeout = set_control_i(fd, "timeout", timeout);
 		}
 		if (timeout <= 0) {
@@ -912,28 +1133,36 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 
 static t_command get_command(const char *command)
 {
-	if (!strncmp(command, "-h", 2))
+	if (!strncmp(command, "-h", 3))
 		return HELP;
-	if (!strncmp(command, "-?", 2))
+	if (!strncmp(command, "-?", 3))
 		return HELP;
-	if (!strncmp(command, "-v", 2))
+	if (!strncmp(command, "--help", 7))
+		return HELP;
+	if (!strncmp(command, "-v", 3))
 		return VERSION;
+	if (!strncmp(command, "--version", 10))
+		return VERSION;
+	if (!strncmp(command, "list", 5))
+		return LIST;
 	if (!strncmp(command, "add", 4))
 		return ADD;
-	if (!strncmp(command, "del", 3))
+	if (!strncmp(command, "del", 3)) /* also allow delete */
 		return DELETE;
-	if (!strncmp(command, "query", 5))
+	if (!strncmp(command, "query", 6))
 		return QUERY;
-	if (!strncmp(command, "set-fps", 7))
+	if (!strncmp(command, "set-fps", 8))
 		return SET_FPS;
-	if (!strncmp(command, "get-fps", 7))
+	if (!strncmp(command, "get-fps", 8))
 		return GET_FPS;
-	if (!strncmp(command, "set-caps", 8))
+	if (!strncmp(command, "set-caps", 9))
 		return SET_CAPS;
-	if (!strncmp(command, "get-caps", 8))
+	if (!strncmp(command, "get-caps", 9))
 		return GET_CAPS;
-	if (!strncmp(command, "set-timeout-image", 17))
+	if (!strncmp(command, "set-timeout-image", 18))
 		return SET_TIMEOUTIMAGE;
+	if (!strncmp(command, "moo", 10))
+		return MOO;
 	return _UNKNOWN;
 }
 
@@ -943,10 +1172,10 @@ static int called_deprecated(const char *device, const char *argument,
 			     const char *argname, t_argcheck argcheck)
 {
 	/* check if <device> does not look like a device, but <argument> does
-   * if so, assume that the user swapped the two */
+	 * if so, assume that the user swapped the two */
 	/* if the <device> looks about right, optionally do some extra
-   * <argument>-check, to see if it can be used
-   */
+	 * <argument>-check, to see if it can be used
+	 */
 
 	int deviceswapped = 0;
 	int argswapped = 0;
@@ -969,43 +1198,144 @@ static int called_deprecated(const char *device, const char *argument,
 	return 0;
 }
 
+static int do_defaultargs(const char *progname, t_command cmd, int argc,
+			  char **argv)
+{
+	static const char options_short[] = "?h";
+	static const struct option options_long[] = {
+		{ "help", no_argument, NULL, 'h' }, { 0, 0, 0, 0 }
+	};
+	for (;;) {
+		int c;
+		int idx;
+		c = getopt_long(argc - 1, argv + 1, options_short, options_long,
+				&idx);
+		if (-1 == c)
+			break;
+		switch (c) {
+		case 'h':
+			usage_topic(argv[0], cmd, argc - 1, argv + 1);
+			exit(0);
+		default:
+			usage_topic(argv[0], cmd, argc - 1, argv + 1);
+			exit(1);
+		}
+	}
+	return optind;
+}
+
 int main(int argc, char **argv)
 {
+	const char *progname = argv[0];
+	const char *cmdname;
 	int i;
 	int fd = -1;
 	int verbose = 0;
 	t_command cmd;
 
 	char *label = 0;
+	int min_width = -1;
 	int max_width = -1;
+	int min_height = -1;
 	int max_height = -1;
 	int exclusive_caps = -1;
 	int buffers = -1;
 	int openers = -1;
+	int escape_strings = 0;
 
 	int ret = 0;
 
-	int c;
+	static const char add_options_short[] = "?vn:w:h:x:b:o:";
+	static const struct option add_options_long[] = {
+		{ "help", no_argument, NULL, '?' },
+		{ "verbose", no_argument, NULL, 'v' },
+		{ "name", required_argument, NULL, 'n' },
+		{ "min-width", required_argument, NULL, 'w' + 0xFFFF },
+		{ "max-width", required_argument, NULL, 'w' },
+		{ "min-height", required_argument, NULL, 'h' + 0xFFFF },
+		{ "max-height", required_argument, NULL, 'h' },
+		{ "exclusive-caps", required_argument, NULL, 'x' },
+		{ "buffers", required_argument, NULL, 'b' },
+		{ 0, 0, 0, 0 }
+	};
+	static const char list_options_short[] = "?he";
+	static const struct option list_options_long[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "escape", no_argument, NULL, 'e' },
+		{ 0, 0, 0, 0 }
+	};
+	static const char timeoutimg_options_short[] = "?ht:v";
+	static const struct option timeoutimg_options_long[] = {
+		{ "help", no_argument, NULL, 'h' },
+		{ "timeout", required_argument, NULL, 't' },
+		{ "verbose", no_argument, NULL, 'v' },
+		{ 0, 0, 0, 0 }
+	};
 
 	if (argc < 2)
-		usage(argv[0]);
+		usage(progname);
 	cmd = get_command(argv[1]);
-	switch (cmd) {
-	case _UNKNOWN:
+	if (_UNKNOWN == cmd) {
 		dprintf(2, "unknown command '%s'\n\n", argv[1]);
-		usage(argv[0]);
-		break;
+		usage(progname);
+		return 1;
+	}
+	argc--;
+	argv++;
+	switch (cmd) {
 	case HELP:
-		help(argv[0], 0);
+		help(progname, 0);
+		break;
+	case LIST:
+		for (;;) {
+			int c;
+			int idx;
+			c = getopt_long(argc, argv, list_options_short,
+					list_options_long, &idx);
+			if (-1 == c)
+				break;
+			switch (c) {
+			case 'e':
+				escape_strings++;
+				break;
+			default:
+				usage_topic(progname, cmd, argc - 1, argv + 1);
+				return 1;
+			}
+		}
+		argc -= optind;
+		argv += optind;
+
+		if (argc) {
+			dprintf(2, "'list' does not take any arguments\n");
+			return 1;
+		}
+		fd = open_controldevice();
+		if (fd >= 0)
+			list_devices(fd, escape_strings);
+		else
+			return 1;
 		break;
 	case ADD:
-		while ((c = getopt(argc - 1, argv + 1, "vn:w:h:x:b:o:")) != -1)
+		for (;;) {
+			int c;
+			int idx;
+			c = getopt_long(argc, argv, add_options_short,
+					add_options_long, &idx);
+			if (-1 == c)
+				break;
 			switch (c) {
 			case 'v':
 				verbose++;
 				break;
 			case 'n':
 				label = optarg;
+				break;
+			case 'w' + 0xFFFF:
+				min_width = my_atoi("min_width", optarg);
+				break;
+			case 'h' + 0xFFFF:
+				min_height = my_atoi("min_height", optarg);
 				break;
 			case 'w':
 				max_width = my_atoi("max_width", optarg);
@@ -1024,28 +1354,54 @@ int main(int argc, char **argv)
 				openers = my_atoi("openers", optarg);
 				break;
 			default:
-				usage_topic(argv[0], cmd, argc - 2, argv + 2);
+				usage_topic(progname, cmd, argc - 1, argv + 1);
 				return 1;
 			}
+		}
+		argc -= optind;
+		argv += optind;
 		fd = open_controldevice();
+		if (min_width > max_width && max_width > 0) {
+			dprintf(2,
+				"min_width (%d) must not be greater than max_width (%d)\n",
+				min_width, max_width);
+			return 1;
+		}
+		if (min_height > max_height && max_height > 0) {
+			dprintf(2,
+				"min_height (%d) must not be greater than max_height (%d)\n",
+				min_height, max_height);
+			return 1;
+		}
 		do {
 			struct v4l2_loopback_config cfg;
 			int capture_nr = -1, output_nr = -1;
-			if ((optind + 1) == argc) {
+			switch (argc) {
+			case 0:
 				/* no device given: pick some */
-			} else if ((optind + 2) == argc) {
-				/* single device given: use it for both input and output */
-				capture_nr = output_nr =
-					parse_device(argv[optind + 1]);
-			} else if ((optind + 3) == argc) {
+				break;
+			case 2:
 				/* two devices given: capture_device and output_device */
-				capture_nr = parse_device(argv[optind + 1]);
-				output_nr = parse_device(argv[optind + 2]);
-			} else {
-				usage_topic(argv[0], cmd, argc - 2, argv + 2);
+				output_nr = parse_device(argv[0]);
+				capture_nr = parse_device(argv[1]);
+#ifndef SPLIT_DEVICES
+				if (capture_nr != output_nr)
+					dprintf(2,
+						"split output/capture devices currently not supported...ignoring capture device\n");
+				capture_nr = output_nr;
+#endif
+				break;
+			case 1:
+				/* single device given: use it for both input and output */
+				capture_nr = output_nr = parse_device(argv[0]);
+				break;
+			default:
+				usage_topic(progname, cmd, argc, argv);
+				return 1;
 			}
 			ret = add_device(fd,
-					 make_conf(&cfg, label, max_width,
+					 make_conf(&cfg, label, min_width,
+						   max_width, min_height,
 						   max_height, exclusive_caps,
 						   buffers, openers, capture_nr,
 						   output_nr),
@@ -1053,80 +1409,141 @@ int main(int argc, char **argv)
 		} while (0);
 		break;
 	case DELETE:
-		if (argc == 2)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+
+		if (!argc)
+			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
-		for (i = 2; i < argc; i++) {
+		for (i = 0; i < argc; i++) {
 			ret += (delete_device(fd, argv[i]) != 0);
 		}
 		ret = (ret > 0);
 		break;
 	case QUERY:
-		if (argc == 2)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
+		for (;;) {
+			int c;
+			int idx;
+			c = getopt_long(argc, argv, list_options_short,
+					list_options_long, &idx);
+			if (-1 == c)
+				break;
+			switch (c) {
+			case 'e':
+				escape_strings++;
+				break;
+			default:
+				usage_topic(progname, cmd, argc - 1, argv + 1);
+				return 1;
+			}
+		}
+		argc -= optind;
+		argv += optind;
+
+		if (!argc)
+			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
-		for (i = 2; i < argc; i++) {
-			ret += query_device(fd, argv[i]);
+		for (i = 0; i < argc; i++) {
+			ret += query_device(fd, argv[i], escape_strings);
 		}
 		ret = (ret > 0);
 		break;
 	case SET_FPS:
-		if (argc != 4)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		if (called_deprecated(argv[2], argv[3], argv[0], "set-fps",
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 2)
+			usage_topic(progname, cmd, argc, argv);
+		if (called_deprecated(argv[0], argv[1], progname, "set-fps",
 				      "fps", is_fps)) {
-			ret = set_fps(argv[3], argv[2]);
+			ret = set_fps(argv[1], argv[0]);
 		} else
-			ret = set_fps(argv[2], argv[3]);
+			ret = set_fps(argv[0], argv[1]);
 		break;
 	case GET_FPS:
-		if (argc != 3)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		ret = get_fps(argv[2]);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 1)
+			usage_topic(progname, cmd, argc, argv);
+		ret = get_fps(argv[0]);
 		break;
 	case SET_CAPS:
-		if (argc != 4)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		if (called_deprecated(argv[2], argv[3], argv[0], "set-caps",
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 2)
+			usage_topic(progname, cmd, argc, argv);
+		if (called_deprecated(argv[0], argv[1], progname, "set-caps",
 				      "caps", 0)) {
-			ret = set_caps(argv[3], argv[2]);
+			ret = set_caps(argv[1], argv[0]);
 		} else {
-			ret = set_caps(argv[2], argv[3]);
+			ret = set_caps(argv[0], argv[1]);
 		}
 		break;
 	case GET_CAPS:
-		if (argc != 3)
-			usage_topic(argv[0], cmd, argc - 2, argv + 2);
-		ret = get_caps(argv[2]);
+		optind = do_defaultargs(progname, cmd, argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (argc != 1)
+			usage_topic(progname, cmd, argc, argv);
+		ret = get_caps(argv[0]);
 		break;
 	case SET_TIMEOUTIMAGE:
-		if ((4 == argc) && (strncmp("-t", argv[2], 4)) &&
-		    (called_deprecated(argv[2], argv[3], argv[0],
+		if ((3 == argc) && (strncmp("-t", argv[1], 3)) &&
+		    (strncmp("--timeout", argv[1], 10)) &&
+		    (called_deprecated(argv[1], argv[2], progname,
 				       "set-timeout-image", "image", 0))) {
-			ret = set_timeoutimage(argv[3], argv[2], -1);
+			ret = set_timeoutimage(argv[2], argv[1], -1, verbose);
 		} else {
 			int timeout = -1;
-			while ((c = getopt(argc - 1, argv + 1, "t:")) != -1)
+			for (;;) {
+				int c, idx;
+				c = getopt_long(argc, argv,
+						timeoutimg_options_short,
+						timeoutimg_options_long, &idx);
+				if (-1 == c)
+					break;
 				switch (c) {
 				case 't':
 					timeout = my_atoi("timeout", optarg);
 					break;
+				case 'v':
+					verbose++;
+					break;
 				default:
-					usage_topic(argv[0], cmd, argc - 2,
-						    argv + 2);
+					usage_topic(progname, cmd, argc, argv);
 				}
-			if (optind + 3 != argc)
-				usage_topic(argv[0], cmd, argc - 2, argv + 2);
-			ret = set_timeoutimage(argv[1 + optind],
-					       argv[2 + optind], timeout);
+			}
+			argc -= optind;
+			argv += optind;
+			if (argc != 2)
+				usage_topic(progname, cmd, argc, argv);
+			ret = set_timeoutimage(argv[0], argv[1], timeout,
+					       verbose);
 		}
 		break;
 	case VERSION:
-		printf("%s v%d.%d.%d\n", argv[0], V4L2LOOPBACK_VERSION_MAJOR,
+#ifdef SNAPSHOT_VERSION
+		printf("%s v%s\n", progname, SNAPSHOT_VERSION);
+#else
+		printf("%s v%d.%d.%d\n", progname, V4L2LOOPBACK_VERSION_MAJOR,
 		       V4L2LOOPBACK_VERSION_MINOR, V4L2LOOPBACK_VERSION_BUGFIX);
+#endif
+		fd = open("/sys/module/v4l2loopback/version", O_RDONLY);
+		if (fd >= 0) {
+			char buf[1024];
+			int len = read(fd, buf, sizeof(buf));
+			if (len > 0) {
+				if (len < sizeof(buf))
+					buf[len] = 0;
+				printf("v4l2loopback module v%s", buf);
+			}
+		}
 		break;
 	default:
-		dprintf(2, "not implemented '%s'\n", argv[1]);
+		dprintf(2, "not implemented: '%s'\n", argv[0]);
 		break;
 	}
 
