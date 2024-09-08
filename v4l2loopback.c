@@ -106,6 +106,25 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 	b->flags |= V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 }
 
+#if BITS_PER_LONG == 32
+#include <asm/div64.h> /* do_div() for 64bit division */
+static inline int v4l2l_mod64(const s64 A, const u32 B)
+{
+	u64 a = (u64)A;
+	u32 b = B;
+
+	if (A > 0)
+		return do_div(a, b);
+	a = -A;
+	return -do_div(a, b);
+}
+#else
+static inline int v4l2l_mod64(const s64 A, const u32 B)
+{
+	return A % B;
+}
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(4, 16, 0)
 typedef unsigned __poll_t;
 #endif
@@ -1494,7 +1513,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 
 			/* after we update dev->used_buffers, buffers in outbufs_list will
 			 * correspond to dev->write_position + [0;b->count-1] range */
-			i = dev->write_position % b->count;
+			i = v4l2l_mod64(dev->write_position, b->count);
 			list_for_each_entry(pos, &dev->outbufs_list,
 					    list_head) {
 				dev->bufpos2index[i % b->count] =
@@ -1563,7 +1582,7 @@ static void buffer_written(struct v4l2_loopback_device *dev,
 	spin_unlock_bh(&dev->list_lock);
 
 	spin_lock_bh(&dev->lock);
-	dev->bufpos2index[dev->write_position % dev->used_buffers] =
+	dev->bufpos2index[v4l2l_mod64(dev->write_position, dev->used_buffers)] =
 		buf->buffer.index;
 	++dev->write_position;
 	dev->reread_count = 0;
@@ -1684,14 +1703,14 @@ static int get_capture_buffer(struct file *file)
 		if (dev->reread_count > opener->reread_count + 2)
 			opener->reread_count = dev->reread_count - 1;
 		++opener->reread_count;
-		pos = (opener->read_position + dev->used_buffers - 1) %
-		      dev->used_buffers;
+		pos = v4l2l_mod64(opener->read_position + dev->used_buffers - 1,
+				  dev->used_buffers);
 	} else {
 		opener->reread_count = 0;
 		if (dev->write_position >
 		    opener->read_position + dev->used_buffers)
 			opener->read_position = dev->write_position - 1;
-		pos = opener->read_position % dev->used_buffers;
+		pos = v4l2l_mod64(opener->read_position, dev->used_buffers);
 		++opener->read_position;
 	}
 	timeout_happened = dev->timeout_happened;
@@ -2184,7 +2203,7 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
 
-	write_index = dev->write_position % dev->used_buffers;
+	write_index = v4l2l_mod64(dev->write_position, dev->used_buffers);
 	b = &dev->buffers[write_index].buffer;
 
 	if (copy_from_user((void *)(dev->image + b->m.offset), (void *)buf,

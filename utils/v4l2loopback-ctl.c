@@ -102,19 +102,20 @@ void exec_cleanup(int signal)
 static int my_execv(char *const *cmdline)
 {
 	char exe[1024];
-	//pid_t pid;
 	int res = 0;
-	char *const *argp = cmdline;
 	if (!which(exe, 1024, cmdline[0])) {
 		dprintf(2, "cannot find %s - is it installed???\n", cmdline[0]);
 		return 1;
 	}
 #if 0
-	dprintf(2, "%s:", exe);
-	while (*argp) {
-		dprintf(2, " %s", *argp++);
-	};
-	dprintf(2, "\n");
+	do {
+		char *const *argp = cmdline;
+		dprintf(2, "%s:", exe);
+		while (*argp) {
+			dprintf(2, " %s", *argp++);
+		};
+		dprintf(2, "\n");
+	} while(0);
 #endif
 
 	pid = fork();
@@ -393,6 +394,7 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 	dprintf(2,
 		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n    <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
+		"\n          \tunset the current caps with the special value 'any'"
 		"\n");
 	if (detail > 1) {
 		dprintf(2, "\nknown fourcc-codes"
@@ -587,12 +589,14 @@ make_conf(struct v4l2_loopback_config *cfg, const char *label, int min_width,
 
 static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 {
+	int err = 0;
 	MARK();
 	int ret = ioctl(fd, V4L2LOOPBACK_CTL_ADD, cfg);
 	MARK();
 	if (ret < 0) {
+		err = errno;
 		perror("failed to create device");
-		return 1;
+		return err;
 	}
 	MARK();
 
@@ -607,26 +611,31 @@ static int add_device(int fd, struct v4l2_loopback_config *cfg, int verbose)
 		config.capture_nr = ret;
 #endif
 		ret = ioctl(fd, V4L2LOOPBACK_CTL_QUERY, &config);
-		if (!ret)
+		if (ret < 0) {
+			err = errno;
 			perror("failed querying newly added device");
+		}
 		MARK();
 		print_conf(&config, 0);
 		MARK();
 	}
-	return (!ret);
+	return err;
 }
 
 static int delete_device(int fd, const char *devicename)
 {
+	int err = 0;
 	int dev = parse_device(devicename);
 	if (dev < 0) {
 		dprintf(2, "ignoring illegal devicename '%s'\n", devicename);
 		return 1;
 	}
-	if (ioctl(fd, V4L2LOOPBACK_CTL_REMOVE, dev) < 0)
+	if (ioctl(fd, V4L2LOOPBACK_CTL_REMOVE, dev) < 0) {
+		err = errno;
 		perror(devicename);
+	}
 
-	return 0;
+	return err;
 }
 
 static int query_device(int fd, const char *devicename, int escape)
@@ -766,6 +775,7 @@ static int open_controldevice()
 		perror("unable to open control device '" CONTROLDEVICE "'");
 		exit(1);
 	}
+	return fd;
 }
 
 static int open_sysfs_file(const char *devicename, const char *filename,
@@ -906,8 +916,10 @@ static int get_fps(const char *devicename)
 
 	/* get the framerate via ctls */
 	fd = open_videodevice(devicename, O_RDWR);
-	if (fd < 0)
+	if (fd < 0) {
+		ret = 1;
 		goto done;
+	}
 
 	memset(&param, 0, sizeof(param));
 	param.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
@@ -1051,6 +1063,7 @@ static int get_caps(const char *devicename)
 static int set_timeoutimage(const char *devicename, const char *imagefile,
 			    int timeout, int verbose)
 {
+	int err = 0;
 	int fd = -1;
 	char imagearg[4096], imagefile2[4096], devicearg[4096];
 	char *args[] = { "gst-launch-1.0",
@@ -1089,6 +1102,8 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 			devicename);
 		set_control_i(fd, "timeout_image_io", 1);
 		close(fd);
+	} else {
+		err = errno;
 	}
 
 	if (verbose > 1) {
@@ -1106,6 +1121,7 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 		"v======================================================================v\n");
 	if (my_execv(args)) {
 		dprintf(2, "ERROR: setting time-out image failed\n");
+		err = 1;
 	}
 	dprintf(2,
 		"^======================================================================^\n");
@@ -1128,7 +1144,10 @@ static int set_timeoutimage(const char *devicename, const char *imagefile,
 		}
 
 		close(fd);
+	} else {
+		err = errno;
 	}
+	return err;
 }
 
 static t_command get_command(const char *command)
@@ -1227,7 +1246,6 @@ static int do_defaultargs(const char *progname, t_command cmd, int argc,
 int main(int argc, char **argv)
 {
 	const char *progname = argv[0];
-	const char *cmdname;
 	int i;
 	int fd = -1;
 	int verbose = 0;
@@ -1417,9 +1435,10 @@ int main(int argc, char **argv)
 			usage_topic(progname, cmd, argc, argv);
 		fd = open_controldevice();
 		for (i = 0; i < argc; i++) {
-			ret += (delete_device(fd, argv[i]) != 0);
+			int err = delete_device(fd, argv[i]);
+			if (err)
+				ret = err;
 		}
-		ret = (ret > 0);
 		break;
 	case QUERY:
 		for (;;) {
