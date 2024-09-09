@@ -1,3 +1,588 @@
+v4l2loopback (0.13.2) unstable; urgency=medium
+
+  * Fix compilation on 32bit architectures (i386, armhf,...)
+    * Replace (s64 % u32) with our own v4l2l_mod64() wrapper
+    * Fix mod64 warnings on arm
+  * utils buildsystem
+    + Don't fail 'clean' target if 'make -C utils clean' fails
+    + clean objectfiles
+  * v4l2loopback-ctl
+    + mention the special caps 'any' in help
+    + improve error-reporting and return errcodes where appropriate
+    + avoid unused variable warning
+    + explicitly return the fd from open_controldevice()
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Fri, 24 May 2024 11:30:51 +0200
+
+v4l2loopback (0.13.1) unstable; urgency=medium
+
+  [ Max Harmathy ]
+  * Avoid building utils with dkms
+
+  [ IOhannes m zmölnig ]
+  * 'release.sh' script
+    + shellchecked
+    + write back new version to v4l2loopback.h (if necessary)
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Tue, 19 Mar 2024 22:15:34 +0100
+
+v4l2loopback (0.13.0) unstable; urgency=medium
+
+  [ IOhannes m zmölnig ]
+  * Set device_caps in init_vdev() for all kernel-versions (not just >4.7.0)
+  * Don't set the V4L2_CAP_DEVICE_CAPS on device_caps
+  * only set (struct video_device).device_caps on linux>=4.7.0
+  * pre-processor directives should be left-aligned
+  * tabify
+  * Drop obsolete ISSUE_TEMPLATE
+  * Mention that people should do research before creating a new ticket
+  * document that we expect people to do some research before creating a ticket
+  * document that people must have a proper bulid-environment
+
+  [ mpromonet ]
+  * reset ready_for_capture flag processing VIDIOC_STREAMOFF
+
+  [ IOhannes m zmölnig ]
+  * redirect people for StackOverflow for general help.
+  * rule to get the latest&greatest .clang-format for the linux-kernel
+  * clang-format -i *.c *.h
+  * fixed whitespace in comments and strings
+  * use $() rather than ``
+  * use more frames for setting caps.
+  * document that GStreamer-1.0 is required (rather than GStreamer-0.10)
+  * rename _SIZE_MAX_WIDTH to _SIZE_DEFAULT_MAX_WIDTH (same for HEIGHT)
+  * Add clang-format target
+  * comment formatting
+  * switched v4l2_loopback_init() for a more complete v4l2_loopback_add()
+  * per-device max_width/max_height
+  * store card-label per device
+  * copy newly created video-device back
+  * indentation
+  * use per-device name rather than the global ones
+  * switching free_devices() to idr-iterator
+  * getting rid of static number of devices...
+  * limit card_label to 32 chars (like v4l2_capability->card)
+  * make sure to neither exceed size of cap->card nor dev->card_label
+  * prevent out-of-bounds access to exclusive_caps[]
+  * less ambiguous wording when MAX_DEVICES is exceeded
+  * allow device_nr > MAX_DEVICES
+  * less verbose output
+  * use video_nr for initial devices
+  * macro for the default value of EXLCUSIVE_CAPS
+  * reordered card_label calculation
+  * fill default-values
+  * return the used device number
+  * move v4l2_loopback_config to a separate header
+  * move IDR declaration to a better place.
+  * drop devptr from v4l2_loopback_add
+  * use "int" instead of "bool" for the public interface
+  * now that exclusive_caps are int and can be negative, use that to ask for the default
+  * use "err" instead of "ret"
+  * implement /dev/v4l2loopback to dynamically create/remove devices
+  * use a mutex to prevent concurrent access to the /dev/v4l2loopback device
+  * check whether the device is currently open before closing it
+  * v4l2_loopback_config.card_label now has a fixed size (32 bytes)
+  * only return the device-number if device_add was successfull
+  * added QUERY ioctl
+  * sample application to add/delete/query devices on the fly
+  * indentation
+  * moved DEFINE_IDR/MUTEX *again*
+  * "every" -> "each"
+  * show default values in "modinfo"
+  * Makefile for utils/
+  * don't assume that IDR matches the device-number
+  * less verbose
+  * print perror() if query fails
+  * explicitely return ENOSYS for invalid ioctls
+  * use "break" instead of "goto"
+  * return EINVAL by default for valid ioctls
+  * copy data from userspace instead of casting away
+  * note that we need two device numbers
+  * Add example udev rules.
+    Thanks to Norman Rasmussen <norman@rasmussen.co.za>
+  * formatting
+  * perror() if query-after-add fails
+  * only set device is the pointer is valid
+  * (struct v4l2_loopback_config) now has both output_nr and capture_nr
+  * adjust utility to (currently defunct) split CAPTURE/OUTPUT devices
+  * document how to call /dev/v4l2loopback ioctls
+  * gitignore .clang-format
+  * don't export repo-configuration
+  * mention that v4l2_loopback_config.announce_all_caps is to be going away
+  * more specific rule for creating persistent names
+  * rule to allow members of 'video' to change device-properties via sysfs
+  * restructed usage() a bit
+  * implement "set-fps"
+  * also format code in utils/
+  * moved v4l2loopback version to header file
+  * capitalize command enums
+  * added "-h" and "-v" commands
+  * SETFPS -> SET_FPS
+  * dropped unused "fd" from set_fps call
+
+  [ You-Sheng Yang ]
+  * utils: respect CPPFLAGS from env vars
+
+  [ Sakari Tanskanen ]
+  * Allow reading buffered frames
+
+  [ You-Sheng Yang ]
+  * dev: initialize per opener v4l2_fh
+  * event: install event (un)subscribe hook
+  * event: support polling for events
+
+  [ IOhannes m zmölnig ]
+  * control more thingies
+  * whitespace
+  * Add documentation about using dkms.
+    Thanks to Toon Verstraelen
+
+  [ Toon Verstraelen ]
+  * Document how to load the module at boot
+
+  [ IOhannes m zmölnig ]
+  * lower-case readme
+  * Usde "If" rather than "When"
+
+  [ IOhannes m zmoelnig ]
+  * note that you cannot just load an old module into a new kernel (even if you built the module yourself).
+
+  [ ilsi ]
+  * Fix DKMS typos in README
+
+  [ IOhannes m zmölnig ]
+  * use a helper for showing short descriptions of commands
+  * announce 'set-caps' and 'set-timeout-image'
+  * re-formatted
+  * allow some commands without a /dev/v4l2loopback device
+  * "not implemented" is not the same as "unknown command"
+  * announce the not-yet-implemented "get-fps" and "get-caps" commands
+  * make commands static when possible
+  * helper-function to get sysfs files
+  * specify mode when opening a sysfs-file
+  * close fd on error
+  * implement get_fps
+  * basic get_caps implementation
+  * store fourcc as uint32_t
+  * fixed help-display
+  * rename get_<file> to open_<file>
+  * properly display FOURCC when printing caps
+  * re-factored caps-parsing into separate function
+  * implement set_caps
+  * less verbose
+  * query default values before setting those we want to
+  * clang-format
+  * reverse arguments for set-* commands
+  * draft implementation of set-timeout-image
+  * proper ordering of arguments in help
+  * remove printout
+  * search for executable in PATH
+  * comments
+  * clang-format
+  * v4l2loopback-ctl: support for adding split-devices
+  * fixed spelling errors
+  * v4l2loopback_private.devicenr -> .device_nr
+  * remove debugging output
+  * function to check for deprecated calls
+  * wrap launching of external programs into separate function
+  * TERM the child-process on receiving SIGINT; wait for child-process to cleanup
+  * move helpers to top of file
+  * TODO: we want to be able to set the timeout directly
+  * helpers for getting/setting controls by name
+  * have "set-timeout-image" set the 'timeout' and 'timeout_image_io' controls
+  * allow setting of the timeout (TODO: parse args for timeout)
+  * fix(?) GStreamer-pipeline for setting the timeout image
+  * added 'default' clause to switch-statement
+  * clang-format
+  * build utils from master-makefile
+  * factored device-opening into helper-function
+  * handle "any" caps and set "keep_format" and "sustain_framerate"
+  * resolve timeout-image to full path (and allow 4096 chars in paths)
+  * track how many producers have opened the device
+  * reformatting
+  * close video-device before trying to set timeout-image
+
+  [ You-Sheng Yang ]
+  * event: fix backward compatibility to 3.16
+  * add GitHub Actions yaml
+  * utils: use VIDIOC_QUERYCTRL for control name resolution
+  * utils: fix error: 'for' loop initial declarations are only allowed in C99 mode
+
+  [ IOhannes m zmölnig ]
+  * improve parse-device to deal with /dev/v4l/by-*/* symlinks
+  * keep alignment when running clang-format
+  * moved fallback defines for V4L2_PIX_FMT_* to v4l2loopback_formats.h
+  * modular help
+  * set-timeout-image subcommand now takes a "-t <timeout>" flag
+  * less verbose
+  * optional argument-check for called_deprecated()
+  * check framerate-argument for "set_fps"
+  * return success of subcommands
+  * catch empty /sysfs/.../format (but don't complain loudly)
+  * simplified caps-parsing
+  * get-fps now falls back to querying the video-device's PARMs
+  * use C-style comments for documentation
+  * print error when GStreamer-style caps are detected
+  * renamed "utils/v4l2loopback" to "utils/v4l2loopback-ctl"
+  * replaced placeholder file with .gitignore
+  * fixed help2man invocation
+  * clean-target for utils
+  * call utils' "clean" target when running "make clean"
+  * use /dev/video0 throughough
+  * update to new v4l2loopback-ctl syntax
+  * Fixed upper-casing to standard English
+  * note on changing module options
+  * note on dynamic device management
+  * make "changing options" a sub-item in the "options" chapter
+  * grouping into chapters
+  * more upper-casing
+
+  [ You-Sheng Yang ]
+  * ci: match known failures to kernel versions
+
+  [ IOhannes m zmölnig ]
+  * comment fixes
+  * ctrl_handler_init/setup
+  * note on why try_free_buffers() doesn't do harm if keep_format is true
+  * dropped double "sudo"
+
+  [ You-Sheng Yang ]
+  * gitignore: add utils/v4l2loopback-ctl and v4l2loopback.mod
+
+  [ IOhannes m zmölnig ]
+  * automatically assign new-bugreports a default label/assignee
+  * disable blank issues and redirect people to U&L resp the wiki
+  * stackoverflow -> unix.stackexchange
+  * also mention stackoverflow
+  * use an imperative rather than a noun as the bug-report name.
+  * pass number of args to help-functions
+  * print known fourcc flags when calling 'set-caps' without arguments
+  * clang-format
+  * editorconfig
+
+  [ Luigi Baldoni ]
+  * Include header outside of struct definition
+
+  [ Oleksandr Natalenko ]
+  * confine v4l2loopback_cleanup_module
+
+  [ IOhannes m zmölnig ]
+  * fixed building of v4l2loopback-ctl in the aftermath of #389
+  * doc on how to develop with vagrant
+  * slight re-ordering of struct-init
+  * use module_init()/module_exit() rather than '#ifdef MODULE'
+  * note on what to do if the VM freezes
+  * drop MODULE_ALIAS("devname")
+  * add args to vbox-restart
+  * [ci] don't bail out on the first kernel that unexpectedly fails
+  * [ci] if a build failed, accept that 'make clean' might fail as well...
+  * [ci] mark all trusty kernels as known-bad
+
+  [ Piotr Orzechowski ]
+  * Fix the dkms install instructions in README.md
+
+  [ IOhannes m zmölnig ]
+  * [ci] renamed 'master' branch to 'main'
+  * embrace Kbuild
+  * fixed typo
+  * use KBUILD_MODULES to detect Kbuild
+  * [gh] fixes errors in the issue template
+  * bumped copyright-dates in README
+  * mention "SSL" in the troubleshooting section
+  * fixed typos
+  * more english style fixes
+  * Fix scanf/printf formatting
+
+  [ Tadayuki Okada ]
+  * try to set requested colorspace
+
+  [ You-Sheng Yang ]
+  * coverity: fix unchecked return value
+  * coverity: fix null pointer dereference
+
+  [ IOhannes m zmölnig ]
+  * don't fail if allocating 0-sized buffers
+
+  [ a1346054 ]
+  * use apt-get instead of aptitude
+  * master branch was renamed to main
+  * fix shellcheck warnings
+  * unify codestyle
+  * fix spelling
+  * add missing final newline
+  * trim excess whitespace
+  * trim trailing whitespace
+
+  [ Emil Velikov ]
+  * dkms.conf: remove REMAKE_INITRD option
+
+  [ bakedpotato191 ]
+  * Add module_version macro
+
+  [ Bechir Mghirbi ]
+  * Adding support for RGBA32 (AB24)
+
+  [ Jim Scarborough ]
+  * Fix currentversion.sh to return the value
+
+  [ IOhannes m zmölnig ]
+  * made "currentversion.sh" script POSIX conformant
+  * [ci] drop 'groovy'; add 'hirsuite' and 'impish'
+  * [ci] dynamically generate Debian/Ubuntu releases to test
+  * on Debian kernel-header packages have a different suffix...
+  * guard V4L2_PIX_FMT_RGBA32 definition...
+  * [ci] better check for installed kernel headers
+  * clang format
+  * [ci] show successfull builds
+
+  [ Anatoli Babenia ]
+  * README.md Add info how to check the device number
+
+  [ IOhannes m zmölnig ]
+  * inject snapshot-version in banner
+
+  [ Benny Baumann ]
+  * Limit v4l2_loopback_write calls to (streaming) writers
+  * Simplify code by using upstream video_drvdata helper
+  * Free module data on error
+  * Initialize max_width/max_height relative to defaults
+  * Off-by-one condition when retrieving defaults
+
+  [ IOhannes m zmölnig ]
+  * Make sure that only the boolean state of announce_all_caps is used.
+
+  [ He1nMueck ]
+  * Make free_buffers() return void.
+
+  [ Benny Baumann ]
+  * Reintroduce previous behavior for write call
+
+  [ Jan-Ralf Meier ]
+  * Check for negative index before proceeding
+
+  [ Benny Baumann ]
+  * Free module data on error
+
+  [ Robert Geislinger ]
+  * fixed possible bufferoverflow
+
+  [ Alienmaster ]
+  * simplify bufferoverflow checks
+
+  [ IOhannes m zmölnig ]
+  * indentation
+
+  [ Alienmaster ]
+  * added explicit cleanup on error
+
+  [ IOhannes m zmölnig ]
+  * removed superfluous check
+  * only allocate_buffers() if buffer_size>0
+
+  [ Benny Baumann ]
+  * Release memory on error in v4l2_loopback_open
+  * Only reset timeout_image_io when open succeeds
+  * Avoid redundant/conflicting casts
+
+  [ Tobias Stoeckmann ]
+  * attr_store_maxopener: Handle integer truncation
+
+  [ Benny Baumann ]
+  * Properly snprintf the device card label string into the capability query buffer
+  * Avoid format string issue
+
+  [ umläute ]
+  * Create SECURITY.md
+
+  [ IOhannes m zmölnig ]
+  * add explicit format specifier to printf() invocations
+
+  [ Sludge ]
+  * Support `V4L2_PIX_FMT_ABGR32` format
+
+  [ Tobias Stoeckmann ]
+  * Fix warning with gcc 12
+
+  [ Jan-Ralf Meier ]
+  * Fix return condition, due to EINVAL memory offset.
+
+  [ IOhannes m zmölnig ]
+  * Update release-script to work with any branch
+  * Exclude repository config in source-tarballs
+  * Backported dkms-patch from Ubuntu
+
+  [ Oleksandr Natalenko ]
+  * v4l2loopback: un-confine v4l2loopback_cleanup_module()
+
+  [ IOhannes m zmölnig ]
+  * quote FOURCC-codes to show the space
+
+  [ Jianhui Dai ]
+  * Reset V4L2_BUF_FLAG_MAPPED if use_count <= 0
+  * log pid for debug
+
+  [ tudor ]
+  * DKMS section clarification
+  * too many empty lines
+
+  [ You-Sheng Yang ]
+  * Track active readers
+  * Support V4L2_EVENT_PRI_CLIENT_USAGE
+
+  [ Tobias Stoeckmann ]
+  * Fix signed integer overflows in increments.
+
+  [ Kate Hsuan ]
+  * v4l2loopback: a new offset for V4L2_EVENT_PRI_CLIENT_USAGE
+
+  [ IOhannes m zmölnig ]
+  * Allow a minimum of 0 fps
+  * clang-format
+  * Propagate snapshot version to v4l2loopback-ctl
+  * strip leading 'v' from git snapshot version
+  * v4l2loopback-ctl: compat flag "--version"
+  * calculate MODULE_VERSION from V4L2LOOPBACK_VERSION
+  * use linux' __stringify
+  * re-ordered 'struct v4l2_loopback_config' so "announce_all_caps" comes last
+  * logging: move "pid(%d)" after the v4l2-loopback identifier
+  * [ci] use Environment-File rather than set-output
+  * Drop support for Linux<2.6.37
+  * v4l2loopback-ctl: print module version as well
+  * [ci] Job for code-linting
+  * [ci] Fixup lint-job
+  * Re-formatted code with updated .clang-format
+  * [ci] hardcode Debian's supported releases to their rolling names
+
+  [ sanbrother ]
+  * Fix compilation issues under AOSP
+
+  [ mzihlmann ]
+  * mutex lock access to outbufs_list in vidioc_dqbuf
+
+  [ Asahi Lina ]
+  * Revert "Fix signed integer overflows in increments."
+  * Change the type of read_position and write_position to 64-bit
+
+  [ IOhannes m zmölnig ]
+  * Use separate spinlocks for protecting list access
+  * Make VIDIOC_ENUMINPUT return V4L2_IN_ST_NO_SIGNAL if there's no producer
+  * code formatting
+  * Always protect access to dev->outbufs_list with the list_lock mutex
+  * v4l2loopback-ctl help: use 'detail' level rather than 'brief' flag
+  * help: reverse general form and example
+  * codespell fixes
+  * fix typo
+  * add 'install' target for utils
+  * clang-format
+  * more gitignores
+  * Bump copyright dates
+  * simple test application for producing/consuming buffers
+  * more debugging and a global buffer
+  * set bufsize/bytesused when initializing buffers for MMAP
+  * fix random; optionally set timestamp
+  * try more...
+  * stuff...
+  * use DEFAULT colorspace
+  * set V4L2_BUF_FLAG_TIMESTAMP_COPY flag when copying the buffer timestamp
+  * more diagnostic output
+  * refactor the TRY/S_FMT code
+  * fix formatting warnings when printing timestamps
+  * compat for older kernels
+  * more clang-format
+  * reversed compat logic
+  * yikes, yet another typo
+  * tests/consumer: make S_FMT errors non-fatal
+  * prevent multiple output streams
+  * set TIMESTAMP flags
+  * G_FMT_CAP: only report failure if the format has not been fixated
+  * script to check the output/capture formats of a device
+  * V4L2LOOBACK_IS_FIXED_FMT() to check if the format is changeable
+  * unify the output of vidioc_enum_fmt_*
+  * set default framesize
+  * allow setting of minimum width/height as well
+  * v4l2loopback-ctl: allow setting of minimum framesize
+  * clang-format
+  * tests/producer: fix description of "-c" flag and linefeed
+  * long-options for v4l2loopback-ctl
+  * indentation
+  * unset the timeout_image_io flag if allocating the timeout-image fails
+  * only unset the timeout_image_io flag when requesting buffers for the timeout image
+  * turn the "timeout_image_io" ctrl into a button
+  * whitespace
+  * fixate format with "keep_format"
+  * report format via /sys if it is somehow FIXED
+  * run timeout-image gst-pipeline through "tee"
+  * add "--verbose" flag to "set-timeout-image"
+  * prevent multiple readers to start streaming
+  * indentation...
+  * add /sys/devices/virtual/video4linux/video*/type interface
+  * fix device_nr checks in V4L2LOOPBACK_CTL_QUERY
+  * v4l2loopback-ctl: add "list" verb
+  * v4l2loopback-ctl: escape special chars in device-names
+  * refactored raw-string printout into helper function
+  * v4l2loopback-ctl: align help
+  * v4l2loopback-ctl: more escaping for device-name
+  * v4l2loopback-ctl: add flags to "query" verb
+  * v4l2loopback-ctl: streamline help
+
+  [ Hans de Goede ]
+  * v4l2loopback: Fixup bytesused field when writer sends a too large value
+
+  [ IOhannes m zmölnig ]
+  * fallback to dprintkrw() if dev_warn_ratelimited() is not available
+  * rename sysfs-attribute "type" to "state"
+  * make the code less-dependant on the "capture_nr" member of the config-struct
+  * swap output/capture device when adding new devices
+  * Remove the 'capture_nr' member from the v4l2_looback_config struct
+  * build-fixes: install and utils
+  * force timestamp.tv_sec to (long long int)
+
+  [ Wren Turkal ]
+  * Remove support for pre-3.6.1 Linux kernels.
+  * Remove support for pre-4.0.0 kernels.
+
+  [ IOhannes m zmölnig ]
+  * [github] Mention "discussions" in the issue landing-page
+
+  [ rdbo ]
+  * fixed utils build for musl (missing GLOB_ONLYDIR)
+
+  [ IOhannes m zmölnig ]
+  * note that GLOB_ONLYDIR is indeed not requried by POSIX
+
+  [ rdbo ]
+  * added v4l2loopback-ctl.o to gitignore
+
+  [ IOhannes m zmölnig ]
+  * Fix formatting
+
+  [ Fufu Fang ]
+  * Update README.md
+
+  [ IOhannes m zmölnig ]
+  * [ci] skip failures on kernels without v4l2 support
+  * [ci] install all available kernel headers
+  * [ci] show skipped builds
+  * [ci] Fix testing for v4l2 capabilities
+  * [ci] bump actions/checkout to v4
+  * [ci] lower actions/checkout to v3
+  * [ci] only install latest packageversion of each kernel-flavour
+  * [ci] install 'dkms' to get some more building prerequisites
+  * some minor typos
+  * use 'sudo' to change the permissions of the module
+  * use $< instead of hardcoding the module name
+  * 'sign' target to sign the generated module for use with secure boot
+
+  [ Joaquim Monteiro ]
+  * Use strscpy instead of strlcpy if available
+
+  [ IOhannes m zmölnig ]
+  * redefine strscpy() as strlcpy() if needed
+  * Lower minimum width/height to extreme values
+  * allocate_buffers: fix check whether we can re-allocate
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Tue, 19 Mar 2024 17:11:08 +0100
+
 v4l2loopback (0.12.7) unstable; urgency=medium
 
   [ IOhannes m zmölnig ]

@@ -1,0 +1,19 @@
+name: Code Linters
+on: [push, pull_request]
+
+jobs:
+  clang-format:
+    runs-on: ubuntu-latest
+    steps:
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install clang-format make
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Check Code Formatting
+        run: |
+          make clang-format
+          git status --porcelain
+          git diff --exit-code
+

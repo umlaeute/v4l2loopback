@@ -1,3 +1,4 @@
+---
 blank_issues_enabled: false
 contact_links:
   - name: Ask a Question
@@ -9,3 +10,6 @@ contact_links:
   - name: Look for more Documentation
     url: https://github.com/umlaeute/v4l2loopback/wiki
     about: Check our WIKI to see whether your question has already been answered.
+  - name: Start a discussion
+    url: https://github.com/umlaeute/v4l2loopback/discussions
+    about: Ask questions and share ideas on our "discussion" page.

@@ -1,3 +1,22 @@
+v4l2loopback-0.13.2
+
+  * Fix compilation on 32bit architectures (i386, armhf,...)
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Fri, 24 May 2024 11:30:51 +0200
+
+v4l2loopback-0.13.1
+
+  * Avoid building utils with dkms
+  * Fix version number in module
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Tue, 19 Mar 2024 22:15:34 +0100
+
+v4l2loopback-0.13.0
+
+  * Dynamic device management
+
+ -- IOhannes m zmölnig (Debian/GNU) <umlaeute@debian.org>  Tue, 19 Mar 2024 17:11:08 +0100
+
 v4l2loopback-0.12.3
 
   * Fixed compat with kernel 5.4
