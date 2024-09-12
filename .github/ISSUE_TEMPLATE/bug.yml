@@ -34,6 +34,8 @@ body:
       description: |
         What went wrong?
         If you are using additional software (e.g. `obs-studio`, `ffmpeg`, ...) please make sure to include full version information (and - if it is not a very common product - a link to their webpage).
+        Please do not post screenshots of terminal output (e.g. when running `make`). Instead copy the the actual text.
+        Use [Markdown](https://docs.github.com/github/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) for formatting.
       placeholder: |
         What did you do (step by step)? What did you expect? What happened?
       render: markdown
