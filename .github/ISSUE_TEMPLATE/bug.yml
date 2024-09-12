@@ -61,6 +61,7 @@ body:
         What is the exact version of the linux kernel you are using? (reported via `uname -a`)
       placeholder: |
         e.g. Linux umlautT 6.7.9-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.7.9-2 (2024-03-13) x86_64 GNU/Linux
+      render: text
     validations:
       required: true
 
