@@ -54,7 +54,7 @@ body:
       required: true
 
   - id: kernelversion
-    type: input
+    type: textarea
     attributes:
       label: kernel version
       description: |
