@@ -1671,8 +1671,8 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 	dprintkrw("buffer type: %d (of %d with size=%ld)\n", b->memory,
 		  dev->buffers_number, dev->buffer_size);
 
-	/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
-            https://github.com/umlaeute/v4l2loopback/issues/60 */
+	/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
+	 * https://github.com/umlaeute/v4l2loopback/issues/60 */
 	b->flags &= ~V4L2_BUF_FLAG_DONE;
 	b->flags |= V4L2_BUF_FLAG_QUEUED;
 
@@ -1766,8 +1766,8 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		set_done(b);
 		buffer_written(dev, b);
 
-		/*  Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
-                    https://github.com/umlaeute/v4l2loopback/issues/60 */
+		/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
+		 * https://github.com/umlaeute/v4l2loopback/issues/60 */
 		buf->flags &= ~V4L2_BUF_FLAG_DONE;
 		buf->flags |= V4L2_BUF_FLAG_QUEUED;
 
@@ -2893,8 +2893,8 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 		};
 		break;
 		/* get information for a loopback device.
-                 * this is mostly about limits (which cannot be queried directly with  VIDIOC_G_FMT and friends
-                 */
+		 * this is mostly about limits (which cannot be queried directly with  VIDIOC_G_FMT and friends
+		 */
 	case V4L2LOOPBACK_CTL_QUERY:
 		if (!parm)
 			break;
@@ -2912,15 +2912,15 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 			break;
 		MARK();
 		/* if we got the device from output_nr and there is a valid capture_nr,
-                 * make sure that both refer to the same device (or bail out)
-                 */
+		 * make sure that both refer to the same device (or bail out)
+		 */
 		if ((device_nr != capture_nr) && (capture_nr >= 0) &&
 		    ((ret = v4l2loopback_lookup(capture_nr, 0)) < 0))
 			break;
 		MARK();
 		/* if otoh, we got the device from capture_nr and there is a valid output_nr,
-                 * make sure that both refer to the same device (or bail out)
-                 */
+		 * make sure that both refer to the same device (or bail out)
+		 */
 		if ((device_nr != output_nr) && (output_nr >= 0) &&
 		    ((ret = v4l2loopback_lookup(output_nr, 0)) < 0))
 			break;
