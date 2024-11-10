@@ -2165,9 +2165,12 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 	opener = fh_to_opener(file->private_data);
 	dev = v4l2loopback_getdevice(file);
 
+	/* call poll_wait in first call, regardless, to ensure that the wait-queue
+	 * is not null */
+	poll_wait(file, &dev->read_event, pts);
+	poll_wait(file, &opener->fh.wait, pts);
+
 	if (req_events & POLLPRI) {
-		if (!v4l2_event_pending(&opener->fh))
-			poll_wait(file, &opener->fh.wait, pts);
 		if (v4l2_event_pending(&opener->fh)) {
 			ret_mask |= POLLPRI;
 			if (!(req_events & DEFAULT_POLLMASK))
@@ -2180,15 +2183,8 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 		ret_mask |= POLLOUT | POLLWRNORM;
 		break;
 	case READER:
-		if (!can_read(dev, opener)) {
-			if (ret_mask)
-				return ret_mask;
-			poll_wait(file, &dev->read_event, pts);
-		}
 		if (can_read(dev, opener))
 			ret_mask |= POLLIN | POLLRDNORM;
-		if (v4l2_event_pending(&opener->fh))
-			ret_mask |= POLLPRI;
 		break;
 	default:
 		break;
