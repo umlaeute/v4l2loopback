@@ -15,6 +15,8 @@ body:
         Please keep in mind that the development of `v4l2loopback` is done by volunteers.
         They are spending their spare time to give you a hopefully nice product and to help you if you have troubles - for free.
 
+        Providing a [minimal reproducible example](https://en.wikipedia.org/wiki/Minimal_reproducible_example) will *greatly* improve the chances that we will be able to fix your issue.
+
         If you are experiencing interoperability problems with a commercial product, contact *their* support first.
 
   - type: checkboxes
