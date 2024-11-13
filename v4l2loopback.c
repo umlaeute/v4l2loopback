@@ -1581,8 +1581,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return 0;
 	}
 
-	if (V4L2_TYPE_IS_OUTPUT(b->type) && (!dev->ready_for_output)) {
-		return -EBUSY;
+	if (V4L2_TYPE_IS_OUTPUT(b->type)) {
+		if (!dev->ready_for_output)
+			return -EBUSY;
+		int i;
+		for (i = 0; i < dev->buffers_number; ++i)
+			if (dev->buffers[i].buffer.flags & V4L2_BUF_FLAG_MAPPED)
+				return -EBUSY;
 	}
 
 	init_buffers(dev);
@@ -1957,8 +1962,11 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	opener = fh_to_opener(fh);
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		if (dev->ready_for_capture > 0)
-			dev->ready_for_capture--;
+		if (opener->type == WRITER) {
+			if (dev->ready_for_capture > 0)
+				dev->ready_for_capture--;
+			dev->ready_for_output = 1;
+		}
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		if (opener->type == READER) {
