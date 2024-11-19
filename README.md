@@ -332,9 +332,9 @@ If needed, one can specify default module options by creating
 options v4l2loopback video_nr=3,4,7 card_label="device number 3,the number four,the last one"
 ~~~
 
-These options also become the defaults when manually calling 
-`modprobe v4l2loopback`. Note that the double quotes can only be used at the 
-beginning and the end of the option's value, as opposed to when they are 
+These options also become the defaults when manually calling
+`modprobe v4l2loopback`. Note that the double quotes can only be used at the
+beginning and the end of the option's value, as opposed to when they are
 specified on the command line.
 
 If your system boots with an initial ramdisk, which is the case for most
