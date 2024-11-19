@@ -66,13 +66,24 @@ To build the kernel module, run:
 
 This should give you a file named "v4l2loopback.ko", which is the kernel module
 
-## BUILD AGAIN
+## Build again
 You cannot load a module built for a specific version of the kernel into another version of the kernel.
 So, if you have successfully built the module previously and have updated your kernel (and the matching headers)
 In the meantime, you really must clean the build before re-compiling the module.
 So run this *before* starting the build again:
 
     $ make clean
+
+Afterwards re-run `make` to do the actual build.
+
+## Build for a different kernel
+By default a simple `make` will (try to) build the module for the currently active kernel (as determined by `uname -r`).
+If you want to build for a different kernel, youcan do so by providing the kernel version via the `KERNELRELEASE` variable:
+
+    $ make KERNELRELEASE=6.11.7-amd64
+
+(Of course you must have the kernel-headers for the specified kernel available in the `/lib/modules/${KERNELRELEASE}/build/` directory.)
+
 
 # INSTALL
 To install the module, run "make install" (you might have to be 'root' to have
