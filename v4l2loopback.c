@@ -1184,7 +1184,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 	return 0;
 }
 
-/* returns current video format format fmt */
+/* returns current video format fmt */
 /* NOTE: this is called from the producer
  * so if format has not been negotiated yet,
  * it should return ALL of available formats,
