@@ -318,17 +318,15 @@ Note that using this method will NOT install the v4l2loopback-ctl tool, you will
 
 One can avoid manually loading the module by letting systemd load the module
 at boot, by creating a file `/etc/modules-load.d/v4l2loopback.conf` with just
-the name of the module:
+the name of the module. This is especially convenient when `v4l2loopback` is installed with DKMS or with
+a package provided by your Linux distribution:
 
 ~~~
 v4l2loopback
 ~~~
 
-This is especially convenient when `v4l2loopback` is installed with DKMS or with
-a package provided by your Linux distribution.
-
 If needed, one can specify default module options by creating
-`/etc/modprobe.d/v4l2loopback.conf` in the following form:
+`/etc/modprobe.d/v4l2loopback.conf` in the following form instead:
 
 ~~~
 options v4l2loopback video_nr=3,4,7 card_label="device number 3,the number four,the last one"
