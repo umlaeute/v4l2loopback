@@ -290,112 +290,93 @@ typedef enum {
 	_UNKNOWN
 } t_command;
 
-static int help_shortcmdline(int detail, const char *program,
-			     const char *argstring)
+static void _help(int detail, const char *section, const char *program,
+		  const char *verb, const char *argstring,
+		  const char *description, const char *options)
 {
-	dprintf(2, "\n");
-	dprintf(2, "\t");
-	dprintf(2, "%s %s\n", program, argstring);
-	return !detail;
+	(void)section;
+	if (!detail) {
+		dprintf(2, "%s%s%s %s\n", program ? program : "",
+			program ? " " : "", verb, argstring);
+		return;
+	}
+
+	dprintf(2, "\n%s%s%s %s:\n", program ? program : "", program ? " " : "",
+		verb, argstring);
+
+	dprintf(2, " %s\n ", description);
+
+	if (options) {
+		dprintf(2, "%s\n", options);
+		//dprintf(2, "\n\n'%s' OPTIONS:%s\n", verb, options);
+	}
 }
+
 static void help_list(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n listing devices ('list')"
-			   "\n ========================");
-	if (help_shortcmdline(detail, program, "list {<flags>}"))
-		return;
-	dprintf(2,
-		"\n   <flags>\tany of the following flags may be present"
-		"\n\t -e/--escape             : escape control-characters in (device) names"
-		"\n\t -h/--help               : print this help and exit"
-		"\n"
-		"\n         \tlist all available loopback-devices"
-		"");
+	_help(detail, "Listing Devices", program, "list", "[OPTIONS]",
+	      "list all available loopback-devices",
+	      "\n\t-e, --escape             escape control-characters in (device) names"
+	      "\n\t-h, --help               print this help and exit"
+	      "");
 }
 static void help_add(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n adding devices ('add')"
-			   "\n ======================");
-	if (help_shortcmdline(
-		    detail, program,
-		    "add {<flags>} [<outputdevice> [<capturedevice>]]"))
-		return;
-	dprintf(2,
-		"\n   <flags>\tany of the following flags may be present"
-		"\n\t -n/--name <name>        : pretty name for the device"
-		"\n\t --min-width <w>         : minimum allowed frame width"
-		"\n\t -w/--max-width <w>      : maximum allowed frame width"
-		"\n\t --min-height <w>        : minimum allowed frame height"
-		"\n\t -h/--max-height <h>     : maximum allowed frame height"
-		"\n\t -x/--exclusive-caps <x> : whether to announce OUTPUT/CAPTURE capabilities exclusively"
-		"\n\t -b/--buffers <num>      : buffers to queue"
-		"\n\t -o/--max-openers <num>  : maximum allowed concurrent openers"
-		"\n\t -v/--verbose            : verbose mode (print properties of device after successfully creating it)"
-		"\n\t -?/--help               : print this help and exit"
-		"\n"
-		"\n  <outputdevice>\tif given, create a specific device (otherwise just create a free one)."
-		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n  <capturedevice>\tif given, use separate output & capture devices (otherwise they are the same).");
+	_help(detail, "Adding Devices", program, "add",
+	      "[OPTIONS] [<outputdevice> [<capturedevice>]]",
+	      "create/add a new loopback-device",
+	      "\n\t-b <num>, --buffers <num>     buffers to queue"
+	      "\n\t-h <h>, --max-height <h>      maximum allowed frame height"
+	      "\n\t-n <name>, --name <name>      pretty name for the device"
+	      "\n\t-o <num>, --max-openers <num> maximum allowed concurrent openers"
+	      "\n\t-v, --verbose                 verbose mode (print properties of device after successfully creating it)"
+	      "\n\t-w <w>, --max-width <w>       maximum allowed frame width"
+	      "\n\t-x <x>, --exclusive-caps <x>  whether to announce OUTPUT/CAPTURE capabilities exclusively"
+	      "\n\t--min-width <w>               minimum allowed frame width"
+	      "\n\t--min-height <w>              minimum allowed frame height"
+	      "\n\t-?, --help                    print this help and exit"
+	      "\n"
+	      "\n  <outputdevice>\tif given, create a specific device (otherwise just create a free one)."
+	      "\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+	      "\n  <capturedevice>\tif given, use separate output & capture devices (otherwise they are the same).");
 }
 static void help_delete(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n deleting devices ('delete')"
-			   "\n ===========================");
-	if (help_shortcmdline(detail, program, "delete <device>"))
-		return;
-	dprintf(2,
-		"\n  <device>\tcan be given one more more times (to delete multiple devices at once)."
-		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
+	_help(detail, "Deleting Devices", program, "delete", "<device>",
+	      "delete/remove an unused loopback device",
+	      "\n  <device>\tcan be given one more more times (to delete multiple devices at once)."
+	      "\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
 static void help_query(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n querying devices ('query')"
-			   "\n ==========================");
-	if (help_shortcmdline(detail, program, "query {<flags>} <device>"))
-		return;
-	dprintf(2,
-		"\n   <flags>\tany of the following flags may be present"
-		"\n\t -e/--escape             : escape control-characters in (device) names"
-		"\n\t -h/--help               : print this help and exit"
-		"\n"
-		"\n  <device>\tcan be given one more more times (to query multiple devices at once)."
-		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
+	_help(detail, "Querying Devices", program, "query",
+	      "[OPTIONS] <device>", "query information about a loopback device",
+	      "\n\t-e, --escape             escape control-characters in (device) names"
+	      "\n\t-h, --help               print this help and exit"
+	      "\n"
+	      "\n  <device>\tcan be given one more more times (to query multiple devices at once)."
+	      "\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
 static void help_setfps(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n setting framerate ('set-fps')"
-			   "\n =============================");
-	if (help_shortcmdline(detail, program, "set-fps <device> <fps>"))
-		return;
-	dprintf(2,
-		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n     <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
+	_help(detail, "Setting Framerate", program, "set-fps", "<device> <fps>",
+	      "set the default framerate for a loopback device",
+	      "\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+	      "\n     <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
 }
 static void help_getfps(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n getting framerate ('get-fps')"
-			   "\n =============================");
-	if (help_shortcmdline(detail, program, "get-fps <device>"))
-		return;
+	_help(detail, "Getting Framerate", program, "get-fps", "<device>",
+	      "query the framerate of a loopback device", 0);
 }
 static void help_setcaps(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n setting capabilities ('set-caps')"
-			   "\n =================================");
-	if (help_shortcmdline(detail, program, "set-caps <device> <caps>"))
-		return;
-	dprintf(2,
-		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n    <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
-		"\n          \tunset the current caps with the special value 'any'"
-		"\n");
+	_help(detail, "Setting Capabilities", program, "set-caps",
+	      "<device> <caps>",
+	      "set format/dimension/framerate of a loopback device",
+	      "\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+	      "\n    <caps>\tformat specification as '<fourcc>:<width>x<height>@<fps>' (e.g. 'UYVY:1024x768@60/1')"
+	      "\n          \tunset the current caps with the special value 'any'");
 	if (detail > 1) {
 		dprintf(2, "\nknown fourcc-codes"
 			   "\n=================="
@@ -416,28 +397,21 @@ static void help_setcaps(const char *program, int detail)
 }
 static void help_getcaps(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n getting capabilities ('get-caps')"
-			   "\n =================================");
-	if (help_shortcmdline(detail, program, "get-caps <device>"))
-		return;
+	_help(detail, "Getting Capabilities", program, "get-caps", "<device>",
+	      "get current format/dimension/framerate of a loopback device", 0);
 }
 static void help_settimeoutimage(const char *program, int detail)
 {
-	if (detail)
-		dprintf(2, "\n setting timeout image ('set-timeout-image')"
-			   "\n ===========================================");
-	if (help_shortcmdline(detail, program,
-			      "set-timeout-image {<flags>} <device> <image>"))
-		return;
-	dprintf(2,
-		"\n   <flags>\tany of the following flags may be present"
-		"\n\t -t/--timeout <timeout>  : timeout (in ms)"
-		"\n\t -v/--verbose            : raise verbosity (print what is being done)"
-		"\n\t -h/--help               : print this help and exit"
-		"\n"
-		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
-		"\n   <image>\timage file");
+	_help(detail, "Setting Timeout Image", program, "set-timeout-image",
+	      "[OPTIONS] <device> <image>",
+	      "set a fallback image to be used if a video producer does not send new frames in time.",
+	      "\n   <flags>\tany of the following flags may be present"
+	      "\n\t-h, --help                         print this help and exit"
+	      "\n\t-t <timeout>, --timeout <timeout>  timeout (in ms)"
+	      "\n\t-v, --verbose                      raise verbosity (print what is being done)"
+	      "\n"
+	      "\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
+	      "\n   <image>\timage file");
 }
 static void help_none(const char *program, int detail)
 {
@@ -473,23 +447,41 @@ static t_help get_help(t_command cmd)
 static void help(const char *name, int status)
 {
 	t_command cmd;
-	dprintf(2, "usage: %s [general commands]", name);
-	dprintf(2, "\n\n");
-	dprintf(2, "\n general commands"
-		   "\n ================"
-		   "\n\t-v/--version : print version and exit"
-		   "\n\t-h/-?/--help : print this help and exit");
-	/* brief helps */
-	for (cmd = ADD; cmd < _UNKNOWN; cmd++)
-		get_help(cmd)("", 0);
-	dprintf(2, "\n\n");
+	dprintf(2, "Usage: %s [OPTIONS]\n", name);
+	for (cmd = ADD; cmd < _UNKNOWN; cmd++) {
+		t_help hlp = get_help(cmd);
+		if (help_none == hlp)
+			continue;
+		dprintf(2, "  or:  %s ", name);
+		hlp(0, 0);
+	}
+
+	dprintf(2, "\nManage v4l2 loopback devices.");
+	dprintf(2,
+		"\n"
+		"\nThe general invocation uses a verb (like 'add' or 'delete') that defines"
+		"\nan action to be executed. Each verb has their own options and arguments."
+		"\n"
+		"\nOptions:"
+		"\n\t-h, -?, --help: print this help and exit"
+		"\n\t-v, --version: print version and exit"
+		"\n\n");
 
 	/* long helps */
+	dprintf(2, "*Verbs and their arguments*\n");
 	for (cmd = ADD; cmd < _UNKNOWN; cmd++) {
-		get_help(cmd)(name, 1);
+		t_help hlp = get_help(cmd);
+		if (help_none == hlp)
+			continue;
+		hlp("v4l2loopback-ctl", 1);
 		dprintf(2, "\n\n");
 	}
 
+	dprintf(2,
+		"*Reporting Bugs*\n"
+		"\nIssue tracker: https://github.com/umlaeute/v4l2loopback/issues"
+		"\nSecurity Issue tracker: https://git.iem.at/zmoelnig/v4l2loopback/-/issues"
+		"\n\n");
 	exit(status);
 }
 static void usage(const char *name)
