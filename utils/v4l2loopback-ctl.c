@@ -294,7 +294,6 @@ static int help_shortcmdline(int detail, const char *program,
 			     const char *argstring)
 {
 	dprintf(2, "\n");
-	//if(detail)dprintf(2, "  -->");
 	dprintf(2, "\t");
 	dprintf(2, "%s %s\n", program, argstring);
 	return !detail;
