@@ -298,7 +298,7 @@ static int help_shortcmdline(int detail, const char *program,
 	dprintf(2, "%s %s\n", program, argstring);
 	return !detail;
 }
-static void help_list(const char *program, int detail, int argc, char **argv)
+static void help_list(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n listing devices ('list')"
@@ -313,7 +313,7 @@ static void help_list(const char *program, int detail, int argc, char **argv)
 		"\n         \tlist all available loopback-devices"
 		"");
 }
-static void help_add(const char *program, int detail, int argc, char **argv)
+static void help_add(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n adding devices ('add')"
@@ -339,7 +339,7 @@ static void help_add(const char *program, int detail, int argc, char **argv)
 		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n  <capturedevice>\tif given, use separate output & capture devices (otherwise they are the same).");
 }
-static void help_delete(const char *program, int detail, int argc, char **argv)
+static void help_delete(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n deleting devices ('delete')"
@@ -350,7 +350,7 @@ static void help_delete(const char *program, int detail, int argc, char **argv)
 		"\n  <device>\tcan be given one more more times (to delete multiple devices at once)."
 		"\n          \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
-static void help_query(const char *program, int detail, int argc, char **argv)
+static void help_query(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n querying devices ('query')"
@@ -365,7 +365,7 @@ static void help_query(const char *program, int detail, int argc, char **argv)
 		"\n  <device>\tcan be given one more more times (to query multiple devices at once)."
 		"\n         \teither specify a device name (e.g. '/dev/video1') or a device number ('1').");
 }
-static void help_setfps(const char *program, int detail, int argc, char **argv)
+static void help_setfps(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n setting framerate ('set-fps')"
@@ -376,7 +376,7 @@ static void help_setfps(const char *program, int detail, int argc, char **argv)
 		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n     <fps>\tframes per second, either as integer ('30') or fraction ('50/2').");
 }
-static void help_getfps(const char *program, int detail, int argc, char **argv)
+static void help_getfps(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n getting framerate ('get-fps')"
@@ -384,7 +384,7 @@ static void help_getfps(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "get-fps <device>"))
 		return;
 }
-static void help_setcaps(const char *program, int detail, int argc, char **argv)
+static void help_setcaps(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n setting capabilities ('set-caps')"
@@ -414,7 +414,7 @@ static void help_setcaps(const char *program, int detail, int argc, char **argv)
 		}
 	}
 }
-static void help_getcaps(const char *program, int detail, int argc, char **argv)
+static void help_getcaps(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n getting capabilities ('get-caps')"
@@ -422,8 +422,7 @@ static void help_getcaps(const char *program, int detail, int argc, char **argv)
 	if (help_shortcmdline(detail, program, "get-caps <device>"))
 		return;
 }
-static void help_settimeoutimage(const char *program, int detail, int argc,
-				 char **argv)
+static void help_settimeoutimage(const char *program, int detail)
 {
 	if (detail)
 		dprintf(2, "\n setting timeout image ('set-timeout-image')"
@@ -440,10 +439,10 @@ static void help_settimeoutimage(const char *program, int detail, int argc,
 		"\n  <device>\teither specify a device name (e.g. '/dev/video1') or a device number ('1')."
 		"\n   <image>\timage file");
 }
-static void help_none(const char *program, int detail, int argc, char **argv)
+static void help_none(const char *program, int detail)
 {
 }
-typedef void (*t_help)(const char *, int, int, char **);
+typedef void (*t_help)(const char *, int);
 static t_help get_help(t_command cmd)
 {
 	switch (cmd) {
@@ -482,12 +481,12 @@ static void help(const char *name, int status)
 		   "\n\t-h/-?/--help : print this help and exit");
 	/* brief helps */
 	for (cmd = ADD; cmd < _UNKNOWN; cmd++)
-		get_help(cmd)("", 0, 0, 0);
+		get_help(cmd)("", 0);
 	dprintf(2, "\n\n");
 
 	/* long helps */
 	for (cmd = ADD; cmd < _UNKNOWN; cmd++) {
-		get_help(cmd)(name, 1, 0, 0);
+		get_help(cmd)(name, 1);
 		dprintf(2, "\n\n");
 	}
 
@@ -503,7 +502,7 @@ static void usage_topic(const char *name, t_command cmd, int argc, char **argv)
 	if (help_none == hlp)
 		usage(name);
 	else
-		hlp(name, 2, argc, argv);
+		hlp(name, 2);
 	dprintf(2, "\n");
 	exit(1);
 }
