@@ -432,12 +432,13 @@ struct v4l2l_format {
 
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
-static char *fourcc2str(unsigned int fourcc, char buf[4])
+static char *fourcc2str(unsigned int fourcc, char buf[5])
 {
 	buf[0] = (fourcc >> 0) & 0xFF;
 	buf[1] = (fourcc >> 8) & 0xFF;
 	buf[2] = (fourcc >> 16) & 0xFF;
 	buf[3] = (fourcc >> 24) & 0xFF;
+	buf[4] = 0;
 
 	return buf;
 }
@@ -445,15 +446,14 @@ static char *fourcc2str(unsigned int fourcc, char buf[4])
 static const struct v4l2l_format *format_by_fourcc(int fourcc)
 {
 	unsigned int i;
+	char buf[5];
 
 	for (i = 0; i < FORMATS; i++) {
 		if (formats[i].fourcc == fourcc)
 			return formats + i;
 	}
 
-	dprintk("unsupported format '%c%c%c%c'\n", (fourcc >> 0) & 0xFF,
-		(fourcc >> 8) & 0xFF, (fourcc >> 16) & 0xFF,
-		(fourcc >> 24) & 0xFF);
+	dprintk("unsupported format '%4s'\n", fourcc2str(fourcc, buf));
 	return NULL;
 }
 
@@ -609,8 +609,6 @@ static int inner_try_setfmt(struct file *file, struct v4l2_format *fmt)
 	int capture = V4L2_TYPE_IS_CAPTURE(fmt->type);
 	struct v4l2_loopback_device *dev;
 	int needschange = 0;
-	char buf[5];
-	buf[4] = 0;
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -633,12 +631,6 @@ static int inner_try_setfmt(struct file *file, struct v4l2_format *fmt)
 		return -EINVAL;
 	}
 
-	if (1) {
-		char buf[5];
-		buf[4] = 0;
-		dprintk("capFOURCC=%s\n",
-			fourcc2str(dev->pix_format.pixelformat, buf));
-	}
 	return 0;
 }
 
@@ -672,7 +664,6 @@ static ssize_t attr_show_format(struct device *cd,
 	tpf = &dev->capture_param.timeperframe;
 
 	fourcc2str(dev->pix_format.pixelformat, buf4cc);
-	buf4cc[4] = 0;
 	if (tpf->numerator == 1)
 		snprintf(buf_fps, sizeof(buf_fps), "%d", tpf->denominator);
 	else
@@ -1059,15 +1050,14 @@ static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
 		/* format has been fixed, so only one single format is supported */
 		const __u32 format = dev->pix_format.pixelformat;
+		char buf[5];
 
 		if ((fmt = format_by_fourcc(format))) {
 			snprintf(f->description, sizeof(f->description), "%s",
 				 fmt->name);
 		} else {
-			snprintf(f->description, sizeof(f->description),
-				 "[%c%c%c%c]", (format >> 0) & 0xFF,
-				 (format >> 8) & 0xFF, (format >> 16) & 0xFF,
-				 (format >> 24) & 0xFF);
+			snprintf(f->description, sizeof(f->description), "[%s]",
+				 fourcc2str(format, buf));
 		}
 
 		f->pixelformat = dev->pix_format.pixelformat;
@@ -1125,11 +1115,14 @@ static int vidioc_s_fmt_cap(struct file *file, void *priv,
 {
 	int ret;
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	char buf[5];
 	if (!V4L2_TYPE_IS_CAPTURE(fmt->type))
 		return -EINVAL;
 	ret = inner_try_setfmt(file, fmt);
 	if (!ret) {
 		dev->pix_format = fmt->fmt.pix;
+		dprintk("capFOURCC=%s\n",
+			fourcc2str(dev->pix_format.pixelformat, buf));
 	}
 	return ret;
 }
@@ -1151,6 +1144,7 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
 		/* format has been fixed, so only one single format is supported */
 		const __u32 format = dev->pix_format.pixelformat;
+		char buf[5];
 
 		if (f->index)
 			return -EINVAL;
@@ -1159,10 +1153,8 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			snprintf(f->description, sizeof(f->description), "%s",
 				 fmt->name);
 		} else {
-			snprintf(f->description, sizeof(f->description),
-				 "[%c%c%c%c]", (format >> 0) & 0xFF,
-				 (format >> 8) & 0xFF, (format >> 16) & 0xFF,
-				 (format >> 24) & 0xFF);
+			snprintf(f->description, sizeof(f->description), "[%s]",
+				 fourcc2str(format, buf));
 		}
 
 		f->pixelformat = dev->pix_format.pixelformat;
@@ -1236,7 +1228,7 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 	struct v4l2_loopback_device *dev;
 	int ret;
 	char buf[5];
-	buf[4] = 0;
+
 	if (!V4L2_TYPE_IS_OUTPUT(fmt->type))
 		return -EINVAL;
 	dev = v4l2loopback_getdevice(file);
