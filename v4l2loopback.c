@@ -2235,12 +2235,11 @@ static int v4l2_loopback_close(struct file *file)
 	if (READER == opener->type)
 		is_reader = 1;
 
-	atomic_dec(&dev->open_count);
-	if (dev->open_count.counter == 0) {
+	if (atomic_dec_and_test(&dev->open_count)) {
 		del_timer_sync(&dev->sustain_timer);
 		del_timer_sync(&dev->timeout_timer);
+		try_free_buffers(dev);
 	}
-	try_free_buffers(dev);
 
 	v4l2_fh_del(&opener->fh);
 	v4l2_fh_exit(&opener->fh);
