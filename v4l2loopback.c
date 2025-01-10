@@ -1544,6 +1544,14 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 
 /* --------------- V4L2 ioctl buffer related calls ----------------- */
 
+#define BUFFER_DEBUG_FMT_STR                                      \
+	"buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x " \
+	"field=%d timestamp= %lld.%06lldsequence=%d\n"
+#define BUFFER_DEBUG_FMT_ARGS(buf)                                         \
+	(buf)->index, (buf), (buf)->type, (buf)->bytesused, (buf)->length, \
+		(buf)->flags, (buf)->field,                                \
+		(long long)(buf)->timestamp.tv_sec,                        \
+		(long long)(buf)->timestamp.tv_usec, (buf)->sequence
 /* negotiate buffer type
  * only mmap streaming supported
  * called on VIDIOC_REQBUFS
@@ -1657,8 +1665,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 
 	b->type = type;
 	b->index = index;
-	dprintkrw("buffer type: %d (of %d with size=%ld)\n", b->memory,
-		  dev->buffers_number, dev->buffer_size);
+	dprintkrw(BUFFER_DEBUG_FMT_STR, BUFFER_DEBUG_FMT_ARGS(b));
 
 	/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
 	 * https://github.com/umlaeute/v4l2loopback/issues/60 */
@@ -1711,21 +1718,13 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		dprintkrw(
-			"qbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
-			index, buf->index, buf, buf->type, buf->bytesused,
-			buf->length, buf->flags, buf->field,
-			(long long)buf->timestamp.tv_sec,
-			(long int)buf->timestamp.tv_usec, buf->sequence);
+		dprintkrw("qbuf(CAPTURE)#%d: " BUFFER_DEBUG_FMT_STR, index,
+			  BUFFER_DEBUG_FMT_ARGS(buf));
 		set_queued(b);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dprintkrw(
-			"qbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
-			index, buf->index, buf, buf->type, buf->bytesused,
-			buf->length, buf->flags, buf->field,
-			(long long)buf->timestamp.tv_sec,
-			(long int)buf->timestamp.tv_usec, buf->sequence);
+		dprintkrw("qbuf(OUTPUT)#%d: " BUFFER_DEBUG_FMT_STR, index,
+			  BUFFER_DEBUG_FMT_ARGS(buf));
 		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY)) &&
 		    (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
 			v4l2l_get_timestamp(&b->buffer);
@@ -1859,12 +1858,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		}
 		unset_flags(&dev->buffers[index]);
 		*buf = dev->buffers[index].buffer;
-		dprintkrw(
-			"dqbuf(CAPTURE)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
-			index, buf->index, buf, buf->type, buf->bytesused,
-			buf->length, buf->flags, buf->field,
-			(long long)buf->timestamp.tv_sec,
-			(long int)buf->timestamp.tv_usec, buf->sequence);
+		dprintkrw("dqbuf(CAPTURE)#%d: " BUFFER_DEBUG_FMT_STR, index,
+			  BUFFER_DEBUG_FMT_ARGS(buf));
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		spin_lock_bh(&dev->list_lock);
@@ -1882,12 +1877,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		unset_flags(b);
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-		dprintkrw(
-			"dqbuf(OUTPUT)#%d: buffer#%d @ %p type=%d bytesused=%d length=%d flags=%x field=%d timestamp=%lld.%06ld sequence=%d\n",
-			index, buf->index, buf, buf->type, buf->bytesused,
-			buf->length, buf->flags, buf->field,
-			(long long)buf->timestamp.tv_sec,
-			(long int)buf->timestamp.tv_usec, buf->sequence);
+		dprintkrw("dqbuf(OUTPUT)#%d: " BUFFER_DEBUG_FMT_STR, index,
+			  BUFFER_DEBUG_FMT_ARGS(buf));
 		return 0;
 	default:
 		return -EINVAL;
