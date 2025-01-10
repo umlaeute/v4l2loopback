@@ -852,14 +852,14 @@ static int v4l2loopback_lookup(int device_nr,
 	}
 	return -ENODEV;
 }
+#define v4l2loopback_get_vdev_nr(vdev) \
+	((struct v4l2loopback_private *)video_get_drvdata(vdev))->device_nr
 static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd)
 {
 	struct video_device *loopdev = to_video_device(cd);
-	struct v4l2loopback_private *ptr =
-		(struct v4l2loopback_private *)video_get_drvdata(loopdev);
-	int nr = ptr->device_nr;
+	int device_nr = v4l2loopback_get_vdev_nr(loopdev);
 
-	return idr_find(&v4l2loopback_index_idr, nr);
+	return idr_find(&v4l2loopback_index_idr, device_nr);
 }
 
 static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
@@ -909,9 +909,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 			   struct v4l2_capability *cap)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	int device_nr =
-		((struct v4l2loopback_private *)video_get_drvdata(dev->vdev))
-			->device_nr;
+	int device_nr = v4l2loopback_get_vdev_nr(dev->vdev);
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 	strscpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
@@ -2835,12 +2833,14 @@ out_free_dev:
 
 static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 {
+	int device_nr = v4l2loopback_get_vdev_nr(dev->vdev);
 	free_buffers(dev);
 	v4l2loopback_remove_sysfs(dev->vdev);
 	kfree(video_get_drvdata(dev->vdev));
 	video_unregister_device(dev->vdev);
 	v4l2_device_unregister(&dev->v4l2_dev);
 	v4l2_ctrl_handler_free(&dev->ctrl_handler);
+	idr_remove(&v4l2loopback_index_idr, device_nr);
 	kfree(dev);
 }
 
@@ -2878,11 +2878,9 @@ static long v4l2loopback_control_ioctl(struct file *file, unsigned int cmd,
 	case V4L2LOOPBACK_CTL_REMOVE:
 		ret = v4l2loopback_lookup((int)parm, &dev);
 		if (ret >= 0 && dev) {
-			int nr = ret;
 			ret = -EBUSY;
 			if (dev->open_count.counter > 0)
 				break;
-			idr_remove(&v4l2loopback_index_idr, nr);
 			v4l2_loopback_remove(dev);
 			ret = 0;
 		};
