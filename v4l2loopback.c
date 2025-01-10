@@ -1592,6 +1592,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		if (b->count > dev->buffers_number)
 			b->count = dev->buffers_number;
 
+		spin_lock_bh(&dev->list_lock);
 		/* make sure that outbufs_list contains buffers from 0 to used_buffers-1
 		 * actually, it will have been already populated via v4l2_loopback_init()
 		 * at this point */
@@ -1622,6 +1623,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 				++i;
 			}
 		}
+		spin_unlock_bh(&dev->list_lock);
 
 		opener->buffers_number = b->count;
 		if (opener->buffers_number < dev->used_buffers)
