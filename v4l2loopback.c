@@ -389,7 +389,6 @@ struct v4l2_loopback_opener {
 	s64 read_position; /* number of last processed frame + 1 or
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
-	struct v4l2_buffer *buffers;
 	int buffers_number; /* should not be big, 4 is a good choice */
 	int timeout_image_io;
 
