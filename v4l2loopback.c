@@ -2606,6 +2606,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 					  !(V4L2LOOPBACK_DEFAULT_EXCLUSIVECAPS);
 	int _max_buffers = DEFAULT_FROM_CONF(max_buffers, <= 0, max_buffers);
 	int _max_openers = DEFAULT_FROM_CONF(max_openers, <= 0, max_openers);
+	struct v4l2_format _fmt;
 
 	int nr = -1;
 
@@ -2775,19 +2776,17 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	if (_height > _max_height)
 		_height = _max_height;
 
-	dev->pix_format.width = _width;
-	dev->pix_format.height = _height;
-	dev->pix_format.pixelformat = formats[0].fourcc;
-	dev->pix_format.colorspace =
-		V4L2_COLORSPACE_DEFAULT; /* do we need to set this ? */
-	dev->pix_format.field = V4L2_FIELD_NONE;
-
-	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-	dprintk("buffer_size = %ld (=%d)\n", dev->buffer_size,
-		dev->pix_format.sizeimage);
-
-	if (dev->buffer_size && ((err = allocate_buffers(dev)) < 0))
-		goto out_free_handler;
+	_fmt = (struct v4l2_format){
+		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
+		.fmt.pix = { .width = _width,
+			     .height = _height,
+			     .pixelformat = formats[0].fourcc,
+			     .colorspace = V4L2_COLORSPACE_DEFAULT,
+			     .field = V4L2_FIELD_NONE }
+	};
+	v4l2l_fill_format(&_fmt, 1, _min_width, _max_width, _min_height,
+			  _max_height);
+	dev->pix_format = _fmt.fmt.pix;
 
 	init_waitqueue_head(&dev->read_event);
 
