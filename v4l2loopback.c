@@ -287,8 +287,8 @@ static const struct v4l2_ctrl_config v4l2loopback_ctrl_timeoutimageio = {
 	.name	= "timeout_image_io",
 	.type	= V4L2_CTRL_TYPE_BUTTON,
 	.min	= 0,
-	.max	= 1,
-	.step	= 1,
+	.max	= 0,
+	.step	= 0,
 	.def	= 0,
 	// clang-format on
 };
