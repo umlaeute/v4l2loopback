@@ -1039,6 +1039,38 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 	return 0;
 }
 
+/* Enumerate device formats
+ * Returns:
+ * -   EINVAL the index is out of bounds; or if non-zero when format is fixed
+ * -   EFAULT unexpected null pointer */
+static int vidioc_enum_fmt_vid(struct file *file, void *fh,
+			       struct v4l2_fmtdesc *f)
+{
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	int fixed = V4L2LOOPBACK_IS_FIXED_FMT(dev);
+	const struct v4l2l_format *fmt;
+
+	if (!(f->index < FORMATS))
+		return -EINVAL;
+
+	/* TODO: Support 6.14 V4L2_FMTDESC_FLAG_ENUM_ALL */
+	if (fixed && f->index)
+		return -EINVAL;
+
+	fmt = fixed ? format_by_fourcc(dev->pix_format.pixelformat) :
+		      &formats[f->index];
+	if (!fmt)
+		return -EFAULT;
+
+	f->flags = 0;
+	if (fmt->flags & FORMAT_FLAGS_COMPRESSED)
+		f->flags |= V4L2_FMT_FLAG_COMPRESSED;
+	snprintf(f->description, sizeof(f->description), fmt->name);
+	f->pixelformat = fmt->fourcc;
+	return 0;
+}
+
 /* ------------------ CAPTURE ----------------------- */
 
 /* returns device formats
@@ -1047,35 +1079,7 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
-	struct v4l2_loopback_device *dev;
-	const struct v4l2l_format *fmt;
-	MARK();
-
-	dev = v4l2loopback_getdevice(file);
-
-	if (f->index)
-		return -EINVAL;
-
-	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
-		/* format has been fixed, so only one single format is supported */
-		const __u32 format = dev->pix_format.pixelformat;
-		char buf[5];
-
-		if ((fmt = format_by_fourcc(format))) {
-			snprintf(f->description, sizeof(f->description), "%s",
-				 fmt->name);
-		} else {
-			snprintf(f->description, sizeof(f->description), "[%s]",
-				 fourcc2str(format, buf));
-		}
-
-		f->pixelformat = dev->pix_format.pixelformat;
-	} else {
-		return -EINVAL;
-	}
-	f->flags = 0;
-	MARK();
-	return 0;
+	return vidioc_enum_fmt_vid(file, fh, f);
 }
 
 /* returns current video format
@@ -1145,43 +1149,7 @@ static int vidioc_s_fmt_cap(struct file *file, void *priv,
 static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
-	struct v4l2_loopback_device *dev;
-	const struct v4l2l_format *fmt;
-
-	dev = v4l2loopback_getdevice(file);
-
-	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
-		/* format has been fixed, so only one single format is supported */
-		const __u32 format = dev->pix_format.pixelformat;
-		char buf[5];
-
-		if (f->index)
-			return -EINVAL;
-
-		if ((fmt = format_by_fourcc(format))) {
-			snprintf(f->description, sizeof(f->description), "%s",
-				 fmt->name);
-		} else {
-			snprintf(f->description, sizeof(f->description), "[%s]",
-				 fourcc2str(format, buf));
-		}
-
-		f->pixelformat = dev->pix_format.pixelformat;
-	} else {
-		/* fill in a dummy format */
-		/* coverity[unsigned_compare] */
-		if (f->index < 0 || f->index >= FORMATS)
-			return -EINVAL;
-
-		fmt = &formats[f->index];
-
-		f->pixelformat = fmt->fourcc;
-		snprintf(f->description, sizeof(f->description), "%s",
-			 fmt->name);
-	}
-	f->flags = 0;
-
-	return 0;
+	return vidioc_enum_fmt_vid(file, fh, f);
 }
 
 /* returns current video format fmt */
