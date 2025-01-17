@@ -891,26 +891,6 @@ static void check_timers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 
-/* Queue helpers */
-/* next functions sets buffer flags and adjusts counters accordingly */
-static inline void set_done(struct v4l2l_buffer *buffer)
-{
-	buffer->buffer.flags &= ~V4L2_BUF_FLAG_QUEUED;
-	buffer->buffer.flags |= V4L2_BUF_FLAG_DONE;
-}
-
-static inline void set_queued(struct v4l2l_buffer *buffer)
-{
-	buffer->buffer.flags &= ~V4L2_BUF_FLAG_DONE;
-	buffer->buffer.flags |= V4L2_BUF_FLAG_QUEUED;
-}
-
-static inline void unset_flags(struct v4l2l_buffer *buffer)
-{
-	buffer->buffer.flags &= ~V4L2_BUF_FLAG_QUEUED;
-	buffer->buffer.flags &= ~V4L2_BUF_FLAG_DONE;
-}
-
 /* V4L2 ioctl caps and params calls */
 /* returns device capabilities
  * called on VIDIOC_QUERYCAP
@@ -1526,6 +1506,23 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 		(buf)->flags, (buf)->field,                                \
 		(long long)(buf)->timestamp.tv_sec,                        \
 		(long long)(buf)->timestamp.tv_usec, (buf)->sequence
+/* Buffer flag helpers */
+#define unset_flags(flags)                      \
+	do {                                    \
+		flags &= ~V4L2_BUF_FLAG_QUEUED; \
+		flags &= ~V4L2_BUF_FLAG_DONE;   \
+	} while (0)
+#define set_queued(flags)                      \
+	do {                                   \
+		flags |= V4L2_BUF_FLAG_QUEUED; \
+		flags &= ~V4L2_BUF_FLAG_DONE;  \
+	} while (0)
+#define set_done(flags)                         \
+	do {                                    \
+		flags &= ~V4L2_BUF_FLAG_QUEUED; \
+		flags |= V4L2_BUF_FLAG_DONE;    \
+	} while (0)
+
 /* negotiate buffer type
  * only mmap streaming supported
  * called on VIDIOC_REQBUFS
@@ -1645,8 +1642,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 
 	/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
 	 * https://github.com/umlaeute/v4l2loopback/issues/60 */
-	b->flags &= ~V4L2_BUF_FLAG_DONE;
-	b->flags |= V4L2_BUF_FLAG_QUEUED;
+	set_queued(b->flags);
 
 	return 0;
 }
@@ -1696,7 +1692,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		dprintkrw("qbuf(CAPTURE)#%d: " BUFFER_DEBUG_FMT_STR, index,
 			  BUFFER_DEBUG_FMT_ARGS(buf));
-		set_queued(b);
+		set_queued(b->buffer.flags);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		dprintkrw("qbuf(OUTPUT)#%d: " BUFFER_DEBUG_FMT_STR, index,
@@ -1727,13 +1723,12 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			b->buffer.bytesused = buf->bytesused;
 		}
 
-		set_done(b);
+		set_done(b->buffer.flags);
 		buffer_written(dev, b);
 
 		/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
 		 * https://github.com/umlaeute/v4l2loopback/issues/60 */
-		buf->flags &= ~V4L2_BUF_FLAG_DONE;
-		buf->flags |= V4L2_BUF_FLAG_QUEUED;
+		set_queued(buf->flags);
 
 		wake_up_all(&dev->read_event);
 		return 0;
@@ -1832,7 +1827,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 			dprintk("trying to return not mapped buf[%d]\n", index);
 			return -EINVAL;
 		}
-		unset_flags(&dev->buffers[index]);
+		unset_flags(dev->buffers[index].buffer.flags);
 		*buf = dev->buffers[index].buffer;
 		dprintkrw("dqbuf(CAPTURE)#%d: " BUFFER_DEBUG_FMT_STR, index,
 			  BUFFER_DEBUG_FMT_ARGS(buf));
@@ -1850,7 +1845,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		if (!b)
 			return -EFAULT;
 		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
-		unset_flags(b);
+		unset_flags(b->buffer.flags);
 		*buf = b->buffer;
 		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 		dprintkrw("dqbuf(OUTPUT)#%d: " BUFFER_DEBUG_FMT_STR, index,
