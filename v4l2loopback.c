@@ -230,7 +230,8 @@ static DEFINE_IDR(v4l2loopback_index_idr);
 static DEFINE_MUTEX(v4l2loopback_ctl_mutex);
 
 /* frame intervals */
-#define V4L2LOOPBACK_FPS_MIN 0
+#define V4L2LOOPBACK_FRAME_INTERVAL_MAX __UINT32_MAX__
+#define V4L2LOOPBACK_FPS_DEFAULT 30
 #define V4L2LOOPBACK_FPS_MAX 1000
 
 /* control IDs */
@@ -634,16 +635,27 @@ static int inner_try_setfmt(struct file *file, struct v4l2_format *fmt)
 	return 0;
 }
 
-static int set_timeperframe(struct v4l2_loopback_device *dev,
-			    struct v4l2_fract *tpf)
+static void set_timeperframe(struct v4l2_loopback_device *dev,
+			     struct v4l2_fract *tpf)
 {
-	if ((tpf->denominator < 1) || (tpf->numerator < 1)) {
-		return -EINVAL;
+	if (!tpf->denominator && !tpf->numerator) {
+		tpf->numerator = 1;
+		tpf->denominator = V4L2LOOPBACK_FPS_DEFAULT;
+	} else if (tpf->numerator >
+		   V4L2LOOPBACK_FRAME_INTERVAL_MAX * tpf->denominator) {
+		/* divide-by-zero or greater than maximum interval => min FPS */
+		tpf->numerator = V4L2LOOPBACK_FRAME_INTERVAL_MAX;
+		tpf->denominator = 1;
+	} else if (tpf->numerator * V4L2LOOPBACK_FPS_MAX < tpf->denominator) {
+		/* zero or lower than minimum interval => max FPS */
+		tpf->numerator = 1;
+		tpf->denominator = V4L2LOOPBACK_FPS_MAX;
 	}
+
 	dev->capture_param.timeperframe = *tpf;
-	dev->frame_jiffies = max(1UL, msecs_to_jiffies(1000) * tpf->numerator /
-					      tpf->denominator);
-	return 0;
+	dev->frame_jiffies =
+		max(1UL, (msecs_to_jiffies(1000) * tpf->numerator) /
+				 tpf->denominator);
 }
 
 static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd);
@@ -687,9 +699,7 @@ static ssize_t attr_store_format(struct device *cd,
 	if (sscanf(buf, "@%d/%d", &fps_num, &fps_den) > 0) {
 		struct v4l2_fract f = { .numerator = fps_den,
 					.denominator = fps_num };
-		int err = 0;
-		if ((err = set_timeperframe(dev, &f)) < 0)
-			return err;
+		set_timeperframe(dev, &f);
 		return len;
 	}
 	return -EINVAL;
@@ -1001,6 +1011,7 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 		return -EINVAL;
 
 	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
+		/* keep_format also locks the frame rate */
 		if (argp->width != dev->pix_format.width ||
 		    argp->height != dev->pix_format.height ||
 		    argp->pixel_format != dev->pix_format.pixelformat)
@@ -1013,14 +1024,14 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 		    argp->width > dev->max_width ||
 		    argp->height < dev->min_height ||
 		    argp->height > dev->max_height ||
-		    NULL == format_by_fourcc(argp->pixel_format))
+		    !format_by_fourcc(argp->pixel_format))
 			return -EINVAL;
 
 		argp->type = V4L2_FRMIVAL_TYPE_CONTINUOUS;
 		argp->stepwise.min.numerator = 1;
 		argp->stepwise.min.denominator = V4L2LOOPBACK_FPS_MAX;
-		argp->stepwise.max.numerator = 1;
-		argp->stepwise.max.denominator = V4L2LOOPBACK_FPS_MIN;
+		argp->stepwise.max.numerator = V4L2LOOPBACK_FRAME_INTERVAL_MAX;
+		argp->stepwise.max.denominator = 1;
 		argp->stepwise.step.numerator = 1;
 		argp->stepwise.step.denominator = 1;
 	}
@@ -1301,7 +1312,6 @@ static int vidioc_s_parm(struct file *file, void *priv,
 			 struct v4l2_streamparm *parm)
 {
 	struct v4l2_loopback_device *dev;
-	int err = 0;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
@@ -1311,17 +1321,13 @@ static int vidioc_s_parm(struct file *file, void *priv,
 
 	switch (parm->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		if ((err = set_timeperframe(
-			     dev, &parm->parm.capture.timeperframe)) < 0)
-			return err;
+		set_timeperframe(dev, &parm->parm.capture.timeperframe);
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		if ((err = set_timeperframe(
-			     dev, &parm->parm.capture.timeperframe)) < 0)
-			return err;
+		set_timeperframe(dev, &parm->parm.output.timeperframe);
 		break;
 	default:
-		return -1;
+		return -EINVAL;
 	}
 
 	parm->parm.capture = dev->capture_param;
@@ -2511,12 +2517,12 @@ static void init_vdev(struct video_device *vdev, int nr)
 static void init_capture_param(struct v4l2_captureparm *capture_param)
 {
 	MARK();
-	capture_param->capability = 0;
+	capture_param->capability = V4L2_CAP_TIMEPERFRAME; /* since 2.16 */
 	capture_param->capturemode = 0;
 	capture_param->extendedmode = 0;
 	capture_param->readbuffers = max_buffers;
 	capture_param->timeperframe.numerator = 1;
-	capture_param->timeperframe.denominator = 30;
+	capture_param->timeperframe.denominator = V4L2LOOPBACK_FPS_DEFAULT;
 }
 
 static void check_timers(struct v4l2_loopback_device *dev)
@@ -2699,9 +2705,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	init_vdev(dev->vdev, nr);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
 	init_capture_param(&dev->capture_param);
-	err = set_timeperframe(dev, &dev->capture_param.timeperframe);
-	if (err)
-		goto out_unregister;
+	set_timeperframe(dev, &dev->capture_param.timeperframe);
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
 
