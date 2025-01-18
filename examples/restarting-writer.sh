@@ -15,7 +15,7 @@ run_writers() {
 }
 
 #v4l2-ctl -d $device -c keep_format=1 || exit 1
-./utils/v4l2loopback-ctl set-caps "video/x-raw, format=UYVY, width=640, height=480, framerate=(fraction)25/1" $device || exit 1
+./utils/v4l2loopback-ctl set-caps "$device" 'UYVY:640x480@25/1' || exit 1
 v4l2-ctl -d "$device" -c sustain_framerate=0 || exit 1
 v4l2-ctl -d "$device" -c timeout=2000 || exit 1
 gst-launch-1.0 videotestsrc num-buffers=1 ! v4l2sink device=$device || exit 1
