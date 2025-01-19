@@ -1523,6 +1523,39 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int i)
 		flags |= V4L2_BUF_FLAG_DONE;    \
 	} while (0)
 
+static void prepare_buffer_queue(struct v4l2_loopback_device *dev, int count)
+{
+	struct v4l2l_buffer *bufd, *n;
+	u32 pos;
+
+	spin_lock_bh(&dev->list_lock);
+
+	/* ensure sufficient number of buffers in queue */
+	for (pos = 0; pos < count; ++pos) {
+		bufd = &dev->buffers[pos];
+		if (list_empty(&bufd->list_head))
+			list_add_tail(&bufd->list_head, &dev->outbufs_list);
+	}
+	if (list_empty(&dev->outbufs_list))
+		goto exit_prepare_queue_unlock;
+
+	/* remove any excess buffers */
+	list_for_each_entry_safe(bufd, n, &dev->outbufs_list, list_head) {
+		if (bufd->buffer.index >= count)
+			list_del_init(&bufd->list_head);
+	}
+
+	/* buffers are no longer queued; and `write_position` will correspond
+	 * to the first item of `outbufs_list`. */
+	pos = v4l2l_mod64(dev->write_position, count);
+	list_for_each_entry(bufd, &dev->outbufs_list, list_head) {
+		unset_flags(bufd->buffer.flags);
+		dev->bufpos2index[pos % count] = bufd->buffer.index;
+		++pos;
+	}
+exit_prepare_queue_unlock:
+	spin_unlock_bh(&dev->list_lock);
+}
 /* negotiate buffer type
  * only mmap streaming supported
  * called on VIDIOC_REQBUFS
@@ -1532,7 +1565,6 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int i;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
@@ -1563,38 +1595,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		if (b->count > dev->buffers_number)
 			b->count = dev->buffers_number;
 
-		spin_lock_bh(&dev->list_lock);
-		/* make sure that outbufs_list contains buffers from 0 to used_buffers-1
-		 * actually, it will have been already populated via v4l2_loopback_init()
-		 * at this point */
-		if (list_empty(&dev->outbufs_list)) {
-			for (i = 0; i < dev->used_buffers; ++i)
-				list_add_tail(&dev->buffers[i].list_head,
-					      &dev->outbufs_list);
-		}
-
-		/* also, if dev->used_buffers is going to be decreased, we should remove
-		 * out-of-range buffers from outbufs_list, and fix bufpos2index mapping */
-		if (b->count < dev->used_buffers) {
-			struct v4l2l_buffer *pos, *n;
-
-			list_for_each_entry_safe(pos, n, &dev->outbufs_list,
-						 list_head) {
-				if (pos->buffer.index >= b->count)
-					list_del(&pos->list_head);
-			}
-
-			/* after we update dev->used_buffers, buffers in outbufs_list will
-			 * correspond to dev->write_position + [0;b->count-1] range */
-			i = v4l2l_mod64(dev->write_position, b->count);
-			list_for_each_entry(pos, &dev->outbufs_list,
-					    list_head) {
-				dev->bufpos2index[i % b->count] =
-					pos->buffer.index;
-				++i;
-			}
-		}
-		spin_unlock_bh(&dev->list_lock);
+		prepare_buffer_queue(dev, b->count);
 
 		opener->buffers_number = b->count;
 		if (opener->buffers_number < dev->used_buffers)
