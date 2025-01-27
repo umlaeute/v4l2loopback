@@ -1556,6 +1556,9 @@ static void prepare_buffer_queue(struct v4l2_loopback_device *dev, int count)
 exit_prepare_queue_unlock:
 	spin_unlock_bh(&dev->list_lock);
 }
+/* forward declaration */
+static int vidioc_streamoff(struct file *file, void *fh,
+			    enum v4l2_buf_type type);
 /* negotiate buffer type
  * only mmap streaming supported
  * called on VIDIOC_REQBUFS
@@ -1565,6 +1568,8 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
+	u32 req_count = b->count;
+	int result;
 	MARK();
 
 	dev = v4l2loopback_getdevice(file);
@@ -1572,6 +1577,19 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 
 	dprintk("reqbufs: %d\t%d=%d\n", b->memory, b->count,
 		dev->buffers_number);
+
+	switch (b->memory) {
+	case V4L2_MEMORY_MMAP:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
+		b->capabilities = 0; /* only guarantee MMAP support */
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
+		b->flags = 0; /* no memory consistency support */
+#endif
+		break;
+	default:
+		return -EINVAL;
+	}
 
 	if (opener->timeout_image_io) {
 		dev->timeout_image_io = 0;
@@ -1581,29 +1599,30 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return 0;
 	}
 
+	MARK();
+	/* CASE count is zero: streamoff */
+	if (req_count == 0) {
+		result = vidioc_streamoff(file, fh, b->type);
+		opener->buffers_number = 0;
+		return result;
+	}
+
+	MARK();
 	if (V4L2_TYPE_IS_OUTPUT(b->type) && (!dev->ready_for_output)) {
 		return -EBUSY;
 	}
 
 	init_buffers(dev);
-	switch (b->memory) {
-	case V4L2_MEMORY_MMAP:
-		/* do nothing here, buffers are always allocated */
-		if (b->count < 1 || dev->buffers_number < 1)
-			return 0;
 
-		if (b->count > dev->buffers_number)
-			b->count = dev->buffers_number;
+	if (req_count > dev->buffers_number)
+		req_count = dev->buffers_number;
 
-		prepare_buffer_queue(dev, b->count);
+	prepare_buffer_queue(dev, req_count);
 
-		opener->buffers_number = b->count;
-		if (opener->buffers_number < dev->used_buffers)
-			dev->used_buffers = opener->buffers_number;
-		return 0;
-	default:
-		return -EINVAL;
-	}
+	b->count = opener->buffers_number = req_count;
+	if (opener->buffers_number < dev->used_buffers)
+		dev->used_buffers = opener->buffers_number;
+	return 0;
 }
 
 /* returns buffer asked for;
