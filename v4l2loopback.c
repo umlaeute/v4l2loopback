@@ -2224,92 +2224,90 @@ static int v4l2_loopback_close(struct file *file)
 	MARK();
 	return 0;
 }
+static int start_fileio(struct file *file, void *fh, enum v4l2_buf_type type)
+{
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	struct v4l2_requestbuffers reqbuf = { .count = dev->buffers_number,
+					      .memory = V4L2_MEMORY_MMAP,
+					      .type = type };
+	int result;
+
+	/* short-circuit if already negotiated type */
+	if (opener->type != UNNEGOTIATED)
+		return 0;
+
+	result = vidioc_reqbufs(file, fh, &reqbuf);
+	if (result < 0)
+		return result;
+	result = vidioc_streamon(file, fh, type);
+	if (result < 0)
+		return result;
+
+	return 0;
+}
 
 static ssize_t v4l2_loopback_read(struct file *file, char __user *buf,
 				  size_t count, loff_t *ppos)
 {
-	int read_index;
-	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_buffer *b;
-	MARK();
+	int index, result;
 
-	dev = v4l2loopback_getdevice(file);
+	dprintkrw("read() %zu bytes\n", count);
+	result = start_fileio(file, file->private_data,
+			      V4L2_BUF_TYPE_VIDEO_CAPTURE);
+	if (result < 0)
+		return result;
 
-	read_index = get_capture_buffer(file);
-	if (read_index < 0)
-		return read_index;
-	if (count > dev->buffer_size)
-		count = dev->buffer_size;
-	b = &dev->buffers[read_index].buffer;
+	index = get_capture_buffer(file);
+	if (index < 0)
+		return index;
+	b = &dev->buffers[index].buffer;
 	if (count > b->bytesused)
 		count = b->bytesused;
 	if (copy_to_user((void *)buf, (void *)(dev->image + b->m.offset),
 			 count)) {
 		printk(KERN_ERR
-		       "v4l2-loopback: failed copy_to_user() in read buf\n");
+		       "v4l2_loopback_read(): failed copy_to_user()\n");
 		return -EFAULT;
 	}
-	dprintkrw("leave v4l2_loopback_read()\n");
 	return count;
 }
 
 static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 				   size_t count, loff_t *ppos)
 {
-	struct v4l2_loopback_opener *opener;
-	struct v4l2_loopback_device *dev;
-	int write_index;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_buffer *b;
-	int err = 0;
+	int index, result;
 
-	MARK();
+	dprintkrw("write() %zu bytes\n", count);
+	result = start_fileio(file, file->private_data,
+			      V4L2_BUF_TYPE_VIDEO_OUTPUT);
+	if (result < 0)
+		return result;
 
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(file->private_data);
-
-	if (UNNEGOTIATED == opener->type) {
-		spin_lock(&dev->lock);
-
-		if (dev->ready_for_output) {
-			err = vidioc_streamon(file, file->private_data,
-					      V4L2_BUF_TYPE_VIDEO_OUTPUT);
-		}
-
-		spin_unlock(&dev->lock);
-
-		if (err < 0)
-			return err;
-	}
-
-	if (WRITER != opener->type)
-		return -EINVAL;
-
-	if (!dev->ready_for_capture) {
-		int ret = allocate_buffers(dev);
-		if (ret < 0)
-			return ret;
-		dev->ready_for_capture = 1;
-	}
-	dprintkrw("v4l2_loopback_write() trying to write %zu bytes\n", count);
 	if (count > dev->buffer_size)
 		count = dev->buffer_size;
-
-	write_index = v4l2l_mod64(dev->write_position, dev->used_buffers);
-	b = &dev->buffers[write_index].buffer;
+	index = v4l2l_mod64(dev->write_position, dev->used_buffers);
+	b = &dev->buffers[index].buffer;
 
 	if (copy_from_user((void *)(dev->image + b->m.offset), (void *)buf,
 			   count)) {
 		printk(KERN_ERR
-		       "v4l2-loopback: failed copy_from_user() in write buf, could not write %zu\n",
-		       count);
+		       "v4l2_loopback_write(): failed copy_from_user()\n");
 		return -EFAULT;
 	}
-	v4l2l_get_timestamp(b);
 	b->bytesused = count;
+
+	v4l2l_get_timestamp(b);
 	b->sequence = dev->write_position;
-	buffer_written(dev, &dev->buffers[write_index]);
+	set_queued(b->flags);
+	buffer_written(dev, &dev->buffers[index]);
+	set_done(b->flags);
 	wake_up_all(&dev->read_event);
-	dprintkrw("leave v4l2_loopback_write()\n");
+
 	return count;
 }
 
