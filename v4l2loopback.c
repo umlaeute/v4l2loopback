@@ -1932,6 +1932,8 @@ static int vidioc_streamoff(struct file *file, void *fh,
 	opener = fh_to_opener(fh);
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		if (opener->type == WRITER)
+			dev->ready_for_output = 1;
 		if (dev->ready_for_capture > 0)
 			dev->ready_for_capture--;
 		return 0;
@@ -2211,18 +2213,33 @@ static int v4l2_loopback_open(struct file *file)
 
 static int v4l2_loopback_close(struct file *file)
 {
-	struct v4l2_loopback_opener *opener;
-	struct v4l2_loopback_device *dev;
-	int is_writer = 0, is_reader = 0;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(file->private_data);
+	int result = 0;
 	MARK();
 
-	opener = fh_to_opener(file->private_data);
-	dev = v4l2loopback_getdevice(file);
-
-	if (WRITER == opener->type)
-		is_writer = 1;
-	if (READER == opener->type)
-		is_reader = 1;
+	if (opener->type) {
+		struct v4l2_requestbuffers reqbuf = {
+			.count = 0, .memory = V4L2_MEMORY_MMAP, .type = 0
+		};
+		switch (opener->type) {
+		case READER:
+			reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+			break;
+		case WRITER:
+			reqbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+			break;
+		default:
+			break;
+		}
+		if (reqbuf.type)
+			result = vidioc_reqbufs(file, file->private_data,
+						&reqbuf);
+		if (result < 0)
+			dprintk("Failed to free buffers REQBUF(count=0) "
+				" returned %d\n",
+				result);
+	}
 
 	if (atomic_dec_and_test(&dev->open_count)) {
 		del_timer_sync(&dev->sustain_timer);
@@ -2234,12 +2251,6 @@ static int v4l2_loopback_close(struct file *file)
 	v4l2_fh_exit(&opener->fh);
 
 	kfree(opener);
-	if (is_writer)
-		dev->ready_for_output = 1;
-	if (is_reader) {
-		dev->active_readers--;
-		client_usage_queue_event(dev->vdev);
-	}
 	MARK();
 	return 0;
 }
