@@ -479,9 +479,9 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 	}
 }
 
-static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
-			     const u32 minwidth, const u32 maxwidth,
-			     const u32 minheight, const u32 maxheight)
+static int v4l2l_fill_format(struct v4l2_format *fmt, const u32 minwidth,
+			     const u32 maxwidth, const u32 minheight,
+			     const u32 maxheight)
 {
 	u32 width = fmt->fmt.pix.width, height = fmt->fmt.pix.height;
 	u32 pixelformat = fmt->fmt.pix.pixelformat;
@@ -533,10 +533,6 @@ static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
 			fmt->fmt.pix_mp.colorspace = V4L2_COLORSPACE_SRGB;
 		if (V4L2_FIELD_ANY == fmt->fmt.pix_mp.field)
 			fmt->fmt.pix_mp.field = V4L2_FIELD_NONE;
-		if (capture)
-			fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
-		else
-			fmt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	} else {
 		bytesperline = fmt->fmt.pix.bytesperline;
 		sizeimage = fmt->fmt.pix.sizeimage;
@@ -553,10 +549,6 @@ static int v4l2l_fill_format(struct v4l2_format *fmt, int capture,
 			fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 		if (V4L2_FIELD_ANY == fmt->fmt.pix.field)
 			fmt->fmt.pix.field = V4L2_FIELD_NONE;
-		if (capture)
-			fmt->type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-		else
-			fmt->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	}
 
 	return 0;
@@ -1055,52 +1047,84 @@ static int vidioc_enum_fmt_vid(struct file *file, void *fh,
 	return 0;
 }
 
-static int inner_try_setfmt(struct file *file, void *fh, struct v4l2_format *f)
+/* Tests (or tries) the format.
+ * Returns:
+ * -   EINVAL if the buffer type or format is not supported
+ */
+static int vidioc_try_fmt_vid(struct file *file, void *fh,
+			      struct v4l2_format *f)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
-	int capture = V4L2_TYPE_IS_CAPTURE(f->type);
-	int needschange = 0;
 
 	if (check_buffer_capability(dev, opener, f->type) < 0)
 		return -EINVAL;
-
-	needschange = !(pix_format_eq(&dev->pix_format, &f->fmt.pix, 0));
-	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
-		f->fmt.pix = dev->pix_format;
-		if (needschange) {
-			if (dev->active_readers > 0 && capture) {
-				/* cannot call fmt_cap while there are readers */
-				return -EBUSY;
-			}
-			if (dev->ready_for_capture > 0 && !capture) {
-				/* cannot call fmt_out while there are writers */
-				return -EBUSY;
-			}
-		}
-	}
-	if (v4l2l_fill_format(f, capture, dev->min_width, dev->max_width,
-			      dev->min_height, dev->max_height) != 0) {
+	if (v4l2l_fill_format(f, dev->min_width, dev->max_width,
+			      dev->min_height, dev->max_height) != 0)
 		return -EINVAL;
-	}
+	if (V4L2LOOPBACK_IS_FIXED_FMT(dev))
+		/* use existing format - including colorspace info */
+		f->fmt.pix = dev->pix_format;
 
 	return 0;
 }
 
-/* ------------------ CAPTURE ----------------------- */
-
-/* returns device formats
- * called on VIDIOC_ENUM_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
+/* Sets new format. Fills 'f' argument with the requested or existing format.
+ * Side-effect: buffers are allocated for the (returned) format.
+ * Returns:
+ * -   EINVAL if the type is not supported
+ * -   EBUSY if buffers are already allocated
+ * TODO: (vasaka) set subregions of input
  */
+static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
+{
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	u32 capture = V4L2_TYPE_IS_CAPTURE(f->type);
+	int changed, result;
+	char buf[5];
+
+	result = vidioc_try_fmt_vid(file, fh, f);
+	if (result < 0)
+		return result;
+
+	if (opener->buffers_number)
+		/* must free buffers before format can be set */
+		return -EBUSY;
+	if ((dev->active_readers > 0 && capture) ||
+	    (dev->ready_for_capture > 0 && !capture))
+		return -EBUSY;
+
+	dprintk("S_FMT[%s] %4s:%dx%d size=%d\n",
+		V4L2_TYPE_IS_CAPTURE(f->type) ? "CAPTURE" : "OUTPUT",
+		fourcc2str(f->fmt.pix.pixelformat, buf), f->fmt.pix.width,
+		f->fmt.pix.height, f->fmt.pix.sizeimage);
+	changed = !pix_format_eq(&dev->pix_format, &f->fmt.pix, 0);
+	if (changed || !dev->ready_for_capture) {
+		dev->pix_format = f->fmt.pix;
+		dev->pix_format_has_valid_sizeimage =
+			v4l2l_pix_format_has_valid_sizeimage(f);
+		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+		result = allocate_buffers(dev);
+		if (result < 0)
+			return result;
+		/* TODO: [JMZ] get rid of the next line. [SW] driver sets this
+		 * value - and can safely ignore application (input) values */
+		f->fmt.pix.sizeimage = dev->buffer_size;
+	}
+	return result;
+}
+
+/* ------------------ CAPTURE ----------------------- */
+/* ioctl for VIDIOC_ENUM_FMT, _G_FMT, _S_FMT, and _TRY_FMT when buffer type
+ * is V4L2_BUF_TYPE_VIDEO_CAPTURE */
+
 static int vidioc_enum_fmt_cap(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
 	return vidioc_enum_fmt_vid(file, fh, f);
 }
 
-/* returns current video format
- * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
- */
 static int vidioc_g_fmt_cap(struct file *file, void *fh, struct v4l2_format *f)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
@@ -1113,59 +1137,27 @@ static int vidioc_g_fmt_cap(struct file *file, void *fh, struct v4l2_format *f)
 	return 0;
 }
 
-/* checks if it is OK to change to format fmt;
- * actual check is done by inner_try_setfmt
- * just checking that pixelformat is OK and set other parameters, app should
- * obey this decision
- * called on VIDIOC_TRY_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
- */
 static int vidioc_try_fmt_cap(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
-	int ret = 0;
-	ret = inner_try_setfmt(file, fh, f);
-	if (-EBUSY == ret)
-		return 0;
-	return ret;
+	return vidioc_try_fmt_vid(file, fh, f);
 }
 
-/* sets new output format, if possible
- * actually format is set  by input and we even do not check it, just return
- * current one, but it is possible to set subregions of input TODO(vasaka)
- * called on VIDIOC_S_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_CAPTURE
- */
 static int vidioc_s_fmt_cap(struct file *file, void *fh, struct v4l2_format *f)
 {
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	int ret;
-	char buf[5];
-	ret = inner_try_setfmt(file, fh, f);
-	if (!ret) {
-		dev->pix_format = f->fmt.pix;
-		dprintk("capFOURCC=%s\n",
-			fourcc2str(dev->pix_format.pixelformat, buf));
-	}
-	return ret;
+	return vidioc_s_fmt_vid(file, fh, f);
 }
 
 /* ------------------ OUTPUT ----------------------- */
+/* ioctl for VIDIOC_ENUM_FMT, _G_FMT, _S_FMT, and _TRY_FMT when buffer type
+ * is V4L2_BUF_TYPE_VIDEO_OUTPUT */
 
-/* returns device formats;
- * LATER: allow all formats
- * called on VIDIOC_ENUM_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
- */
 static int vidioc_enum_fmt_out(struct file *file, void *fh,
 			       struct v4l2_fmtdesc *f)
 {
 	return vidioc_enum_fmt_vid(file, fh, f);
 }
 
-/* returns current video format fmt */
-/* NOTE: this is called from the producer
- * so if format has not been negotiated yet,
- * it should return ALL of available formats,
- * called on VIDIOC_G_FMT, with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
- */
 static int vidioc_g_fmt_out(struct file *file, void *fh, struct v4l2_format *f)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
@@ -1186,54 +1178,15 @@ static int vidioc_g_fmt_out(struct file *file, void *fh, struct v4l2_format *f)
 	return 0;
 }
 
-/* checks if it is OK to change to format fmt;
- * if format is negotiated do not change it
- * called on VIDIOC_TRY_FMT with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
- */
 static int vidioc_try_fmt_out(struct file *file, void *fh,
 			      struct v4l2_format *f)
 {
-	int ret = 0;
-	ret = inner_try_setfmt(file, fh, f);
-	if (-EBUSY == ret)
-		return 0;
-	return ret;
+	return vidioc_try_fmt_vid(file, fh, f);
 }
 
-/* sets new output format, if possible;
- * allocate data here because we do not know if it will be streaming or
- * read/write IO
- * called on VIDIOC_S_FMT with v4l2_buf_type set to V4L2_BUF_TYPE_VIDEO_OUTPUT
- */
 static int vidioc_s_fmt_out(struct file *file, void *fh, struct v4l2_format *f)
 {
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
-	int ret;
-	char buf[5];
-
-	if (check_buffer_capability(dev, opener, f->type) < 0)
-		return -EINVAL;
-
-	ret = inner_try_setfmt(file, fh, f);
-	if (!ret) {
-		dev->pix_format = f->fmt.pix;
-		dev->pix_format_has_valid_sizeimage =
-			v4l2l_pix_format_has_valid_sizeimage(f);
-		dprintk("s_fmt_out(%d) %d...%d\n", ret, dev->ready_for_capture,
-			dev->pix_format.sizeimage);
-		dprintk("outFOURCC=%s\n",
-			fourcc2str(dev->pix_format.pixelformat, buf));
-
-		if (!dev->ready_for_capture) {
-			dev->buffer_size =
-				PAGE_ALIGN(dev->pix_format.sizeimage);
-			// JMZ: TODO get rid of the next line
-			f->fmt.pix.sizeimage = dev->buffer_size;
-			ret = allocate_buffers(dev);
-		}
-	}
-	return ret;
+	return vidioc_s_fmt_vid(file, fh, f);
 }
 
 // #define V4L2L_OVERLAY
@@ -2809,7 +2762,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 			     .colorspace = V4L2_COLORSPACE_DEFAULT,
 			     .field = V4L2_FIELD_NONE }
 	};
-	v4l2l_fill_format(&_fmt, 1, _min_width, _max_width, _min_height,
+	v4l2l_fill_format(&_fmt, _min_width, _max_width, _min_height,
 			  _max_height);
 	dev->pix_format = _fmt.fmt.pix;
 
