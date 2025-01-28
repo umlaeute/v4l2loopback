@@ -376,6 +376,13 @@ struct v4l2_loopback_device {
 	spinlock_t lock, list_lock;
 };
 
+enum v4l2l_io_method {
+	V4L2L_IO_NONE = 0,
+	V4L2L_IO_MMAP = 1,
+	V4L2L_IO_FILE = 2,
+	V4L2L_IO_TIMEOUT = 3,
+};
+
 /* types of opener shows what opener wants to do with loopback */
 enum opener_type {
 	// clang-format off
@@ -392,7 +399,7 @@ struct v4l2_loopback_opener {
 			    * write_position - 1 if reader went out of sync */
 	unsigned int reread_count;
 	int buffers_number; /* should not be big, 4 is a good choice */
-	int timeout_image_io;
+	enum v4l2l_io_method io_method;
 
 	struct v4l2_fh fh;
 };
@@ -948,7 +955,7 @@ static int check_buffer_capability(struct v4l2_loopback_device *dev,
 				   enum v4l2_buf_type type)
 {
 	/* short-circuit for (non-compliant) timeout image mode */
-	if (opener->timeout_image_io)
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		return 0;
 	if (dev->announce_all_caps)
 		return (type == V4L2_BUF_TYPE_VIDEO_CAPTURE ||
@@ -1091,8 +1098,9 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 	if (opener->buffers_number)
 		/* must free buffers before format can be set */
 		return -EBUSY;
-	if ((dev->active_readers > 0 && capture) ||
-	    (dev->ready_for_capture > 0 && !capture))
+	if (((dev->active_readers > 0 && capture) ||
+	     (dev->ready_for_capture > 0 && !capture)) &&
+	    !(opener->io_method == V4L2L_IO_TIMEOUT))
 		return -EBUSY;
 
 	dprintk("S_FMT[%s] %4s:%dx%d size=%d\n",
@@ -1112,6 +1120,8 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 		 * value - and can safely ignore application (input) values */
 		f->fmt.pix.sizeimage = dev->buffer_size;
 	}
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
+		dev->timeout_image_io = 0;
 	return result;
 }
 
@@ -1573,7 +1583,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	if (opener->timeout_image_io) {
+	if (opener->io_method == V4L2L_IO_TIMEOUT) {
 		dev->timeout_image_io = 0;
 		if (b->memory != V4L2_MEMORY_MMAP)
 			return -EINVAL;
@@ -1584,6 +1594,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	MARK();
 	/* CASE count is zero: streamoff */
 	if (req_count == 0) {
+		opener->io_method = V4L2L_IO_MMAP;
 		result = vidioc_streamoff(file, fh, b->type);
 		opener->buffers_number = 0;
 		return result;
@@ -1599,11 +1610,19 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	if (req_count > dev->buffers_number)
 		req_count = dev->buffers_number;
 
-	prepare_buffer_queue(dev, req_count);
+	MARK();
+	switch (opener->io_method) {
+	case V4L2L_IO_TIMEOUT:
+		dev->timeout_image_io = 0;
+		opener->buffers_number = req_count;
+		break;
+	default:
+		opener->io_method = V4L2L_IO_MMAP;
+		prepare_buffer_queue(dev, req_count);
+		dev->used_buffers = opener->buffers_number = req_count;
+	}
 
-	b->count = opener->buffers_number = req_count;
-	if (opener->buffers_number < dev->used_buffers)
-		dev->used_buffers = opener->buffers_number;
+	b->count = opener->buffers_number;
 	return 0;
 }
 
@@ -1633,7 +1652,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 	if (b->index > max_buffers)
 		return -EINVAL;
 
-	if (opener->timeout_image_io)
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		*b = dev->timeout_image_buffer.buffer;
 	else
 		*b = dev->buffers[b->index % dev->used_buffers].buffer;
@@ -1684,7 +1703,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	if (buf->index > max_buffers)
 		return -EINVAL;
-	if (opener->timeout_image_io)
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		return 0;
 
 	index = buf->index % dev->used_buffers;
@@ -1812,7 +1831,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
-	if (opener->timeout_image_io) {
+	if (opener->io_method == V4L2L_IO_TIMEOUT) {
 		*buf = dev->timeout_image_buffer.buffer;
 		return 0;
 	}
@@ -1872,6 +1891,10 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
 
+	/* short-circuit when writing timeout buffers */
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
+		return 0;
+
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		if (!dev->ready_for_capture) {
@@ -1904,14 +1927,16 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 static int vidioc_streamoff(struct file *file, void *fh,
 			    enum v4l2_buf_type type)
 {
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 
 	MARK();
 	dprintk("%d\n", type);
 
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(fh);
+	/* short-circuit when writing timeout buffers */
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
+		return 0;
+
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		if (opener->type == WRITER)
@@ -2054,7 +2079,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		dprintk("userspace tries to mmap too much, fail\n");
 		return -EINVAL;
 	}
-	if (opener->timeout_image_io) {
+	if (opener->io_method == V4L2L_IO_TIMEOUT) {
 		/* we are going to map the timeout_image_buffer */
 		if ((vma->vm_pgoff << PAGE_SHIFT) !=
 		    dev->buffer_size * MAX_BUFFERS) {
@@ -2072,7 +2097,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		if (allocate_buffers(dev) < 0)
 			return -EINVAL;
 
-	if (opener->timeout_image_io) {
+	if (opener->io_method == V4L2L_IO_TIMEOUT) {
 		buffer = &dev->timeout_image_buffer;
 		addr = dev->timeout_image;
 	} else {
@@ -2170,9 +2195,11 @@ static int v4l2_loopback_open(struct file *file)
 
 	atomic_inc(&dev->open_count);
 
-	opener->timeout_image_io = dev->timeout_image_io;
-	if (opener->timeout_image_io) {
+	if (dev->timeout_image_io) {
+		opener->io_method = V4L2L_IO_TIMEOUT;
+
 		int r = allocate_timeout_image(dev);
+		opener->io_method = V4L2L_IO_TIMEOUT;
 
 		if (r < 0) {
 			dprintk("timeout image allocation failed\n");
@@ -2245,9 +2272,14 @@ static int start_fileio(struct file *file, void *fh, enum v4l2_buf_type type)
 					      .type = type };
 	int result;
 
+	if (opener->io_method == V4L2L_IO_TIMEOUT)
+		return -EBUSY; /* NOTE: -EBADF might be more informative */
+
 	/* short-circuit if already negotiated type */
-	if (opener->type != UNNEGOTIATED)
+	if (opener->type != UNNEGOTIATED && opener->io_method == V4L2L_IO_FILE)
 		return 0;
+	if (opener->io_method != V4L2L_IO_NONE)
+		return -EBUSY;
 
 	result = vidioc_reqbufs(file, fh, &reqbuf);
 	if (result < 0)
@@ -2256,6 +2288,7 @@ static int start_fileio(struct file *file, void *fh, enum v4l2_buf_type type)
 	if (result < 0)
 		return result;
 
+	opener->io_method = V4L2L_IO_FILE;
 	return 0;
 }
 
