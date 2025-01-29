@@ -1743,7 +1743,11 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	buf->type = type;
 
-	if (V4L2_TYPE_IS_CAPTURE(type)) {
+	if (!(buf->flags & (V4L2_BUF_FLAG_DONE | V4L2_BUF_FLAG_QUEUED))) {
+		/* v4l2-compliance requires these to be zero */
+		buf->sequence = 0;
+		buf->timestamp.tv_sec = buf->timestamp.tv_usec = 0;
+	} else if (V4L2_TYPE_IS_CAPTURE(type)) {
 		/* guess flags based on sequence values */
 		if (buf->sequence >= opener->read_position) {
 			set_done(buf->flags);
