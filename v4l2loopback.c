@@ -1801,8 +1801,10 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		return -EINVAL;
 	}
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT)
+	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+		set_queued(buf->flags);
 		return 0;
+	}
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -1930,6 +1932,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		return -EINVAL;
 	if (opener->io_method == V4L2L_IO_TIMEOUT) {
 		*buf = dev->timeout_buffer.buffer;
+		buf->type = type;
+		unset_flags(buf->flags);
 		return 0;
 	}
 
