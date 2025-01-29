@@ -1782,41 +1782,49 @@ static void buffer_written(struct v4l2_loopback_device *dev,
  */
 static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
-	struct v4l2l_buffer *b;
-	int index;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	struct v4l2l_buffer *bufd;
+	u32 index = buf->index;
+	u32 type = buf->type;
 
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(fh);
-
-	if (buf->index > max_buffers)
+	if (buf->index >= dev->used_buffers)
 		return -EINVAL;
+	bufd = &dev->buffers[index];
+
+	switch (buf->memory) {
+	case V4L2_MEMORY_MMAP:
+		if (!(bufd->buffer.flags & V4L2_BUF_FLAG_MAPPED))
+			dprintkrw("QBUF() unmapped buffer [index=%d]\n", index);
+		break;
+	default:
+		return -EINVAL;
+	}
+
 	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		return 0;
 
-	index = buf->index % dev->used_buffers;
-	b = &dev->buffers[index];
-
-	switch (buf->type) {
+	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		dprintkrw("qbuf(CAPTURE)#%d: " BUFFER_DEBUG_FMT_STR, index,
-			  BUFFER_DEBUG_FMT_ARGS(buf));
-		set_queued(b->buffer.flags);
-		return 0;
+		dprintkrw("QBUF(CAPTURE, index=%d) -> " BUFFER_DEBUG_FMT_STR,
+			  index, BUFFER_DEBUG_FMT_ARGS(buf));
+		set_queued(buf->flags);
+		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		dprintkrw("qbuf(OUTPUT)#%d: " BUFFER_DEBUG_FMT_STR, index,
-			  BUFFER_DEBUG_FMT_ARGS(buf));
-		if ((!(b->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY)) &&
-		    (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0))
-			v4l2l_get_timestamp(&b->buffer);
-		else {
-			b->buffer.timestamp = buf->timestamp;
-			b->buffer.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
+		dprintkrw("QBUF(OUTPUT, index=%d) -> " BUFFER_DEBUG_FMT_STR,
+			  index, BUFFER_DEBUG_FMT_ARGS(buf));
+		if (!(bufd->buffer.flags & V4L2_BUF_FLAG_TIMESTAMP_COPY) &&
+		    (buf->timestamp.tv_sec == 0 &&
+		     buf->timestamp.tv_usec == 0)) {
+			v4l2l_get_timestamp(&bufd->buffer);
+		} else {
+			bufd->buffer.timestamp = buf->timestamp;
+			bufd->buffer.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
 		}
 		if (dev->pix_format_has_valid_sizeimage) {
 			if (buf->bytesused >= dev->pix_format.sizeimage) {
-				b->buffer.bytesused = dev->pix_format.sizeimage;
+				bufd->buffer.bytesused =
+					dev->pix_format.sizeimage;
 			} else {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
 				dev_warn_ratelimited(
@@ -1827,24 +1835,23 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 					"warning queued output buffer bytesused too small %d < %d\n",
 					buf->bytesused,
 					dev->pix_format.sizeimage);
-				b->buffer.bytesused = buf->bytesused;
+				bufd->buffer.bytesused = buf->bytesused;
 			}
 		} else {
-			b->buffer.bytesused = buf->bytesused;
+			bufd->buffer.bytesused = buf->bytesused;
 		}
-
-		set_done(b->buffer.flags);
-		buffer_written(dev, b);
-
-		/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
-		 * https://github.com/umlaeute/v4l2loopback/issues/60 */
-		set_queued(buf->flags);
-
+		bufd->buffer.sequence = dev->write_position;
+		set_queued(bufd->buffer.flags);
+		*buf = bufd->buffer;
+		buffer_written(dev, bufd);
+		set_done(bufd->buffer.flags);
 		wake_up_all(&dev->read_event);
-		return 0;
+		break;
 	default:
 		return -EINVAL;
 	}
+	buf->type = type;
+	return 0;
 }
 
 static int can_read(struct v4l2_loopback_device *dev,
@@ -1913,57 +1920,50 @@ static int get_capture_buffer(struct file *file)
  */
 static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	u32 type = buf->type;
 	int index;
-	struct v4l2l_buffer *b;
+	struct v4l2l_buffer *bufd;
 
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(fh);
+	if (buf->memory != V4L2_MEMORY_MMAP)
+		return -EINVAL;
 	if (opener->io_method == V4L2L_IO_TIMEOUT) {
 		*buf = dev->timeout_buffer.buffer;
 		return 0;
 	}
 
-	switch (buf->type) {
+	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		index = get_capture_buffer(file);
 		if (index < 0)
 			return index;
-		dprintkrw("capture DQBUF pos: %lld index: %d\n",
-			  (long long)(opener->read_position - 1), index);
-		if (!(dev->buffers[index].buffer.flags &
-		      V4L2_BUF_FLAG_MAPPED)) {
-			dprintk("trying to return not mapped buf[%d]\n", index);
-			return -EINVAL;
-		}
-		unset_flags(dev->buffers[index].buffer.flags);
 		*buf = dev->buffers[index].buffer;
-		dprintkrw("dqbuf(CAPTURE)#%d: " BUFFER_DEBUG_FMT_STR, index,
-			  BUFFER_DEBUG_FMT_ARGS(buf));
-		return 0;
+		unset_flags(buf->flags);
+		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		spin_lock_bh(&dev->list_lock);
 
-		b = list_first_entry_or_null(&dev->outbufs_list,
-					     struct v4l2l_buffer, list_head);
-
-		if (b)
-			list_move_tail(&b->list_head, &dev->outbufs_list);
+		bufd = list_first_entry_or_null(&dev->outbufs_list,
+						struct v4l2l_buffer, list_head);
+		if (bufd)
+			list_move_tail(&bufd->list_head, &dev->outbufs_list);
 
 		spin_unlock_bh(&dev->list_lock);
-		if (!b)
+		if (!bufd)
 			return -EFAULT;
-		dprintkrw("output DQBUF index: %d\n", b->buffer.index);
-		unset_flags(b->buffer.flags);
-		*buf = b->buffer;
-		buf->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-		dprintkrw("dqbuf(OUTPUT)#%d: " BUFFER_DEBUG_FMT_STR, index,
-			  BUFFER_DEBUG_FMT_ARGS(buf));
-		return 0;
+		unset_flags(bufd->buffer.flags);
+		*buf = bufd->buffer;
+		break;
 	default:
 		return -EINVAL;
 	}
+
+	buf->type = type;
+	dprintkrw("DQBUF(%s, index=%d) -> " BUFFER_DEBUG_FMT_STR,
+		  V4L2_TYPE_IS_CAPTURE(type) ? "CAPTURE" : "OUTPUT", index,
+		  BUFFER_DEBUG_FMT_ARGS(buf));
+	return 0;
 }
 
 /* ------------- STREAMING ------------------- */
