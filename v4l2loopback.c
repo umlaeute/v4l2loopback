@@ -1720,40 +1720,40 @@ exit_reqbufs_unlock:
  * but map them in our inner buffers
  * called on VIDIOC_QUERYBUF
  */
-static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
+static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 {
-	enum v4l2_buf_type type;
-	int index;
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
-
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	u32 type = buf->type;
+	u32 index = buf->index;
 	MARK();
 
-	type = b->type;
-	index = b->index;
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(fh);
-
-	if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
-	    (b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
+	if ((buf->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+	    (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
 		return -EINVAL;
 	}
-	if (b->index > max_buffers)
+	if (buf->index >= dev->used_buffers)
 		return -EINVAL;
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT)
-		*b = dev->timeout_buffer.buffer;
-	else
-		*b = dev->buffers[b->index % dev->used_buffers].buffer;
+	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+		*buf = dev->timeout_buffer.buffer;
+		buf->index = index;
+	} else
+		*buf = dev->buffers[index].buffer;
 
-	b->type = type;
-	b->index = index;
-	dprintkrw(BUFFER_DEBUG_FMT_STR, BUFFER_DEBUG_FMT_ARGS(b));
+	buf->type = type;
 
-	/* Hopefully fix 'DQBUF return bad index if queue bigger then 2 for capture'
-	 * https://github.com/umlaeute/v4l2loopback/issues/60 */
-	set_queued(b->flags);
-
+	if (V4L2_TYPE_IS_CAPTURE(type)) {
+		/* guess flags based on sequence values */
+		if (buf->sequence >= opener->read_position) {
+			set_done(buf->flags);
+		} else if (buf->flags & V4L2_BUF_FLAG_DONE) {
+			set_queued(buf->flags);
+		}
+	}
+	dprintkrw("QUERYBUF(%s, index=%d) -> " BUFFER_DEBUG_FMT_STR,
+		  V4L2_TYPE_IS_CAPTURE(type) ? "CAPTURE" : "OUTPUT", index,
+		  BUFFER_DEBUG_FMT_ARGS(buf));
 	return 0;
 }
 
