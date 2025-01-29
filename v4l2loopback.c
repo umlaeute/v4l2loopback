@@ -1940,6 +1940,8 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		unset_flags(buf->flags);
 		return 0;
 	}
+	if (!opener->buffers_number)
+		return -EINVAL;
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
@@ -1981,16 +1983,16 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
  */
 static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 {
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 	MARK();
-
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(fh);
 
 	/* short-circuit when writing timeout buffers */
 	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		return 0;
+	/* opener must have claimed buffers via REQBUFS */
+	if (!opener->buffers_number)
+		return -EINVAL;
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
