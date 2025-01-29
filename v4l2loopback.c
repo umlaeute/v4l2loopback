@@ -325,12 +325,16 @@ struct v4l2_loopback_device {
 			    close() the device */
 	int sustain_framerate; /* CID_SUSTAIN_FRAMERATE; duplicate frames to maintain
 				  (close to) nominal framerate */
+	unsigned long timeout_jiffies; /* CID_TIMEOUT; 0 means disabled */
+	int timeout_image_io; /* CID_TIMEOUT_IMAGE_IO; next opener will
+			       * queue/dequeue the timeout image buffer */
 
 	/* buffers stuff */
 	u8 *image; /* pointer to actual buffers data */
-	unsigned long int imagesize; /* size of buffers data */
-	int buffers_number; /* should not be big, 4 is a good choice */
+	unsigned long image_size; /* number of bytes alloc'd for all buffers */
 	struct v4l2l_buffer buffers[MAX_BUFFERS]; /* inner driver buffers */
+	int buffers_number; /* should not be big, 4 is a good choice */
+	u32 buffer_size; /* number of bytes alloc'd per buffer */
 	int used_buffers; /* number of the actually used buffers */
 	int max_openers; /* how many times can this device be opened */
 
@@ -339,18 +343,15 @@ struct v4l2_loopback_device {
 	int bufpos2index
 		[MAX_BUFFERS]; /* mapping of (read/write_position % used_buffers)
                         * to inner buffer index */
-	long buffer_size;
 
 	/* sustain_framerate stuff */
 	struct timer_list sustain_timer;
 	unsigned int reread_count;
 
-	/* timeout stuff */
-	unsigned long timeout_jiffies; /* CID_TIMEOUT; 0 means disabled */
-	int timeout_image_io; /* CID_TIMEOUT_IMAGE_IO; next opener will
-			       * read/write to timeout_image */
-	u8 *timeout_image; /* copy of it will be captured when timeout passes */
-	struct v4l2l_buffer timeout_image_buffer;
+	/* timeout */
+	u8 *timeout_image; /* copied to outgoing buffers when timeout passes */
+	struct v4l2l_buffer timeout_buffer;
+	u32 timeout_buffer_size; /* number bytes alloc'd for timeout buffer */
 	struct timer_list timeout_timer;
 	int timeout_happened;
 
@@ -438,6 +439,9 @@ struct v4l2l_format {
 #define V4L2LOOPBACK_IS_FIXED_FMT(device)                               \
 	(device->ready_for_capture > 0 || device->active_readers > 0 || \
 	 device->keep_format)
+
+#define need_timeout_buffer(dev, opener) \
+	((dev)->timeout_jiffies > 0 || (opener)->io_method == V4L2L_IO_TIMEOUT)
 
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
@@ -851,11 +855,14 @@ static struct v4l2_loopback_device *v4l2loopback_getdevice(struct file *f)
 
 /* forward declarations */
 static void client_usage_queue_event(struct video_device *vdev);
-static void init_buffers(struct v4l2_loopback_device *dev);
-static int allocate_buffers(struct v4l2_loopback_device *dev);
+static bool any_buffers_mapped(struct v4l2_loopback_device *dev);
+static int allocate_buffers(struct v4l2_loopback_device *dev,
+			    struct v4l2_pix_format *pix_format);
+static void init_buffers(struct v4l2_loopback_device *dev, u32 bytes_used,
+			 u32 buffer_size);
 static void free_buffers(struct v4l2_loopback_device *dev);
-static void try_free_buffers(struct v4l2_loopback_device *dev);
-static int allocate_timeout_image(struct v4l2_loopback_device *dev);
+static int allocate_timeout_buffer(struct v4l2_loopback_device *dev);
+static void free_timeout_buffer(struct v4l2_loopback_device *dev);
 static void check_timers(struct v4l2_loopback_device *dev);
 static const struct v4l2_file_operations v4l2_loopback_fops;
 static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
@@ -1109,19 +1116,30 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 		f->fmt.pix.height, f->fmt.pix.sizeimage);
 	changed = !pix_format_eq(&dev->pix_format, &f->fmt.pix, 0);
 	if (changed || !dev->ready_for_capture) {
+		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+		result = allocate_buffers(dev, &f->fmt.pix);
+		if (result < 0)
+			return result;
+	}
+	if (changed ||
+	    (!dev->timeout_image && need_timeout_buffer(dev, opener))) {
+		result = allocate_timeout_buffer(dev);
+		if (result < 0)
+			goto exit_s_fmt_free;
+	}
+	if (changed) {
 		dev->pix_format = f->fmt.pix;
 		dev->pix_format_has_valid_sizeimage =
 			v4l2l_pix_format_has_valid_sizeimage(f);
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-		result = allocate_buffers(dev);
-		if (result < 0)
-			return result;
-		/* TODO: [JMZ] get rid of the next line. [SW] driver sets this
-		 * value - and can safely ignore application (input) values */
-		f->fmt.pix.sizeimage = dev->buffer_size;
 	}
 	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		dev->timeout_image_io = 0;
+	/* TODO: [JMZ] get rid of the next line. [SW] driver sets this value -
+	 * and can safely ignore application (input) values */
+	f->fmt.pix.sizeimage = dev->buffer_size;
+	return result;
+exit_s_fmt_free:
+	free_buffers(dev);
 	return result;
 }
 
@@ -1324,8 +1342,11 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 		if (val < 0 || val > 1)
 			return -EINVAL;
 		dev->keep_format = val;
-		try_free_buffers(
-			dev); /* will only free buffers if !keep_format */
+		if (!dev->keep_format) {
+			if (dev->ready_for_output && dev->active_readers == 0 &&
+			    !any_buffers_mapped(dev))
+				free_buffers(dev);
+		}
 		break;
 	case CID_SUSTAIN_FRAMERATE:
 		if (val < 0 || val > 1)
@@ -1338,11 +1359,24 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 	case CID_TIMEOUT:
 		if (val < 0 || val > MAX_TIMEOUT)
 			return -EINVAL;
+		if (val > 0) {
+			int result = 0;
+			/* on-the-fly allocate if device is owned; else
+			 * allocate occurs on next S_FMT or REQBUFS */
+			if (!dev->ready_for_output || dev->active_readers > 0)
+				result = allocate_timeout_buffer(dev);
+			if (result < 0) {
+				/* disable timeout as buffer not alloc'd */
+				spin_lock_bh(&dev->lock);
+				dev->timeout_jiffies = 0;
+				spin_unlock_bh(&dev->lock);
+				return result;
+			}
+		}
 		spin_lock_bh(&dev->lock);
 		dev->timeout_jiffies = msecs_to_jiffies(val);
 		check_timers(dev);
 		spin_unlock_bh(&dev->lock);
-		allocate_timeout_image(dev);
 		break;
 	case CID_TIMEOUT_IMAGE_IO:
 		dev->timeout_image_io = 1;
@@ -1515,6 +1549,15 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int index)
 		flags |= V4L2_BUF_FLAG_DONE;    \
 	} while (0)
 
+static bool any_buffers_mapped(struct v4l2_loopback_device *dev)
+{
+	u32 index;
+	for (index = 0; index < dev->buffers_number; ++index)
+		if (dev->buffers[index].buffer.flags & V4L2_BUF_FLAG_MAPPED)
+			return true;
+	return false;
+}
+
 static void prepare_buffer_queue(struct v4l2_loopback_device *dev, int count)
 {
 	struct v4l2l_buffer *bufd, *n;
@@ -1601,14 +1644,25 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	}
 
 	MARK();
-	if (V4L2_TYPE_IS_OUTPUT(b->type) && (!dev->ready_for_output)) {
+	if (V4L2_TYPE_IS_OUTPUT(b->type) && !dev->ready_for_output)
 		return -EBUSY;
-	}
-
-	init_buffers(dev);
+	if (V4L2_TYPE_IS_CAPTURE(b->type) && dev->active_readers)
+		return -EBUSY;
 
 	if (req_count > dev->buffers_number)
 		req_count = dev->buffers_number;
+
+	if (!dev->ready_for_capture && dev->active_readers == 0) {
+		/* only allow writer to allocate when there are no readers */
+		result = allocate_buffers(dev, &dev->pix_format);
+		if (result < 0)
+			return result;
+	}
+	if (!dev->timeout_image && need_timeout_buffer(dev, opener)) {
+		result = allocate_timeout_buffer(dev);
+		if (result < 0)
+			return result;
+	}
 
 	MARK();
 	switch (opener->io_method) {
@@ -1653,7 +1707,7 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 		return -EINVAL;
 
 	if (opener->io_method == V4L2L_IO_TIMEOUT)
-		*b = dev->timeout_image_buffer.buffer;
+		*b = dev->timeout_buffer.buffer;
 	else
 		*b = dev->buffers[b->index % dev->used_buffers].buffer;
 
@@ -1832,7 +1886,7 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(fh);
 	if (opener->io_method == V4L2L_IO_TIMEOUT) {
-		*buf = dev->timeout_image_buffer.buffer;
+		*buf = dev->timeout_buffer.buffer;
 		return 0;
 	}
 
@@ -1897,11 +1951,6 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		if (!dev->ready_for_capture) {
-			int ret = allocate_buffers(dev);
-			if (ret < 0)
-				return ret;
-		}
 		opener->type = WRITER;
 		dev->ready_for_output = 0;
 		dev->ready_for_capture++;
@@ -2067,6 +2116,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
 	struct v4l2l_buffer *buffer = NULL;
+	int result = 0;
 	MARK();
 
 	start = (unsigned long)vma->vm_start;
@@ -2077,28 +2127,31 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 
 	if (size > dev->buffer_size) {
 		dprintk("userspace tries to mmap too much, fail\n");
-		return -EINVAL;
+		result = -EINVAL;
 	}
 	if (opener->io_method == V4L2L_IO_TIMEOUT) {
-		/* we are going to map the timeout_image_buffer */
+		/* we are going to map the timeout_buffer */
 		if ((vma->vm_pgoff << PAGE_SHIFT) !=
 		    dev->buffer_size * MAX_BUFFERS) {
 			dprintk("invalid mmap offset for timeout_image_io mode\n");
-			return -EINVAL;
+			result = -EINVAL;
 		}
 	} else if ((vma->vm_pgoff << PAGE_SHIFT) >
 		   dev->buffer_size * (dev->buffers_number - 1)) {
 		dprintk("userspace tries to mmap too far, fail\n");
-		return -EINVAL;
+		result = -EINVAL;
 	}
 
-	/* FIXXXXXME: allocation should not happen here! */
-	if (NULL == dev->image)
-		if (allocate_buffers(dev) < 0)
-			return -EINVAL;
+	if (!result && !dev->image) {
+		dprintk("attempted to mmap when buffers are unallocated\n");
+		result = -EINVAL;
+	}
+
+	if (result < 0)
+		return result;
 
 	if (opener->io_method == V4L2L_IO_TIMEOUT) {
-		buffer = &dev->timeout_image_buffer;
+		buffer = &dev->timeout_buffer;
 		addr = dev->timeout_image;
 	} else {
 		int i;
@@ -2195,21 +2248,8 @@ static int v4l2_loopback_open(struct file *file)
 
 	atomic_inc(&dev->open_count);
 
-	if (dev->timeout_image_io) {
+	if (dev->timeout_image_io)
 		opener->io_method = V4L2L_IO_TIMEOUT;
-
-		int r = allocate_timeout_image(dev);
-		opener->io_method = V4L2L_IO_TIMEOUT;
-
-		if (r < 0) {
-			dprintk("timeout image allocation failed\n");
-
-			atomic_dec(&dev->open_count);
-
-			kfree(opener);
-			return r;
-		}
-	}
 
 	v4l2_fh_init(&opener->fh, video_devdata(file));
 	file->private_data = &opener->fh;
@@ -2253,7 +2293,8 @@ static int v4l2_loopback_close(struct file *file)
 	if (atomic_dec_and_test(&dev->open_count)) {
 		del_timer_sync(&dev->sustain_timer);
 		del_timer_sync(&dev->timeout_timer);
-		try_free_buffers(dev);
+		if (!dev->keep_format)
+			free_buffers(dev);
 	}
 
 	v4l2_fh_del(&opener->fh);
@@ -2357,105 +2398,126 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 }
 
 /* init functions */
-/* frees buffers, if already allocated */
+/* frees buffers, if allocated */
 static void free_buffers(struct v4l2_loopback_device *dev)
 {
-	MARK();
-	dprintk("freeing image@%p for dev:%p\n", dev ? dev->image : NULL, dev);
-	if (!dev)
+	dprintk("free_buffers() with image@%p\n", dev->image);
+	if (!dev->image)
 		return;
-	if (dev->image) {
-		vfree(dev->image);
-		dev->image = NULL;
-	}
-	if (dev->timeout_image) {
-		vfree(dev->timeout_image);
-		dev->timeout_image = NULL;
-	}
-	dev->imagesize = 0;
+	if (!dev->ready_for_output || dev->active_readers ||
+	    any_buffers_mapped(dev))
+		printk(KERN_WARNING
+		       "v4l2loopback free_buffers(): buffers of video device "
+		       "#%d freed while still mapped to userspace\n",
+		       dev->vdev->num);
+	vfree(dev->image);
+	dev->image = NULL;
+	dev->image_size = 0;
+	dev->buffer_size = 0;
 }
-/* frees buffers, if they are no longer needed */
-static void try_free_buffers(struct v4l2_loopback_device *dev)
-{
-	MARK();
-	if (0 == dev->open_count.counter && !dev->keep_format) {
-		free_buffers(dev);
-		dev->ready_for_capture = 0;
-		dev->buffer_size = 0;
-		dev->write_position = 0;
-	}
-}
-/* allocates buffers, if buffer_size is set */
-static int allocate_buffers(struct v4l2_loopback_device *dev)
-{
-	int err;
 
+static void free_timeout_buffer(struct v4l2_loopback_device *dev)
+{
+	dprintk("free_timeout_buffer() with timeout_image@%p\n",
+		dev->timeout_image);
+	if (!dev->timeout_image)
+		return;
+
+	if ((dev->timeout_jiffies > 0 &&
+	     (!dev->ready_for_output || dev->active_readers)) ||
+	    dev->timeout_buffer.buffer.flags & V4L2_BUF_FLAG_MAPPED)
+		printk(KERN_WARNING
+		       "v4l2loopback free_timeout_buffer(): timeout image "
+		       "of device #%d freed while still mapped to userspace\n",
+		       dev->vdev->num);
+
+	vfree(dev->timeout_image);
+	dev->timeout_image = NULL;
+	dev->timeout_buffer_size = 0;
+}
+/* allocates buffers if no (other) openers are already using them */
+static int allocate_buffers(struct v4l2_loopback_device *dev,
+			    struct v4l2_pix_format *pix_format)
+{
+	u32 buffer_size = PAGE_ALIGN(pix_format->sizeimage);
+	unsigned long image_size =
+		(unsigned long)buffer_size * (unsigned long)dev->buffers_number;
 	MARK();
 	/* vfree on close file operation in case no open handles left */
 
-	if (dev->buffer_size < 1 || dev->buffers_number < 1)
+	if (buffer_size == 0 || dev->buffers_number <= 0 ||
+	    buffer_size < pix_format->sizeimage)
 		return -EINVAL;
 
-	if ((__LONG_MAX__ / dev->buffer_size) < dev->buffers_number)
+	if ((__LONG_MAX__ / buffer_size) < dev->buffers_number)
 		return -ENOSPC;
 
+	dprintk("allocate_buffers() size %lobytes = %obytes x %dbuffers\n",
+		image_size, buffer_size, dev->buffers_number);
 	if (dev->image) {
-		dprintk("allocating buffers again: %ld %ld\n",
-			dev->buffer_size * dev->buffers_number, dev->imagesize);
+		/* check that no buffers are expected in user-space */
+		if (!dev->ready_for_output || dev->active_readers ||
+		    any_buffers_mapped(dev))
+			return -EBUSY;
+		dprintk("allocate_buffers() existing size=%lobytes\n",
+			dev->image_size);
 		/* FIXME: prevent double allocation more intelligently! */
-		if (dev->buffer_size * dev->buffers_number == dev->imagesize)
+		if (image_size == dev->image_size) {
+			dprintk("allocate_buffers() keep existing\n");
 			return 0;
-
-		/* check whether the total number of readers/writers is <=1 */
-		if ((dev->ready_for_capture + dev->active_readers) <= 1)
-			free_buffers(dev);
-		else
-			return -EINVAL;
+		}
+		free_buffers(dev);
 	}
 
-	dev->imagesize = (unsigned long)dev->buffer_size *
-			 (unsigned long)dev->buffers_number;
-
-	dprintk("allocating %ld = %ldx%d\n", dev->imagesize, dev->buffer_size,
-		dev->buffers_number);
-	err = -ENOMEM;
-
-	if (dev->timeout_jiffies > 0) {
-		err = allocate_timeout_image(dev);
-		if (err < 0)
-			goto error;
+	dev->image = vmalloc(image_size);
+	if (dev->image == NULL) {
+		/* NOTE: might need to free timeout, too */
+		dev->buffer_size = dev->image_size = 0;
+		return -ENOMEM;
 	}
-
-	dev->image = vmalloc(dev->imagesize);
-	if (dev->image == NULL)
-		goto error;
-
-	dprintk("vmallocated %ld bytes\n", dev->imagesize);
-	MARK();
-
-	init_buffers(dev);
+	init_buffers(dev, pix_format->sizeimage, buffer_size);
+	dev->buffer_size = buffer_size;
+	dev->image_size = image_size;
+	dprintk("allocate_buffers() -> vmalloc'd %lobytes\n", dev->image_size);
 	return 0;
-
-error:
-	free_buffers(dev);
-	return err;
 }
-
-/* init inner buffers, they are capture mode and flags are set as
- * for capture mod buffers */
-static void init_buffers(struct v4l2_loopback_device *dev)
+static int allocate_timeout_buffer(struct v4l2_loopback_device *dev)
 {
-	int i;
-	int buffer_size;
-	int bytesused;
+	/* device's `buffer_size` and `buffers` must be initialised in
+	 * allocate_buffers() */
+
+	dprintk("allocate_timeout_buffer() size %obytes\n", dev->buffer_size);
+	if (dev->buffer_size == 0)
+		return -EINVAL;
+
+	if (dev->timeout_image) {
+		if (dev->timeout_buffer.buffer.flags & V4L2_BUF_FLAG_MAPPED)
+			return -EBUSY;
+		if (dev->buffer_size == dev->timeout_buffer_size)
+			return 0;
+		free_timeout_buffer(dev);
+	}
+
+	dev->timeout_image = vzalloc(dev->buffer_size);
+	if (!dev->timeout_image) {
+		dev->timeout_buffer_size = 0;
+		return -ENOMEM;
+	}
+	dev->timeout_buffer_size = dev->buffer_size;
+	return 0;
+}
+/* init inner buffers, they are capture mode and flags are set as for capture
+ * mode buffers */
+static void init_buffers(struct v4l2_loopback_device *dev, u32 bytes_used,
+			 u32 buffer_size)
+{
+	u32 i;
 	MARK();
 
-	buffer_size = dev->buffer_size;
-	bytesused = dev->pix_format.sizeimage;
 	for (i = 0; i < dev->buffers_number; ++i) {
 		struct v4l2_buffer *b = &dev->buffers[i].buffer;
 		b->index = i;
-		b->bytesused = bytesused;
+		b->bytesused = bytes_used;
 		b->length = buffer_size;
 		b->field = V4L2_FIELD_NONE;
 		b->flags = 0;
@@ -2468,27 +2530,9 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 
 		v4l2l_get_timestamp(b);
 	}
-	dev->timeout_image_buffer = dev->buffers[0];
-	dev->timeout_image_buffer.buffer.m.offset = MAX_BUFFERS * buffer_size;
+	dev->timeout_buffer = dev->buffers[0];
+	dev->timeout_buffer.buffer.m.offset = MAX_BUFFERS * buffer_size;
 	MARK();
-}
-
-static int allocate_timeout_image(struct v4l2_loopback_device *dev)
-{
-	MARK();
-	if (dev->buffer_size <= 0) {
-		dev->timeout_image_io = 0;
-		return -EINVAL;
-	}
-
-	if (dev->timeout_image == NULL) {
-		dev->timeout_image = vzalloc(dev->buffer_size);
-		if (dev->timeout_image == NULL) {
-			dev->timeout_image_io = 0;
-			return -ENOMEM;
-		}
-	}
-	return 0;
 }
 
 /* fills and register video device */
@@ -2744,7 +2788,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 
 	dev->buffer_size = 0;
 	dev->image = NULL;
-	dev->imagesize = 0;
+	dev->image_size = 0;
 #ifdef HAVE_TIMER_SETUP
 	timer_setup(&dev->sustain_timer, sustain_timer_clb, 0);
 	timer_setup(&dev->timeout_timer, timeout_timer_clb, 0);
@@ -2835,6 +2879,7 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 {
 	int device_nr = v4l2loopback_get_vdev_nr(dev->vdev);
 	free_buffers(dev);
+	free_timeout_buffer(dev);
 	v4l2loopback_remove_sysfs(dev->vdev);
 	kfree(video_get_drvdata(dev->vdev));
 	video_unregister_device(dev->vdev);
