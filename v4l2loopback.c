@@ -1276,7 +1276,7 @@ static int vidioc_s_parm(struct file *file, void *fh,
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 
-	dprintk("vidioc_s_parm called frate=%u/%u\n",
+	dprintk("S_PARM(frame-time=%u/%u)\n",
 		parm->parm.capture.timeperframe.numerator,
 		parm->parm.capture.timeperframe.denominator);
 	if (check_buffer_capability(dev, opener, parm->type) < 0)
@@ -2208,7 +2208,8 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		return result;
 
 	if (size > dev->buffer_size) {
-		dprintk("userspace tries to mmap too much, fail\n");
+		dprintk("mmap() attempt to map more than allocated to "
+			"buffer\n");
 		result = -EINVAL;
 		goto exit_mmap_unlock;
 	}
@@ -2216,18 +2217,18 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		/* we are going to map the timeout_buffer */
 		if ((vma->vm_pgoff << PAGE_SHIFT) !=
 		    (unsigned long)dev->buffer_size * MAX_BUFFERS) {
-			dprintk("invalid mmap offset for timeout_image_io mode\n");
+			dprintk("mmap() invalid offset for timeout image\n");
 			result = -EINVAL;
 		}
 	} else if (!dev->buffer_count ||
 		   (vma->vm_pgoff << PAGE_SHIFT) >
 			   (unsigned long)dev->buffer_size *
 				   (dev->buffer_count - 1u)) {
-		dprintk("userspace tries to mmap too far, fail\n");
+		dprintk("mmap() attempt to map outside of buffers\n");
 		result = -EINVAL;
 	}
 	if (!result && !dev->image) {
-		dprintk("attempted to mmap when buffers are unallocated\n");
+		dprintk("mmap() attempt to map when buffers are unallocated\n");
 		result = -EINVAL;
 	}
 
@@ -2452,8 +2453,7 @@ static ssize_t v4l2_loopback_read(struct file *file, char __user *buf,
 		count = b->bytesused;
 	if (copy_to_user((void *)buf, (void *)(dev->image + b->m.offset),
 			 count)) {
-		printk(KERN_ERR
-		       "v4l2_loopback_read(): failed copy_to_user()\n");
+		printk(KERN_ERR "v4l2-loopback read() failed copy_to_user()\n");
 		return -EFAULT;
 	}
 	return count;
@@ -2480,7 +2480,7 @@ static ssize_t v4l2_loopback_write(struct file *file, const char __user *buf,
 	if (copy_from_user((void *)(dev->image + b->m.offset), (void *)buf,
 			   count)) {
 		printk(KERN_ERR
-		       "v4l2_loopback_write(): failed copy_from_user()\n");
+		       "v4l2-loopback write() failed copy_from_user()\n");
 		return -EFAULT;
 	}
 	b->bytesused = count;
@@ -2505,7 +2505,7 @@ static void free_buffers(struct v4l2_loopback_device *dev)
 	if (!has_no_owners(dev) || any_buffers_mapped(dev))
 		/* maybe an opener snuck in before image_mutex was acquired */
 		printk(KERN_WARNING
-		       "v4l2loopback free_buffers() buffers of video device "
+		       "v4l2-loopback free_buffers() buffers of video device "
 		       "#%u freed while still mapped to userspace\n",
 		       dev->vdev->num);
 	vfree(dev->image);
@@ -2524,7 +2524,7 @@ static void free_timeout_buffer(struct v4l2_loopback_device *dev)
 	if ((dev->timeout_jiffies > 0 && !has_no_owners(dev)) ||
 	    dev->timeout_buffer.buffer.flags & V4L2_BUF_FLAG_MAPPED)
 		printk(KERN_WARNING
-		       "v4l2loopback free_timeout_buffer() timeout image "
+		       "v4l2-loopback free_timeout_buffer() timeout image "
 		       "of device #%u freed while still mapped to userspace\n",
 		       dev->vdev->num);
 
@@ -2688,8 +2688,8 @@ static void sustain_timer_clb(unsigned long nr)
 	spin_lock(&dev->lock);
 	if (dev->sustain_framerate) {
 		dev->reread_count++;
-		dprintkrw("reread: %lld %u\n", (long long)dev->write_position,
-			  dev->reread_count);
+		dprintkrw("sustain_timer_clb() write_pos=%lld reread=%u\n",
+			  (long long)dev->write_position, dev->reread_count);
 		if (dev->reread_count == 1)
 			mod_timer(&dev->sustain_timer,
 				  jiffies + max(1UL, dev->frame_jiffies / 2));
@@ -2771,11 +2771,11 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 			nr = capture_nr;
 		} else {
 			printk(KERN_ERR
-			       "split OUTPUT and CAPTURE devices not yet "
-			       "supported.\n");
+			       "v4l2-loopback add() split OUTPUT and CAPTURE "
+			       "devices not yet supported.\n");
 			printk(KERN_INFO
-			       "both devices must have the same number "
-			       "(%d != %d).\n",
+			       "v4l2-loopback add() both devices must have the "
+			       "same number (%d != %d).\n",
 			       output_nr, capture_nr);
 			return -EINVAL;
 		}
@@ -3212,32 +3212,35 @@ static int __init v4l2loopback_init_module(void)
 	if (devices > MAX_DEVICES) {
 		devices = MAX_DEVICES;
 		printk(KERN_INFO
-		       "v4l2loopback: number of initial devices is limited to: %d\n",
+		       "v4l2-loopback init() number of initial devices is "
+		       "limited to: %d\n",
 		       MAX_DEVICES);
 	}
 
 	if (max_buffers > MAX_BUFFERS) {
 		max_buffers = MAX_BUFFERS;
 		printk(KERN_INFO
-		       "v4l2loopback: number of buffers is limited to: %d\n",
+		       "v4l2-loopback init() number of buffers is limited "
+		       "to: %d\n",
 		       MAX_BUFFERS);
 	}
 
 	if (max_openers < 0) {
 		printk(KERN_INFO
-		       "v4l2loopback: allowing %d openers rather than %d\n",
+		       "v4l2-loopback init() allowing %d openers rather "
+		       "than %d\n",
 		       2, max_openers);
 		max_openers = 2;
 	}
 
 	if (max_width < min_width) {
 		max_width = V4L2LOOPBACK_SIZE_DEFAULT_MAX_WIDTH;
-		printk(KERN_INFO "v4l2loopback: using max_width %d\n",
+		printk(KERN_INFO "v4l2-loopback init() using max_width %d\n",
 		       max_width);
 	}
 	if (max_height < min_height) {
 		max_height = V4L2LOOPBACK_SIZE_DEFAULT_MAX_HEIGHT;
-		printk(KERN_INFO "v4l2loopback: using max_height %d\n",
+		printk(KERN_INFO "v4l2-loopback init() using max_height %d\n",
 		       max_height);
 	}
 
@@ -3271,7 +3274,7 @@ static int __init v4l2loopback_init_module(void)
 
 	dprintk("module installed\n");
 
-	printk(KERN_INFO "v4l2loopback driver version %d.%d.%d%s loaded\n",
+	printk(KERN_INFO "v4l2-loopback driver version %d.%d.%d%s loaded\n",
 	       // clang-format off
 	       (V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 	       (V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
