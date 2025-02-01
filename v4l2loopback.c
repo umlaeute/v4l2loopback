@@ -320,9 +320,10 @@ struct v4l2_loopback_device {
 	unsigned long frame_jiffies;
 
 	/* ctrls */
-	int keep_format; /* CID_KEEP_FORMAT; lock the format and keep buffers
-			    allocated (ready for capture) even when all openers
-			    close() the device */
+	int keep_format; /* CID_KEEP_FORMAT; lock the format, do not free
+			  * on close(), and when `!announce_all_caps` do NOT
+			  * fall back to OUTPUT when no writers attached (clear
+			  * `keep_format` to attach a new writer) */
 	int sustain_framerate; /* CID_SUSTAIN_FRAMERATE; duplicate frames to maintain
 				  (close to) nominal framerate */
 	unsigned long timeout_jiffies; /* CID_TIMEOUT; 0 means disabled */
@@ -356,13 +357,15 @@ struct v4l2_loopback_device {
 
 	/* sync stuff */
 	atomic_t open_count;
-	struct mutex image_mutex; /* mutex for allocating image(s) */
-	int ready_for_capture; /* set to the number of writers that opened the
-                                * device and negotiated format. */
-	int ready_for_output; /* set to true when no writer is currently attached
-			       * this differs slightly from !ready_for_capture,
-			       * e.g. when using fallback images */
-	int active_readers; /* increase if any reader starts streaming */
+	struct mutex image_mutex; /* mutex for allocating image(s) and
+				   * exchanging format tokens */
+	spinlock_t lock; /* lock for the timeout and framerate timers */
+	spinlock_t list_lock; /* lock for the OUTPUT buffer queue */
+	wait_queue_head_t read_event;
+	u32 format_tokens; /* tokens to 'set format' for OUTPUT, CAPTURE, or
+			    * timeout buffers */
+	u32 stream_tokens; /* tokens to 'start' OUTPUT, CAPTURE, or timeout
+			    * stream */
 	int announce_all_caps; /* set to false, if device caps (OUTPUT/CAPTURE)
                                 * should only be announced if the resp. "ready"
                                 * flag is set; default=TRUE */
@@ -371,9 +374,6 @@ struct v4l2_loopback_device {
 	int min_height, max_height;
 
 	char card_label[32];
-
-	wait_queue_head_t read_event;
-	spinlock_t lock, list_lock;
 };
 
 enum v4l2l_io_method {
@@ -383,18 +383,11 @@ enum v4l2l_io_method {
 	V4L2L_IO_TIMEOUT = 3,
 };
 
-/* types of opener shows what opener wants to do with loopback */
-enum opener_type {
-	// clang-format off
-	UNNEGOTIATED	= 0,
-	READER		= 1,
-	WRITER		= 2,
-	// clang-format on
-};
-
 /* struct keeping state and type of opener */
 struct v4l2_loopback_opener {
-	enum opener_type type;
+	u32 format_token; /* token (if any) for type used in call to S_FMT or
+			   * REQBUFS */
+	u32 stream_token; /* token (if any) for type used in call to STREAMON */
 	u32 buffer_count; /* number of buffers (if any) that opener acquired via
 			   * REQBUFS */
 	s64 read_position; /* number of last processed frame + 1 or
@@ -431,17 +424,33 @@ struct v4l2l_format {
 	 (type) == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 #endif /* V4L2_TYPE_IS_OUTPUT */
 
-/* whether the format can be changed */
-/* the format is fixated if we
-   - have writers (ready_for_capture>0)
-   - and/or have readers (active_readers>0)
-*/
-#define V4L2LOOPBACK_IS_FIXED_FMT(device)                               \
-	(device->ready_for_capture > 0 || device->active_readers > 0 || \
-	 device->keep_format)
+/* token values for privilege to set format or start/stop stream */
+#define V4L2L_TOKEN_CAPTURE 0x01
+#define V4L2L_TOKEN_OUTPUT 0x02
+#define V4L2L_TOKEN_TIMEOUT 0x04
+#define V4L2L_TOKEN_MASK \
+	(V4L2L_TOKEN_CAPTURE | V4L2L_TOKEN_OUTPUT | V4L2L_TOKEN_TIMEOUT)
 
-#define need_timeout_buffer(dev, opener) \
-	((dev)->timeout_jiffies > 0 || (opener)->io_method == V4L2L_IO_TIMEOUT)
+/* helpers for token exchange and token status */
+#define token_from_type(type) \
+	(V4L2_TYPE_IS_CAPTURE(type) ? V4L2L_TOKEN_CAPTURE : V4L2L_TOKEN_OUTPUT)
+#define acquire_token(dev, opener, label, token) \
+	do {                                     \
+		(opener)->label##_token = token; \
+		(dev)->label##_tokens &= ~token; \
+	} while (0)
+#define release_token(dev, opener, label)                         \
+	do {                                                      \
+		(dev)->label##_tokens |= (opener)->label##_token; \
+		(opener)->label##_token = 0;                      \
+	} while (0)
+#define has_output_token(token) (token & V4L2L_TOKEN_OUTPUT)
+#define has_capture_token(token) (token & V4L2L_TOKEN_CAPTURE)
+#define has_no_owners(dev) ((~((dev)->format_tokens) & V4L2L_TOKEN_MASK) == 0)
+#define has_other_owners(opener, dev) \
+	(~((dev)->format_tokens ^ (opener)->format_token) & V4L2L_TOKEN_MASK)
+#define need_timeout_buffer(dev, token) \
+	((dev)->timeout_jiffies > 0 || (token) & V4L2L_TOKEN_TIMEOUT)
 
 static const unsigned int FORMATS = ARRAY_SIZE(formats);
 
@@ -644,7 +653,7 @@ static ssize_t attr_show_format(struct device *cd,
 	const struct v4l2_fract *tpf;
 	char buf4cc[5], buf_fps[32];
 
-	if (!dev || !V4L2LOOPBACK_IS_FIXED_FMT(dev))
+	if (!dev || (has_no_owners(dev) && !dev->keep_format))
 		return 0;
 	tpf = &dev->capture_param.timeperframe;
 
@@ -743,9 +752,9 @@ static ssize_t attr_show_state(struct device *cd, struct device_attribute *attr,
 	if (!dev)
 		return -ENODEV;
 
-	if (dev->ready_for_capture)
+	if (!has_output_token(dev->stream_tokens) || dev->keep_format) {
 		return sprintf(buf, "capture\n");
-	if (dev->ready_for_output)
+	} else
 		return sprintf(buf, "output\n");
 
 	return -EAGAIN;
@@ -871,10 +880,11 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops;
 /* returns device capabilities
  * called on VIDIOC_QUERYCAP
  */
-static int vidioc_querycap(struct file *file, void *priv,
+static int vidioc_querycap(struct file *file, void *fh,
 			   struct v4l2_capability *cap)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 	int device_nr = v4l2loopback_get_vdev_nr(dev->vdev);
 	__u32 capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
@@ -886,12 +896,12 @@ static int vidioc_querycap(struct file *file, void *priv,
 	if (dev->announce_all_caps) {
 		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
 	} else {
-		if (dev->ready_for_capture) {
-			capabilities |= V4L2_CAP_VIDEO_CAPTURE;
-		}
-		if (dev->ready_for_output) {
+		if (opener->io_method == V4L2L_IO_TIMEOUT ||
+		    (has_output_token(dev->stream_tokens) &&
+		     !dev->keep_format)) {
 			capabilities |= V4L2_CAP_VIDEO_OUTPUT;
-		}
+		} else
+			capabilities |= V4L2_CAP_VIDEO_CAPTURE;
 	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 7, 0)
@@ -908,17 +918,15 @@ static int vidioc_querycap(struct file *file, void *priv,
 static int vidioc_enum_framesizes(struct file *file, void *fh,
 				  struct v4l2_frmsizeenum *argp)
 {
-	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 
 	/* there can be only one... */
 	if (argp->index)
 		return -EINVAL;
 
-	dev = v4l2loopback_getdevice(file);
-	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
-		/* format has already been negotiated
-		 * cannot change during runtime
-		 */
+	if (dev->keep_format || has_other_owners(opener, dev)) {
+		/* only current frame size supported */
 		if (argp->pixel_format != dev->pix_format.pixelformat)
 			return -EINVAL;
 
@@ -927,8 +935,7 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		argp->discrete.width = dev->pix_format.width;
 		argp->discrete.height = dev->pix_format.height;
 	} else {
-		/* if the format has not been negotiated yet, we accept anything
-		 */
+		/* return continuous sizes if pixel format is supported */
 		if (NULL == format_by_fourcc(argp->pixel_format))
 			return -EINVAL;
 
@@ -973,11 +980,13 @@ static int check_buffer_capability(struct v4l2_loopback_device *dev,
 	 * else OUTPUT. */
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		if (!dev->keep_format || !dev->ready_for_capture)
+		if (!(has_capture_token(opener->format_token) ||
+		      !has_output_token(dev->stream_tokens)))
 			return -EINVAL;
 		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		if (!dev->ready_for_output)
+		if (!(has_output_token(opener->format_token) ||
+		      has_output_token(dev->stream_tokens)))
 			return -EINVAL;
 		break;
 	default:
@@ -992,12 +1001,13 @@ static int vidioc_enum_frameintervals(struct file *file, void *fh,
 				      struct v4l2_frmivalenum *argp)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
 
 	/* there can be only one... */
 	if (argp->index)
 		return -EINVAL;
 
-	if (V4L2LOOPBACK_IS_FIXED_FMT(dev)) {
+	if (dev->keep_format || has_other_owners(opener, dev)) {
 		/* keep_format also locks the frame rate */
 		if (argp->width != dev->pix_format.width ||
 		    argp->height != dev->pix_format.height ||
@@ -1035,7 +1045,7 @@ static int vidioc_enum_fmt_vid(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
-	int fixed = V4L2LOOPBACK_IS_FIXED_FMT(dev);
+	int fixed = dev->keep_format || has_other_owners(opener, dev);
 	const struct v4l2l_format *fmt;
 
 	if (check_buffer_capability(dev, opener, f->type) < 0)
@@ -1043,7 +1053,6 @@ static int vidioc_enum_fmt_vid(struct file *file, void *fh,
 
 	if (!(f->index < FORMATS))
 		return -EINVAL;
-
 	/* TODO: Support 6.14 V4L2_FMTDESC_FLAG_ENUM_ALL */
 	if (fixed && f->index)
 		return -EINVAL;
@@ -1076,7 +1085,7 @@ static int vidioc_try_fmt_vid(struct file *file, void *fh,
 	if (v4l2l_fill_format(f, dev->min_width, dev->max_width,
 			      dev->min_height, dev->max_height) != 0)
 		return -EINVAL;
-	if (V4L2LOOPBACK_IS_FIXED_FMT(dev))
+	if (dev->keep_format || has_other_owners(opener, dev))
 		/* use existing format - including colorspace info */
 		f->fmt.pix = dev->pix_format;
 
@@ -1094,7 +1103,9 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
-	u32 capture = V4L2_TYPE_IS_CAPTURE(f->type);
+	u32 token = opener->io_method == V4L2L_IO_TIMEOUT ?
+			    V4L2L_TOKEN_TIMEOUT :
+			    token_from_type(f->type);
 	int changed, result;
 	char buf[5];
 
@@ -1110,9 +1121,9 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 	if (result < 0)
 		return result;
 
-	if (((dev->active_readers > 0 && capture) ||
-	     (dev->ready_for_capture > 0 && !capture)) &&
-	    !(opener->io_method == V4L2L_IO_TIMEOUT)) {
+	if (opener->format_token)
+		release_token(dev, opener, format);
+	if (!(dev->format_tokens & token)) {
 		result = -EBUSY;
 		goto exit_s_fmt_unlock;
 	}
@@ -1122,14 +1133,13 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 		fourcc2str(f->fmt.pix.pixelformat, buf), f->fmt.pix.width,
 		f->fmt.pix.height, f->fmt.pix.sizeimage);
 	changed = !pix_format_eq(&dev->pix_format, &f->fmt.pix, 0);
-	if (changed || !dev->ready_for_capture) {
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+	if (changed || has_no_owners(dev)) {
 		result = allocate_buffers(dev, &f->fmt.pix);
 		if (result < 0)
 			goto exit_s_fmt_unlock;
 	}
-	if (changed ||
-	    (!dev->timeout_image && need_timeout_buffer(dev, opener))) {
+	if ((dev->timeout_image && changed) ||
+	    (!dev->timeout_image && need_timeout_buffer(dev, token))) {
 		result = allocate_timeout_buffer(dev);
 		if (result < 0)
 			goto exit_s_fmt_free;
@@ -1139,11 +1149,9 @@ static int vidioc_s_fmt_vid(struct file *file, void *fh, struct v4l2_format *f)
 		dev->pix_format_has_valid_sizeimage =
 			v4l2l_pix_format_has_valid_sizeimage(f);
 	}
+	acquire_token(dev, opener, format, token);
 	if (opener->io_method == V4L2L_IO_TIMEOUT)
 		dev->timeout_image_io = 0;
-	/* TODO: [JMZ] get rid of the next line. [SW] driver sets this value -
-	 * and can safely ignore application (input) values */
-	f->fmt.pix.sizeimage = dev->buffer_size;
 	goto exit_s_fmt_unlock;
 exit_s_fmt_free:
 	free_buffers(dev);
@@ -1356,8 +1364,7 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 		if (result < 0)
 			return result;
 		if (!dev->keep_format) {
-			if (dev->ready_for_output && dev->active_readers == 0 &&
-			    !any_buffers_mapped(dev))
+			if (has_no_owners(dev) && !any_buffers_mapped(dev))
 				free_buffers(dev);
 		}
 		mutex_unlock(&dev->image_mutex);
@@ -1379,7 +1386,7 @@ static int v4l2loopback_set_ctrl(struct v4l2_loopback_device *dev, u32 id,
 				return result;
 			/* on-the-fly allocate if device is owned; else
 			 * allocate occurs on next S_FMT or REQBUFS */
-			if (!dev->ready_for_output || dev->active_readers > 0)
+			if (!has_no_owners(dev))
 				result = allocate_timeout_buffer(dev);
 			mutex_unlock(&dev->image_mutex);
 			if (result < 0) {
@@ -1505,7 +1512,8 @@ static int vidioc_enum_input(struct file *file, void *fh,
 #endif
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-	if (!dev->ready_for_capture)
+	if (has_output_token(dev->stream_tokens) && !dev->keep_format)
+		/* if no outputs attached; pretend device is powered off */
 		inp->status |= V4L2_IN_ST_NO_SIGNAL;
 
 	return 0;
@@ -1541,6 +1549,11 @@ static int vidioc_s_input(struct file *file, void *fh, unsigned int index)
 
 /* --------------- V4L2 ioctl buffer related calls ----------------- */
 
+#define is_allocated(opener, type, index)                                \
+	(opener->format_token & (opener->io_method == V4L2L_IO_TIMEOUT ? \
+					 V4L2L_TOKEN_TIMEOUT :           \
+					 token_from_type(type)) &&       \
+	 (index) < (opener)->buffer_count)
 #define BUFFER_DEBUG_FMT_STR                                      \
 	"buffer#%u @ %p type=%u bytesused=%u length=%u flags=%x " \
 	"field=%u timestamp= %lld.%06lldsequence=%u\n"
@@ -1608,6 +1621,7 @@ static void prepare_buffer_queue(struct v4l2_loopback_device *dev, int count)
 exit_prepare_queue_unlock:
 	spin_unlock_bh(&dev->list_lock);
 }
+
 /* forward declaration */
 static int vidioc_streamoff(struct file *file, void *fh,
 			    enum v4l2_buf_type type);
@@ -1616,64 +1630,79 @@ static int vidioc_streamoff(struct file *file, void *fh,
  * called on VIDIOC_REQBUFS
  */
 static int vidioc_reqbufs(struct file *file, void *fh,
-			  struct v4l2_requestbuffers *b)
+			  struct v4l2_requestbuffers *reqbuf)
 {
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
-	u32 req_count = b->count;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	u32 token = opener->io_method == V4L2L_IO_TIMEOUT ?
+			    V4L2L_TOKEN_TIMEOUT :
+			    token_from_type(reqbuf->type);
+	u32 req_count = reqbuf->count;
 	int result = 0;
 	MARK();
 
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(fh);
-
 	dprintk("REQBUFS(memory=%u, req_count=%u) and device-bufs=%u/%u "
 		"[used/max]\n",
-		b->memory, req_count, dev->used_buffer_count,
+		reqbuf->memory, req_count, dev->used_buffer_count,
 		dev->buffer_count);
 
-	switch (b->memory) {
+	switch (reqbuf->memory) {
 	case V4L2_MEMORY_MMAP:
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 20, 0)
-		b->capabilities = 0; /* only guarantee MMAP support */
+		reqbuf->capabilities = 0; /* only guarantee MMAP support */
 #endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 16, 0)
-		b->flags = 0; /* no memory consistency support */
+		reqbuf->flags = 0; /* no memory consistency support */
 #endif
 		break;
 	default:
 		return -EINVAL;
 	}
 
+	if (opener->format_token & ~token)
+		/* different (buffer) type already assigned to descriptor by
+		 * S_FMT or REQBUFS */
+		return -EINVAL;
+
 	MARK();
 	result = mutex_lock_killable(&dev->image_mutex);
 	if (result < 0)
 		return result; /* -EINTR */
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT) {
-		dev->timeout_image_io = 0;
-		b->count = 2;
+	/* CASE queue/dequeue timeout-buffer only: */
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
+		opener->buffer_count = req_count;
+		if (req_count == 0)
+			release_token(dev, opener, format);
 		goto exit_reqbufs_unlock;
 	}
 
 	MARK();
-	/* CASE count is zero: streamoff */
+	/* CASE count is zero: streamoff, free buffers, release their token */
 	if (req_count == 0) {
-		opener->io_method = V4L2L_IO_MMAP;
-		result = vidioc_streamoff(file, fh, b->type);
+		if (dev->format_tokens & token) {
+			acquire_token(dev, opener, format, token);
+			opener->io_method = V4L2L_IO_MMAP;
+		}
+		result = vidioc_streamoff(file, fh, reqbuf->type);
 		opener->buffer_count = 0;
+		/* undocumented requirement - REQBUFS with count zero should
+		 * ALSO release lock on logical stream */
+		if (opener->format_token)
+			release_token(dev, opener, format);
+		if (has_no_owners(dev))
+			dev->used_buffer_count = 0;
 		goto exit_reqbufs_unlock;
 	}
 
 	/* CASE count non-zero: allocate buffers and acquire token for them */
 	MARK();
-	switch (b->type) {
+	switch (reqbuf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		if (dev->active_readers)
-			result = -EBUSY;
-		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		if (!dev->ready_for_output)
+		if (!(dev->format_tokens & token ||
+		      opener->format_token & token))
+			/* only exclusive ownership for each stream */
 			result = -EBUSY;
 		break;
 	default:
@@ -1682,23 +1711,32 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	if (result < 0)
 		goto exit_reqbufs_unlock;
 
+	if (has_other_owners(opener, dev) && dev->used_buffer_count > 0) {
+		/* allow 'allocation' of existing number of buffers */
+		req_count = dev->used_buffer_count;
+	} else if (any_buffers_mapped(dev)) {
+		/* do not allow re-allocation if buffers are mapped */
+		result = -EBUSY;
+		goto exit_reqbufs_unlock;
+	}
+
 	MARK();
 	opener->buffer_count = 0;
 
 	if (req_count > dev->buffer_count)
 		req_count = dev->buffer_count;
 
-	if (!dev->ready_for_capture && dev->active_readers == 0) {
-		/* only allow writer to allocate when there are no readers */
+	if (has_no_owners(dev)) {
 		result = allocate_buffers(dev, &dev->pix_format);
 		if (result < 0)
 			goto exit_reqbufs_unlock;
 	}
-	if (!dev->timeout_image && need_timeout_buffer(dev, opener)) {
+	if (!dev->timeout_image && need_timeout_buffer(dev, token)) {
 		result = allocate_timeout_buffer(dev);
 		if (result < 0)
 			goto exit_reqbufs_unlock;
 	}
+	acquire_token(dev, opener, format, token);
 
 	MARK();
 	switch (opener->io_method) {
@@ -1713,7 +1751,7 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 	}
 exit_reqbufs_unlock:
 	mutex_unlock(&dev->image_mutex);
-	b->count = opener->buffer_count;
+	reqbuf->count = opener->buffer_count;
 	return result;
 }
 
@@ -1730,14 +1768,13 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	u32 index = buf->index;
 	MARK();
 
-	if ((buf->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
-	    (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
+	if ((type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
+	    (type != V4L2_BUF_TYPE_VIDEO_OUTPUT))
 		return -EINVAL;
-	}
-	if (buf->index >= dev->used_buffer_count)
+	if (!is_allocated(opener, type, index))
 		return -EINVAL;
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
 		*buf = dev->timeout_buffer.buffer;
 		buf->index = index;
 	} else
@@ -1795,7 +1832,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 	u32 index = buf->index;
 	u32 type = buf->type;
 
-	if (buf->index >= dev->used_buffer_count)
+	if (!is_allocated(opener, type, index))
 		return -EINVAL;
 	bufd = &dev->buffers[index];
 
@@ -1808,7 +1845,7 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		return -EINVAL;
 	}
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
 		set_queued(buf->flags);
 		return 0;
 	}
@@ -1907,7 +1944,7 @@ static int get_capture_buffer(struct file *file)
 				  dev->used_buffer_count);
 		++opener->read_position;
 	}
-	timeout_happened = dev->timeout_happened;
+	timeout_happened = dev->timeout_happened && (dev->timeout_jiffies > 0);
 	dev->timeout_happened = 0;
 	spin_unlock_bh(&dev->lock);
 
@@ -1941,13 +1978,14 @@ static int vidioc_dqbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 
 	if (buf->memory != V4L2_MEMORY_MMAP)
 		return -EINVAL;
-	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
 		*buf = dev->timeout_buffer.buffer;
 		buf->type = type;
 		unset_flags(buf->flags);
 		return 0;
 	}
-	if (opener->buffer_count == 0)
+	if ((opener->buffer_count == 0) ||
+	    !(opener->format_token & token_from_type(type)))
 		return -EINVAL;
 
 	switch (type) {
@@ -1992,34 +2030,32 @@ static int vidioc_streamon(struct file *file, void *fh, enum v4l2_buf_type type)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
+	u32 token = token_from_type(type);
 	MARK();
 
-	/* short-circuit when writing timeout buffers */
-	if (opener->io_method == V4L2L_IO_TIMEOUT)
+	/* short-circuit when using timeout buffer set */
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT)
 		return 0;
-	/* opener must have claimed buffers via REQBUFS */
-	if (opener->buffer_count == 0)
+	/* opener must have claimed (same) buffer set via REQBUFS */
+	if (!opener->buffer_count || !(opener->format_token & token))
 		return -EINVAL;
 
 	switch (type) {
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		opener->type = WRITER;
-		dev->ready_for_output = 0;
-		dev->ready_for_capture++;
-		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		if (!dev->ready_for_capture)
+		if (has_output_token(dev->stream_tokens) && !dev->keep_format)
 			return -EIO;
-		if (dev->active_readers > 0)
-			return -EBUSY;
-		opener->type = READER;
-		dev->active_readers++;
-		client_usage_queue_event(dev->vdev);
+		if (dev->stream_tokens & token) {
+			acquire_token(dev, opener, stream, token);
+			client_usage_queue_event(dev->vdev);
+		}
+		return 0;
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+		if (dev->stream_tokens & token)
+			acquire_token(dev, opener, stream, token);
 		return 0;
 	default:
 		return -EINVAL;
 	}
-	return -EINVAL;
 }
 
 /* stop streaming
@@ -2030,32 +2066,39 @@ static int vidioc_streamoff(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
-
+	u32 token = token_from_type(type);
 	MARK();
 	dprintk("%d\n", type);
 
-	/* short-circuit when writing timeout buffers */
-	if (opener->io_method == V4L2L_IO_TIMEOUT)
+	/* short-circuit when using timeout buffer set */
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT)
 		return 0;
+	/* short-circuit when buffer set has no owner */
+	if (dev->format_tokens & token)
+		return 0;
+	/* opener needs a claim to buffer set */
+	if (!opener->format_token)
+		return -EBUSY;
+	if (opener->format_token & ~token)
+		return -EINVAL;
 
 	switch (type) {
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
-		if (opener->type == WRITER)
-			dev->ready_for_output = 1;
-		if (dev->ready_for_capture > 0)
-			dev->ready_for_capture--;
+		if (opener->stream_token & token)
+			release_token(dev, opener, stream);
+		/* reset output queue */
+		if (dev->used_buffer_count > 0)
+			prepare_buffer_queue(dev, dev->used_buffer_count);
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		if (opener->type == READER) {
-			opener->type = 0;
-			dev->active_readers--;
+		if (opener->stream_token & token) {
+			release_token(dev, opener, stream);
 			client_usage_queue_event(dev->vdev);
 		}
 		return 0;
 	default:
 		return -EINVAL;
 	}
-	return -EINVAL;
 }
 
 #ifdef CONFIG_VIDEO_V4L1_COMPAT
@@ -2083,7 +2126,8 @@ static void client_usage_queue_event(struct video_device *vdev)
 
 	memset(&ev, 0, sizeof(ev));
 	ev.type = V4L2_EVENT_PRI_CLIENT_USAGE;
-	((struct v4l2_event_client_usage *)&ev.u)->count = dev->active_readers;
+	((struct v4l2_event_client_usage *)&ev.u)->count =
+		!has_capture_token(dev->stream_tokens);
 
 	v4l2_event_queue(vdev, &ev);
 }
@@ -2163,10 +2207,9 @@ static struct vm_operations_struct vm_ops = {
 static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	u8 *addr;
-	unsigned long start;
-	unsigned long size;
-	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
+	unsigned long start, size;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(file->private_data);
 	struct v4l2l_buffer *buffer = NULL;
 	int result = 0;
 	MARK();
@@ -2174,8 +2217,6 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 	start = (unsigned long)vma->vm_start;
 	size = (unsigned long)(vma->vm_end - vma->vm_start);
 
-	dev = v4l2loopback_getdevice(file);
-	opener = fh_to_opener(file->private_data);
 	/* ensure buffer size, number, and allocated image are not altered by
 	 * other file descriptors */
 	result = mutex_lock_killable(&dev->image_mutex);
@@ -2187,7 +2228,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		result = -EINVAL;
 		goto exit_mmap_unlock;
 	}
-	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
 		/* we are going to map the timeout_buffer */
 		if ((vma->vm_pgoff << PAGE_SHIFT) !=
 		    (unsigned long)dev->buffer_size * MAX_BUFFERS) {
@@ -2209,7 +2250,7 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 	if (result < 0)
 		goto exit_mmap_unlock;
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT) {
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
 		buffer = &dev->timeout_buffer;
 		addr = dev->timeout_image;
 	} else {
@@ -2254,17 +2295,14 @@ exit_mmap_unlock:
 static unsigned int v4l2_loopback_poll(struct file *file,
 				       struct poll_table_struct *pts)
 {
-	struct v4l2_loopback_opener *opener;
-	struct v4l2_loopback_device *dev;
+	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
+	struct v4l2_loopback_opener *opener = fh_to_opener(file->private_data);
 	__poll_t req_events = poll_requested_events(pts);
 	int ret_mask = 0;
 	MARK();
 
-	opener = fh_to_opener(file->private_data);
-	dev = v4l2loopback_getdevice(file);
-
-	/* call poll_wait in first call, regardless, to ensure that the wait-queue
-	 * is not null */
+	/* call poll_wait in first call, regardless, to ensure that the
+	 * wait-queue is not null */
 	poll_wait(file, &dev->read_event, pts);
 	poll_wait(file, &opener->fh.wait, pts);
 
@@ -2276,13 +2314,20 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 		}
 	}
 
-	switch (opener->type) {
-	case WRITER:
-		ret_mask |= POLLOUT | POLLWRNORM;
+	switch (opener->format_token) {
+	case V4L2L_TOKEN_OUTPUT:
+		if (opener->stream_token != 0 ||
+		    opener->io_method == V4L2L_IO_NONE)
+			ret_mask |= POLLOUT | POLLWRNORM;
 		break;
-	case READER:
-		if (can_read(dev, opener))
-			ret_mask |= POLLIN | POLLRDNORM;
+	case V4L2L_TOKEN_CAPTURE:
+		if ((opener->io_method == V4L2L_IO_NONE ||
+		     opener->stream_token != 0) &&
+		    can_read(dev, opener))
+			ret_mask |= POLLIN | POLLWRNORM;
+		break;
+	case V4L2L_TOKEN_TIMEOUT:
+		ret_mask |= POLLOUT | POLLWRNORM;
 		break;
 	default:
 		break;
@@ -2308,15 +2353,16 @@ static int v4l2_loopback_open(struct file *file)
 		return -ENOMEM;
 
 	atomic_inc(&dev->open_count);
-
-	if (dev->timeout_image_io)
+	if (dev->timeout_image_io && dev->format_tokens & V4L2L_TOKEN_TIMEOUT)
+		/* will clear timeout_image_io once buffer set acquired */
 		opener->io_method = V4L2L_IO_TIMEOUT;
 
 	v4l2_fh_init(&opener->fh, video_devdata(file));
 	file->private_data = &opener->fh;
 
 	v4l2_fh_add(&opener->fh);
-	dprintk("opened dev:%p with image:%p\n", dev, dev ? dev->image : NULL);
+	dprintk("open() -> dev@%p with image@%p\n", dev,
+		dev ? dev->image : NULL);
 	MARK();
 	return 0;
 }
@@ -2327,28 +2373,32 @@ static int v4l2_loopback_close(struct file *file)
 	struct v4l2_loopback_opener *opener = fh_to_opener(file->private_data);
 	int result = 0;
 	MARK();
+	dprintk("close() -> dev@%p with image@%p\n", dev,
+		dev ? dev->image : NULL);
 
-	if (opener->type) {
+	if (opener->format_token) {
 		struct v4l2_requestbuffers reqbuf = {
 			.count = 0, .memory = V4L2_MEMORY_MMAP, .type = 0
 		};
-		switch (opener->type) {
-		case READER:
+		switch (opener->format_token) {
+		case V4L2L_TOKEN_CAPTURE:
 			reqbuf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 			break;
-		case WRITER:
+		case V4L2L_TOKEN_OUTPUT:
+		case V4L2L_TOKEN_TIMEOUT:
 			reqbuf.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
-			break;
-		default:
 			break;
 		}
 		if (reqbuf.type)
 			result = vidioc_reqbufs(file, file->private_data,
 						&reqbuf);
 		if (result < 0)
-			dprintk("Failed to free buffers REQBUF(count=0) "
+			dprintk("failed to free buffers REQBUFS(count=0) "
 				" returned %d\n",
 				result);
+		mutex_lock(&dev->image_mutex);
+		release_token(dev, opener, format);
+		mutex_unlock(&dev->image_mutex);
 	}
 
 	if (atomic_dec_and_test(&dev->open_count)) {
@@ -2376,15 +2426,19 @@ static int start_fileio(struct file *file, void *fh, enum v4l2_buf_type type)
 	struct v4l2_requestbuffers reqbuf = { .count = dev->buffer_count,
 					      .memory = V4L2_MEMORY_MMAP,
 					      .type = type };
+	int token = token_from_type(type);
 	int result;
 
-	if (opener->io_method == V4L2L_IO_TIMEOUT)
+	if (opener->format_token & V4L2L_TOKEN_TIMEOUT ||
+	    opener->format_token & ~token)
 		return -EBUSY; /* NOTE: -EBADF might be more informative */
 
-	/* short-circuit if already negotiated type */
-	if (opener->type != UNNEGOTIATED && opener->io_method == V4L2L_IO_FILE)
+	/* short-circuit if already have stream token */
+	if (opener->stream_token && opener->io_method == V4L2L_IO_FILE)
 		return 0;
-	if (opener->io_method != V4L2L_IO_NONE)
+
+	/* otherwise attempt to acquire stream token and assign IO method */
+	if (!(dev->stream_tokens & token) || opener->io_method != V4L2L_IO_NONE)
 		return -EBUSY;
 
 	result = vidioc_reqbufs(file, fh, &reqbuf);
@@ -2469,10 +2523,10 @@ static void free_buffers(struct v4l2_loopback_device *dev)
 	dprintk("free_buffers() with image@%p\n", dev->image);
 	if (!dev->image)
 		return;
-	if (!dev->ready_for_output || dev->active_readers ||
-	    any_buffers_mapped(dev))
+	if (!has_no_owners(dev) || any_buffers_mapped(dev))
+		/* maybe an opener snuck in before image_mutex was acquired */
 		printk(KERN_WARNING
-		       "v4l2loopback free_buffers(): buffers of video device "
+		       "v4l2loopback free_buffers() buffers of video device "
 		       "#%u freed while still mapped to userspace\n",
 		       dev->vdev->num);
 	vfree(dev->image);
@@ -2488,11 +2542,10 @@ static void free_timeout_buffer(struct v4l2_loopback_device *dev)
 	if (!dev->timeout_image)
 		return;
 
-	if ((dev->timeout_jiffies > 0 &&
-	     (!dev->ready_for_output || dev->active_readers)) ||
+	if ((dev->timeout_jiffies > 0 && !has_no_owners(dev)) ||
 	    dev->timeout_buffer.buffer.flags & V4L2_BUF_FLAG_MAPPED)
 		printk(KERN_WARNING
-		       "v4l2loopback free_timeout_buffer(): timeout image "
+		       "v4l2loopback free_timeout_buffer() timeout image "
 		       "of device #%u freed while still mapped to userspace\n",
 		       dev->vdev->num);
 
@@ -2521,8 +2574,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev,
 		image_size, buffer_size, dev->buffer_count);
 	if (dev->image) {
 		/* check that no buffers are expected in user-space */
-		if (!dev->ready_for_output || dev->active_readers ||
-		    any_buffers_mapped(dev))
+		if (!has_no_owners(dev) || any_buffers_mapped(dev))
 			return -EBUSY;
 		dprintk("allocate_buffers() existing size=%lubytes\n",
 			dev->image_size);
@@ -2643,7 +2695,7 @@ static void init_capture_param(struct v4l2_captureparm *capture_param)
 
 static void check_timers(struct v4l2_loopback_device *dev)
 {
-	if (!dev->ready_for_capture)
+	if (has_output_token(dev->stream_tokens))
 		return;
 
 	if (dev->timeout_jiffies > 0 && !timer_pending(&dev->timeout_timer))
@@ -2848,8 +2900,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	}
 	memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
 	atomic_set(&dev->open_count, 0);
-	dev->ready_for_capture = 0;
-	dev->ready_for_output = 1;
+	dev->format_tokens = V4L2L_TOKEN_MASK;
+	dev->stream_tokens = V4L2L_TOKEN_MASK;
 
 	dev->buffer_size = 0;
 	dev->image = NULL;
