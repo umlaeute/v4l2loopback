@@ -508,18 +508,13 @@ static int v4l2l_fill_format(struct v4l2_format *fmt, const u32 minwidth,
 	u32 pixelformat = fmt->fmt.pix.pixelformat;
 	struct v4l2_format fmt0 = *fmt;
 	u32 bytesperline = 0, sizeimage = 0;
+
 	if (!width)
 		width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
 	if (!height)
 		height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
-	if (width < minwidth)
-		width = minwidth;
-	if (width > maxwidth)
-		width = maxwidth;
-	if (height < minheight)
-		height = minheight;
-	if (height > maxheight)
-		height = maxheight;
+	width = clamp_val(width, minwidth, maxwidth);
+	height = clamp_val(height, minheight, maxheight);
 
 	/* sets: width,height,pixelformat,bytesperline,sizeimage */
 	if (!(V4L2_TYPE_IS_MULTIPLANAR(fmt0.type))) {
@@ -2942,15 +2937,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	/* FIXME set buffers to 0 */
 
 	/* Set initial format */
-	if (_width < _min_width)
-		_width = _min_width;
-	if (_width > _max_width)
-		_width = _max_width;
-	if (_height < _min_height)
-		_height = _min_height;
-	if (_height > _max_height)
-		_height = _max_height;
-
+	_width = clamp_val(_width, _min_width, _max_width);
+	_height = clamp_val(_height, _min_height, _max_height);
 	_fmt = (struct v4l2_format){
 		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
 		.fmt.pix = { .width = _width,
