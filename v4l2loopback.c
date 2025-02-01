@@ -104,6 +104,7 @@ static inline void v4l2l_get_timestamp(struct v4l2_buffer *b)
 	b->timestamp.tv_sec = ts.tv_sec;
 	b->timestamp.tv_usec = (ts.tv_nsec / NSEC_PER_USEC);
 	b->flags |= V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
+	b->flags &= ~V4L2_BUF_FLAG_TIMESTAMP_COPY;
 }
 
 #if BITS_PER_LONG == 32
@@ -1866,6 +1867,8 @@ static int vidioc_qbuf(struct file *file, void *fh, struct v4l2_buffer *buf)
 		} else {
 			bufd->buffer.timestamp = buf->timestamp;
 			bufd->buffer.flags |= V4L2_BUF_FLAG_TIMESTAMP_COPY;
+			bufd->buffer.flags &=
+				~V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 		}
 		if (dev->pix_format_has_valid_sizeimage) {
 			if (buf->bytesused >= dev->pix_format.sizeimage) {
