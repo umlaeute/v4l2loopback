@@ -314,6 +314,16 @@ struct v4l2_loopback_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_ctrl_handler ctrl_handler;
 	struct video_device *vdev;
+
+	/* loopback device-specific parameters */
+	char card_label[32];
+	bool announce_all_caps; /* announce both OUTPUT and CAPTURE capabilities
+				 * when true; else announce OUTPUT when no
+				 * writer is streaming, otherwise CAPTURE. */
+	int max_openers; /* how many times can this device be opened */
+	int min_width, max_width;
+	int min_height, max_height;
+
 	/* pixel and stream format */
 	struct v4l2_pix_format pix_format;
 	bool pix_format_has_valid_sizeimage;
@@ -331,32 +341,20 @@ struct v4l2_loopback_device {
 	int timeout_image_io; /* CID_TIMEOUT_IMAGE_IO; next opener will
 			       * queue/dequeue the timeout image buffer */
 
-	/* buffers stuff */
+	/* buffers for OUTPUT and CAPTURE */
 	u8 *image; /* pointer to actual buffers data */
 	unsigned long image_size; /* number of bytes alloc'd for all buffers */
 	struct v4l2l_buffer buffers[MAX_BUFFERS]; /* inner driver buffers */
 	u32 buffer_count; /* should not be big, 4 is a good choice */
 	u32 buffer_size; /* number of bytes alloc'd per buffer */
 	u32 used_buffer_count; /* number of buffers allocated to openers */
-	int max_openers; /* how many times can this device be opened */
-
-	s64 write_position; /* number of last written frame + 1 */
-	struct list_head outbufs_list; /* buffers in output DQBUF order */
+	struct list_head outbufs_list; /* FIFO queue for OUTPUT buffers */
 	u32 bufpos2index[MAX_BUFFERS]; /* mapping of `(position % used_buffers)`
 					* to `buffers[index]` */
+	s64 write_position; /* sequence number of last 'displayed' buffer plus
+			     * one */
 
-	/* sustain_framerate stuff */
-	struct timer_list sustain_timer;
-	unsigned int reread_count;
-
-	/* timeout */
-	u8 *timeout_image; /* copied to outgoing buffers when timeout passes */
-	struct v4l2l_buffer timeout_buffer;
-	u32 timeout_buffer_size; /* number bytes alloc'd for timeout buffer */
-	struct timer_list timeout_timer;
-	int timeout_happened;
-
-	/* sync stuff */
+	/* synchronization between openers */
 	atomic_t open_count;
 	struct mutex image_mutex; /* mutex for allocating image(s) and
 				   * exchanging format tokens */
@@ -367,14 +365,17 @@ struct v4l2_loopback_device {
 			    * timeout buffers */
 	u32 stream_tokens; /* tokens to 'start' OUTPUT, CAPTURE, or timeout
 			    * stream */
-	int announce_all_caps; /* set to false, if device caps (OUTPUT/CAPTURE)
-                                * should only be announced if the resp. "ready"
-                                * flag is set; default=TRUE */
 
-	int min_width, max_width;
-	int min_height, max_height;
+	/* sustain framerate */
+	struct timer_list sustain_timer;
+	unsigned int reread_count;
 
-	char card_label[32];
+	/* timeout */
+	u8 *timeout_image; /* copied to outgoing buffers when timeout passes */
+	struct v4l2l_buffer timeout_buffer;
+	u32 timeout_buffer_size; /* number bytes alloc'd for timeout buffer */
+	struct timer_list timeout_timer;
+	int timeout_happened;
 };
 
 enum v4l2l_io_method {
@@ -391,8 +392,7 @@ struct v4l2_loopback_opener {
 	u32 stream_token; /* token (if any) for type used in call to STREAMON */
 	u32 buffer_count; /* number of buffers (if any) that opener acquired via
 			   * REQBUFS */
-	s64 read_position; /* number of last processed frame + 1 or
-			    * write_position - 1 if reader went out of sync */
+	s64 read_position; /* sequence number of the next 'captured' frame */
 	unsigned int reread_count;
 	enum v4l2l_io_method io_method;
 
@@ -2584,9 +2584,9 @@ static int allocate_buffers(struct v4l2_loopback_device *dev,
 		free_buffers(dev);
 	}
 
+	/* FIXME: set buffers to 0 */
 	dev->image = vmalloc(image_size);
 	if (dev->image == NULL) {
-		/* NOTE: might need to free timeout, too */
 		dev->buffer_size = dev->image_size = 0;
 		return -ENOMEM;
 	}
@@ -2758,8 +2758,7 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	struct v4l2_loopback_device *dev;
 	struct v4l2_ctrl_handler *hdl;
 	struct v4l2loopback_private *vdev_priv = NULL;
-
-	int err = -ENOMEM;
+	int err;
 
 	u32 _width = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
 	u32 _height = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
@@ -2799,9 +2798,11 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 			nr = capture_nr;
 		} else {
 			printk(KERN_ERR
-			       "split OUTPUT and CAPTURE devices not yet supported.");
+			       "split OUTPUT and CAPTURE devices not yet "
+			       "supported.\n");
 			printk(KERN_INFO
-			       "both devices must have the same number (%d != %d).",
+			       "both devices must have the same number "
+			       "(%d != %d).\n",
 			       output_nr, capture_nr);
 			return -EINVAL;
 		}
@@ -2810,7 +2811,8 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	if (idr_find(&v4l2loopback_index_idr, nr))
 		return -EEXIST;
 
-	dprintk("creating v4l2loopback-device #%d\n", nr);
+	/* initialisation of a new device */
+	dprintk("add() creating device #%d\n", nr);
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -2826,8 +2828,10 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	}
 	if (err < 0)
 		goto out_free_dev;
+
+	/* register new device */
+	MARK();
 	nr = err;
-	err = -ENOMEM;
 
 	if (conf && conf->card_label[0]) {
 		snprintf(dev->card_label, sizeof(dev->card_label), "%s",
@@ -2842,68 +2846,93 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	err = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (err)
 		goto out_free_idr;
-	MARK();
 
+	/* initialise the _video_ device */
+	MARK();
+	err = -ENOMEM;
 	dev->vdev = video_device_alloc();
-	if (dev->vdev == NULL) {
-		err = -ENOMEM;
+	if (dev->vdev == NULL)
 		goto out_unregister;
-	}
 
 	vdev_priv = kzalloc(sizeof(struct v4l2loopback_private), GFP_KERNEL);
-	if (vdev_priv == NULL) {
-		err = -ENOMEM;
+	if (vdev_priv == NULL)
 		goto out_unregister;
-	}
 
 	video_set_drvdata(dev->vdev, vdev_priv);
-	if (video_get_drvdata(dev->vdev) == NULL) {
-		err = -ENOMEM;
+	if (video_get_drvdata(dev->vdev) == NULL)
 		goto out_unregister;
-	}
 
-	MARK();
 	snprintf(dev->vdev->name, sizeof(dev->vdev->name), "%s",
 		 dev->card_label);
-
 	vdev_priv->device_nr = nr;
-
 	init_vdev(dev->vdev, nr);
 	dev->vdev->v4l2_dev = &dev->v4l2_dev;
-	init_capture_param(&dev->capture_param);
-	set_timeperframe(dev, &dev->capture_param.timeperframe);
-	dev->keep_format = 0;
-	dev->sustain_framerate = 0;
 
+	/* initialise v4l2-loopback specific parameters */
+	MARK();
 	dev->announce_all_caps = _announce_all_caps;
 	dev->min_width = _min_width;
 	dev->min_height = _min_height;
 	dev->max_width = _max_width;
 	dev->max_height = _max_height;
 	dev->max_openers = _max_openers;
-	dev->buffer_count = dev->used_buffer_count = _max_buffers;
 
-	dev->write_position = 0;
+	/* set (initial) pixel and stream format */
+	_width = clamp_val(_width, _min_width, _max_width);
+	_height = clamp_val(_height, _min_height, _max_height);
+	_fmt = (struct v4l2_format){
+		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
+		.fmt.pix = { .width = _width,
+			     .height = _height,
+			     .pixelformat = formats[0].fourcc,
+			     .colorspace = V4L2_COLORSPACE_DEFAULT,
+			     .field = V4L2_FIELD_NONE }
+	};
 
-	MARK();
-	spin_lock_init(&dev->lock);
-	spin_lock_init(&dev->list_lock);
-	mutex_init(&dev->image_mutex);
+	err = v4l2l_fill_format(&_fmt, _min_width, _max_width, _min_height,
+				_max_height);
+	if (err)
+		/* highly unexpected failure to assign default format */
+		goto out_unregister;
+	dev->pix_format = _fmt.fmt.pix;
+	init_capture_param(&dev->capture_param);
+	set_timeperframe(dev, &dev->capture_param.timeperframe);
+
+	/* ctrls parameters */
+	dev->keep_format = 0;
+	dev->sustain_framerate = 0;
+	dev->timeout_jiffies = 0;
+	dev->timeout_image_io = 0;
+
+	/* initialise OUTPUT and CAPTURE buffer values */
+	dev->image = NULL;
+	dev->image_size = 0;
+	dev->buffer_count = _max_buffers;
+	dev->buffer_size = 0;
+	dev->used_buffer_count = 0;
 	INIT_LIST_HEAD(&dev->outbufs_list);
-	if (list_empty(&dev->outbufs_list)) {
+	do {
 		u32 index;
 		for (index = 0; index < dev->buffer_count; ++index)
-			list_add_tail(&dev->buffers[index].list_head,
-				      &dev->outbufs_list);
-	}
+			INIT_LIST_HEAD(&dev->buffers[index].list_head);
+
+	} while (0);
 	memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
+	dev->write_position = 0;
+
+	/* initialise synchronisation data */
 	atomic_set(&dev->open_count, 0);
+	mutex_init(&dev->image_mutex);
+	spin_lock_init(&dev->lock);
+	spin_lock_init(&dev->list_lock);
+	init_waitqueue_head(&dev->read_event);
 	dev->format_tokens = V4L2L_TOKEN_MASK;
 	dev->stream_tokens = V4L2L_TOKEN_MASK;
 
-	dev->buffer_size = 0;
-	dev->image = NULL;
-	dev->image_size = 0;
+	/* initialise sustain frame rate and timeout parameters, and timers */
+	dev->reread_count = 0;
+	dev->timeout_image = NULL;
+	dev->timeout_happened = 0;
 #ifdef HAVE_TIMER_SETUP
 	timer_setup(&dev->sustain_timer, sustain_timer_clb, 0);
 	timer_setup(&dev->timeout_timer, timeout_timer_clb, 0);
@@ -2911,11 +2940,9 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	setup_timer(&dev->sustain_timer, sustain_timer_clb, nr);
 	setup_timer(&dev->timeout_timer, timeout_timer_clb, nr);
 #endif
-	dev->reread_count = 0;
-	dev->timeout_jiffies = 0;
-	dev->timeout_image = NULL;
-	dev->timeout_happened = 0;
 
+	/* initialise the control handler and add controls */
+	MARK();
 	hdl = &dev->ctrl_handler;
 	err = v4l2_ctrl_handler_init(hdl, 4);
 	if (err)
@@ -2934,35 +2961,17 @@ static int v4l2_loopback_add(struct v4l2_loopback_config *conf, int *ret_nr)
 	if (err)
 		goto out_free_handler;
 
-	/* FIXME set buffers to 0 */
-
-	/* Set initial format */
-	_width = clamp_val(_width, _min_width, _max_width);
-	_height = clamp_val(_height, _min_height, _max_height);
-	_fmt = (struct v4l2_format){
-		.type = V4L2_BUF_TYPE_VIDEO_CAPTURE,
-		.fmt.pix = { .width = _width,
-			     .height = _height,
-			     .pixelformat = formats[0].fourcc,
-			     .colorspace = V4L2_COLORSPACE_DEFAULT,
-			     .field = V4L2_FIELD_NONE }
-	};
-	v4l2l_fill_format(&_fmt, _min_width, _max_width, _min_height,
-			  _max_height);
-	dev->pix_format = _fmt.fmt.pix;
-
-	init_waitqueue_head(&dev->read_event);
-
-	/* register the device -> it creates /dev/video* */
+	/* register the device (creates /dev/video*) */
+	MARK();
 	if (video_register_device(dev->vdev, VFL_TYPE_VIDEO, nr) < 0) {
 		printk(KERN_ERR
-		       "v4l2loopback: failed video_register_device()\n");
+		       "v4l2-loopback add() failed video_register_device()\n");
 		err = -EFAULT;
 		goto out_free_device;
 	}
 	v4l2loopback_create_sysfs(dev->vdev);
+	/* NOTE: ambivalent if sysfs entries fail */
 
-	MARK();
 	if (ret_nr)
 		*ret_nr = dev->vdev->num;
 	return 0;
@@ -2991,10 +3000,10 @@ static void v4l2_loopback_remove(struct v4l2_loopback_device *dev)
 	free_timeout_buffer(dev);
 	mutex_unlock(&dev->image_mutex);
 	v4l2loopback_remove_sysfs(dev->vdev);
+	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	kfree(video_get_drvdata(dev->vdev));
 	video_unregister_device(dev->vdev);
 	v4l2_device_unregister(&dev->v4l2_dev);
-	v4l2_ctrl_handler_free(&dev->ctrl_handler);
 	idr_remove(&v4l2loopback_index_idr, device_nr);
 	kfree(dev);
 }
