@@ -239,12 +239,13 @@ if the producer suddenly stopped.
 $ v4l2-ctl -d /dev/video0 -c timeout=3000
 ~~~
 
-Alternatively, you can calso provide a timeout-image, which will be displayed (instead of the NULL frames),
-if the producer doesn't send any new frames for a given period:
+_Requires GStreamer 1.0, version >= 1.16_: You can provide a timeout image,
+which will be displayed (instead of the NULL frames), if the
+producer doesn't send any new frames for a given period (in the following
+example; 3000ms):
 
 ~~~
 $ v4l2loopback-ctl set-timeout-image -t 3000 /dev/video0 service-unavailable.png
-(this currently requires GStreamer 1.0 installed)
 ~~~
 
 ## DYNAMIC DEVICE MANAGEMENT
