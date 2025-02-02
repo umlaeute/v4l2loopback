@@ -228,7 +228,7 @@ or
 
     $ v4l2loopback-ctl set-caps /dev/video0 "UYVY:640x480"
 
-Please note that *GStreamer-style caps* (e.g. `video/x-raw,format=UYVY,width=640,height=480`) or no longer supported!
+Please note that *GStreamer-style caps* (e.g. `video/x-raw,format=UYVY,width=640,height=480`) are no longer supported!
 
 ## SETTING STREAM TIMEOUT
 
@@ -323,8 +323,8 @@ dkms install -m v4l2loopback -v ${version}
 | Fedora,...         | gcc kernel-devel dkms |
 | Debian, Ubuntu,... | dkms                  |
 
-
-Note that using this method will NOT install the v4l2loopback-ctl tool, you will have to do it yourself!
+_Note_: Using this method will _NOT_ install the `v4l2loopback-ctl` tool; do so manually via
+`cd utils && make && sudo make install`.
 
 # LOAD THE MODULE AT BOOT
 
