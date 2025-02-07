@@ -307,7 +307,7 @@ struct v4l2loopback_private {
 struct v4l2l_buffer {
 	struct v4l2_buffer buffer;
 	struct list_head list_head;
-	int use_count;
+	atomic_t use_count;
 };
 
 struct v4l2_loopback_device {
@@ -2166,8 +2166,7 @@ static void vm_open(struct vm_area_struct *vma)
 	MARK();
 
 	buf = vma->vm_private_data;
-	buf->use_count++;
-
+	atomic_inc(&buf->use_count);
 	buf->buffer.flags |= V4L2_BUF_FLAG_MAPPED;
 }
 
@@ -2177,9 +2176,7 @@ static void vm_close(struct vm_area_struct *vma)
 	MARK();
 
 	buf = vma->vm_private_data;
-	buf->use_count--;
-
-	if (buf->use_count <= 0)
+	if (atomic_dec_and_test(&buf->use_count))
 		buf->buffer.flags &= ~V4L2_BUF_FLAG_MAPPED;
 }
 
@@ -2191,77 +2188,63 @@ static struct vm_operations_struct vm_ops = {
 static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	u8 *addr;
-	unsigned long start, size;
+	unsigned long start, size, offset;
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	struct v4l2_loopback_opener *opener = fh_to_opener(file->private_data);
 	struct v4l2l_buffer *buffer = NULL;
 	int result = 0;
 	MARK();
 
+	offset = (unsigned long)vma->vm_pgoff << PAGE_SHIFT;
 	start = (unsigned long)vma->vm_start;
-	size = (unsigned long)(vma->vm_end - vma->vm_start);
+	size = (unsigned long)(vma->vm_end - vma->vm_start); /* always != 0 */
 
-	/* ensure buffer size, number, and allocated image are not altered by
+	/* ensure buffer size, count, and allocated image(s) are not altered by
 	 * other file descriptors */
 	result = mutex_lock_killable(&dev->image_mutex);
 	if (result < 0)
 		return result;
 
 	if (size > dev->buffer_size) {
-		dprintk("mmap() attempt to map more than allocated to "
-			"buffer\n");
+		dprintk("mmap() attempt to map %lubytes when %ubytes are "
+			"allocated to buffers\n",
+			size, dev->buffer_size);
 		result = -EINVAL;
 		goto exit_mmap_unlock;
 	}
-	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
-		/* we are going to map the timeout_buffer */
-		if ((vma->vm_pgoff << PAGE_SHIFT) !=
-		    (unsigned long)dev->buffer_size * MAX_BUFFERS) {
-			dprintk("mmap() invalid offset for timeout image\n");
-			result = -EINVAL;
-		}
-	} else if (!dev->buffer_count ||
-		   (vma->vm_pgoff << PAGE_SHIFT) >
-			   (unsigned long)dev->buffer_size *
-				   (dev->buffer_count - 1u)) {
-		dprintk("mmap() attempt to map outside of buffers\n");
+	if (offset % dev->buffer_size != 0) {
+		dprintk("mmap() offset does not match start of any buffer\n");
 		result = -EINVAL;
-	}
-	if (!result && !dev->image) {
-		dprintk("mmap() attempt to map when buffers are unallocated\n");
-		result = -EINVAL;
-	}
-
-	if (result < 0)
 		goto exit_mmap_unlock;
-
-	if (opener->format_token & V4L2L_TOKEN_TIMEOUT) {
-		buffer = &dev->timeout_buffer;
-		addr = dev->timeout_image;
-	} else {
-		u32 i;
-		for (i = 0; i < dev->buffer_count; ++i) {
-			buffer = &dev->buffers[i];
-			if ((buffer->buffer.m.offset >> PAGE_SHIFT) ==
-			    vma->vm_pgoff)
-				break;
-		}
-
-		if (i >= dev->buffer_count) {
+	}
+	switch (opener->format_token) {
+	case V4L2L_TOKEN_TIMEOUT:
+		if (offset != (unsigned long)dev->buffer_size * MAX_BUFFERS) {
+			dprintk("mmap() incorrect offset for timeout image\n");
 			result = -EINVAL;
 			goto exit_mmap_unlock;
 		}
-
-		addr = dev->image + (vma->vm_pgoff << PAGE_SHIFT);
+		buffer = &dev->timeout_buffer;
+		addr = dev->timeout_image;
+		break;
+	default:
+		if (offset >= dev->image_size) {
+			dprintk("mmap() attempt to map beyond all buffers\n");
+			result = -EINVAL;
+			goto exit_mmap_unlock;
+		}
+		u32 index = offset / dev->buffer_size;
+		buffer = &dev->buffers[index];
+		addr = dev->image + offset;
+		break;
 	}
 
 	while (size > 0) {
 		struct page *page = vmalloc_to_page(addr);
 
-		if (vm_insert_page(vma, start, page) < 0) {
-			result = -EAGAIN;
+		result = vm_insert_page(vma, start, page);
+		if (result < 0)
 			goto exit_mmap_unlock;
-		}
 
 		start += PAGE_SIZE;
 		addr += PAGE_SIZE;
