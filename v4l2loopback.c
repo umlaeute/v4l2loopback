@@ -307,7 +307,7 @@ struct v4l2loopback_private {
 struct v4l2l_buffer {
 	struct v4l2_buffer buffer;
 	struct list_head list_head;
-	int use_count;
+	atomic_t use_count;
 };
 
 struct v4l2_loopback_device {
@@ -2166,8 +2166,7 @@ static void vm_open(struct vm_area_struct *vma)
 	MARK();
 
 	buf = vma->vm_private_data;
-	buf->use_count++;
-
+	atomic_inc(&buf->use_count);
 	buf->buffer.flags |= V4L2_BUF_FLAG_MAPPED;
 }
 
@@ -2177,9 +2176,7 @@ static void vm_close(struct vm_area_struct *vma)
 	MARK();
 
 	buf = vma->vm_private_data;
-	buf->use_count--;
-
-	if (buf->use_count <= 0)
+	if (atomic_dec_and_test(&buf->use_count))
 		buf->buffer.flags &= ~V4L2_BUF_FLAG_MAPPED;
 }
 
