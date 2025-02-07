@@ -2227,10 +2227,6 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 		dprintk("mmap() attempt to map outside of buffers\n");
 		result = -EINVAL;
 	}
-	if (!result && !dev->image) {
-		dprintk("mmap() attempt to map when buffers are unallocated\n");
-		result = -EINVAL;
-	}
 
 	if (result < 0)
 		goto exit_mmap_unlock;
