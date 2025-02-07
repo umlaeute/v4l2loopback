@@ -2258,10 +2258,9 @@ static int v4l2_loopback_mmap(struct file *file, struct vm_area_struct *vma)
 	while (size > 0) {
 		struct page *page = vmalloc_to_page(addr);
 
-		if (vm_insert_page(vma, start, page) < 0) {
-			result = -EAGAIN;
+		result = vm_insert_page(vma, start, page);
+		if (result < 0)
 			goto exit_mmap_unlock;
-		}
 
 		start += PAGE_SIZE;
 		addr += PAGE_SIZE;
